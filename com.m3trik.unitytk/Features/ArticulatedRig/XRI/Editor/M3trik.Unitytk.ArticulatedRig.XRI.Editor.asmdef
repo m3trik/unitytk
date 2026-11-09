@@ -1,0 +1,31 @@
+{
+    "name": "M3trik.Unitytk.ArticulatedRig.XRI.Editor",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Kernel",
+        "M3trik.Unitytk.ArticulatedRig",
+        "M3trik.Unitytk.ArticulatedRig.Editor",
+        "M3trik.Unitytk.ArticulatedRig.XRI",
+        "Unity.XR.Interaction.Toolkit",
+        "Unity.XR.CoreUtils"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITYTK_XRI"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.interaction.toolkit",
+            "expression": "3.3.1",
+            "define": "UNITYTK_XRI"
+        }
+    ],
+    "noEngineReferences": false
+}

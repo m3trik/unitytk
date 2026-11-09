@@ -1,0 +1,103 @@
+{
+  "format": 1,
+  "provider": "com.m3trik.unitytk",
+  "operations": [
+    {
+      "id": "unity.csharp.exec",
+      "title": "Run C#",
+      "summary": "Run *code* in this editor as the body of a method, as the next snippet typed into a console.",
+      "effect": "code",
+      "host": "unity",
+      "target": "M3trik.Unitytk.Kernel.CSharpConsole.Run",
+      "dry_run": false,
+      "args": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "C# statements (System, System.Linq, System.Collections.Generic, UnityEngine and UnityEditor are imported); `return x;` hands x back. `Vars` (a Dictionary<string, object>) keeps values for later calls until the editor's domain reloads."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "code"
+        ]
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    {
+      "id": "unity.project.doctor",
+      "title": "Check the Unity project",
+      "summary": "This editor and project: the Unity version, the render pipeline, the packages, whether the scripts compile and the unitytk serving it, each problem an issue.",
+      "effect": "read",
+      "host": "unity",
+      "target": "M3trik.Unitytk.Kernel.ProjectDoctor.Doctor",
+      "dry_run": true,
+      "args": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    {
+      "id": "unity.scene.view",
+      "title": "An image of the scene",
+      "summary": "An image of the scene: a render of the open scenes to a PNG in pythontk's temp root, with the scene left as it was (no camera, object or setting kept).",
+      "effect": "read",
+      "host": "unity",
+      "target": "M3trik.Unitytk.Kernel.SceneCapture.View",
+      "dry_run": true,
+      "args": {
+        "type": "object",
+        "properties": {
+          "objects": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The objects to frame, by name or hierarchy path, from the front-right above (default: every renderer). Ignored with *camera*.",
+            "default": null
+          },
+          "camera": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A camera to look through (its object's name or path) instead.",
+            "default": null
+          },
+          "width": {
+            "type": "integer",
+            "description": "The image's width, in pixels.",
+            "default": 960
+          },
+          "height": {
+            "type": "integer",
+            "description": "The image's height, in pixels.",
+            "default": 540
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "string"
+      }
+    }
+  ]
+}

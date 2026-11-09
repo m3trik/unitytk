@@ -1,0 +1,201 @@
+name: Tests
+
+# unitytk shipped no tests workflow at all, so publish.yml was the only thing
+# firing on a push to main and every release went out ungated. This runs the
+# suite on the PR, and publish.yml can gate the upload on it via workflow_call.
+#
+# Windows AND Linux: the Unity Hub, its CLI and the Editor all ship on both, and
+# both legs run the same suite; the Linux leg is what catches a Windows-only
+# path or API slipping in.
+#
+# Deliberately NOT `--strict-env`. That flag fails the run when anything skipped
+# for a missing environment, and a GitHub runner has no Unity CLI, no Unity
+# editor and no UNITYTK_TEST_ASSETS - so `--strict-env` would make this job
+# permanently red rather than gating anything. The cases that DO run are real
+# coverage, and the zero-collected guard below is what keeps "it skipped
+# everything" from reading as green. `--no-badge` for the same reason the runner
+# already refuses to stamp on a partial run: a reduced count is not coverage.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    # Backstop: run_tests.py drives no Unity here (it is absent, so those cases
+    # skip), but a wedged child would otherwise run to GitHub's 6h job cap.
+    # The suite is seconds without Unity; cap well above that.
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          # WITH deps, in a retry loop. pip resolves the floors declared in
+          # pyproject.toml, so a stale PyPI CDN edge that still lists the
+          # previous release fails LOUDLY with "No matching distribution" and is
+          # retried -- instead of silently installing the old version and running
+          # this suite against code that lacks the new symbols.
+          # Measured 2026-08-23: a bare-name install resolved pythontk 0.9.28
+          # 82 s after 0.9.30 was uploaded, and the suite ran against code that
+          # lacked the new symbols.
+          # --no-cache-dir: pip's HTTP cache can hold the stale index page too.
+          for attempt in 1 2 3 4 5 6; do
+            if pip install --no-cache-dir -e "."; then break; fi
+            if [ "$attempt" -lt 6 ]; then
+              echo "::warning::editable install attempt $attempt failed (index propagation lag?); retrying in 30s"
+              sleep 30
+            else
+              echo "::error::editable install failed after $attempt attempts"
+              exit 1
+            fi
+          done
+
+      - name: Run tests
+        shell: bash
+        run: |
+          set +e
+          # Stream through tee, not a capture: a buffered capture shows nothing
+          # in the log while a suite is hung.
+          python test/run_tests.py --all --no-badge 2>&1 | tee run_out.txt
+          # PIPESTATUS, not $? - tee always exits 0 and would turn every failure
+          # green.
+          RC=${PIPESTATUS[0]}
+          # run_tests.py returns 0 for "No tests found to run" whenever nothing
+          # was requested-but-missing, so the count is verified here instead of
+          # being trusted to the exit code. test_run_tests.py drives the runner
+          # inside its own cases and prints nested "Ran N tests" lines, so take
+          # the LARGEST - the outer run is always the biggest.
+          RAN=$(grep -oE '^Ran [0-9]+ test' run_out.txt | grep -oE '[0-9]+' | sort -rn | head -1)
+          RAN=${RAN:-0}
+          if [ "$RAN" -eq 0 ]; then
+            echo "::error::0 tests collected - a job that ran nothing is not green"
+            exit 1
+          fi
+          if [ "$RC" -ne 0 ]; then
+            echo "::error::run_tests.py exited $RC after collecting $RAN test(s)"
+            exit 1
+          fi
+          echo "$RAN test(s) collected and green"
+
+  lint:
+    # ``ruff check`` only -- NOT ``ruff format --check``, for the reason
+    # pythontk/tests.yml states: a format gate would be red on arrival and
+    # therefore ignored.
+    #
+    # Scope is the whole repo (``.``): the package and its tests are clean
+    # against the declared rule set, so the gate holds both.
+    #
+    # Pinned, because an unpinned ruff turns an upstream rule addition into a
+    # red PR nobody changed.
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ruff
+        run: pip install ruff==0.15.17
+
+      - name: ruff check
+        run: ruff check .
+
+  api-retirements:
+    # A retirement past its window fails: a ptk.Deprecation alias or retired
+    # keyword whose remove_in this package's __version__ has reached and whose
+    # calendar window has closed (m3trik/scripts/check_api_surface.py). Its own
+    # job because the script lives in the m3trik repo and reads with pythontk's
+    # ApiSurface, so the repos are checked out as siblings. Source only: no
+    # install, no DCC. Nothing generated is committed: the API is searched
+    # live (api.search). Its floors step reads pythontk's release tags: the
+    # pythontk>= floor is set by hand (no cascade ratchets it), so it must
+    # name a release that carries every pythontk name unitytk calls.
+    name: API retirements on time
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: unitytk
+
+      - uses: actions/checkout@v4
+        with:
+          repository: m3trik/m3trik
+          ref: main
+          path: m3trik
+
+      - uses: actions/checkout@v4
+        with:
+          repository: m3trik/pythontk
+          ref: dev
+          path: pythontk
+          fetch-depth: 0  # the release tags the floors step reads
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Retirements on time
+        run: python m3trik/scripts/check_api_surface.py unitytk --check
+
+      - name: The pythontk floor carries what unitytk calls
+        run: python m3trik/scripts/check_api_surface.py unitytk --floors
+
+  layer-rules:
+    # check_layers.py (m3trik): this package's declared dependencies, and the
+    # Unity package's assembly references against [tool.m3trik.layers.csharp]
+    # (down the order, never across peers, an outside package only from a
+    # door); check_csharp.py: editor code above the kernel goes through its
+    # OpContext and import log, each part assembly records its prior art, and
+    # every *.g.cs is what its generator writes (the generators read
+    # pythontk's declarations, hence its checkout). Source only: no install,
+    # no Unity. Today's exceptions are frozen in m3trik's baselines.
+    name: Layer rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: unitytk
+
+      - uses: actions/checkout@v4
+        with:
+          repository: m3trik/m3trik
+          ref: main
+          path: m3trik
+
+      - uses: actions/checkout@v4
+        with:
+          repository: m3trik/pythontk
+          ref: dev
+          path: pythontk
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Layer order, dependencies and assembly references
+        run: python m3trik/scripts/check_layers.py --check unitytk
+
+      - name: C# kernel seams, prior art and generated files
+        run: python m3trik/scripts/check_csharp.py --check unitytk

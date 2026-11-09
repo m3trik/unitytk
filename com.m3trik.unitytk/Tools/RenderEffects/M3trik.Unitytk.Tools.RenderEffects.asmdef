@@ -1,0 +1,19 @@
+{
+    "name": "M3trik.Unitytk.Tools.RenderEffects",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Kernel",
+        "M3trik.Unitytk.RenderEffects.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

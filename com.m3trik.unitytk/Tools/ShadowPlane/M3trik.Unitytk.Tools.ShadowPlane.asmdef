@@ -1,0 +1,21 @@
+{
+    "name": "M3trik.Unitytk.Tools.ShadowPlane",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Core",
+        "M3trik.Unitytk.Kernel",
+        "M3trik.Unitytk.ShadowPlane",
+        "M3trik.Unitytk.ShadowPlane.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

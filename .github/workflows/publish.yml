@@ -1,0 +1,172 @@
+name: Publish to PyPI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'unitytk/**'
+      - 'com.m3trik.unitytk/**'
+      - 'pyproject.toml'
+  
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry Run (Skip Upload)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # This repo publishes a wheel, and until 2026-08-23 it did so with NOTHING
+  # checked -- alone among the ecosystem packages. tests.yml already declares
+  # workflow_call, so gating is just this job. Note what a green gate does and
+  # does not certify: run_tests.py exits 0 on a [PARTIAL] run, so it means
+  # everything reachable WITHOUT a DCC passed -- the env-gated contract needs
+  # UNITYTK_TEST_ASSETS and a real Maya+Unity pass, which no runner can give.
+  # workflow_dispatch remains the escape hatch if a Qt teardown ever wedges it.
+  test:
+    uses: ./.github/workflows/tests.yml
+    secrets: inherit
+
+  # What does this push mean? Until 2026-09-21 an unchanged __version__
+  # printed "already on PyPI" and went GREEN, so a push carrying real changes
+  # at the published version uploaded nothing and said nothing -- 2026-09-20's
+  # run at a deliberately held 0.0.12 looked exactly like a forgotten bump.
+  # check_version_bump.py fails a shipped change at the published version,
+  # passes a push that ships nothing, and passes a hold this push's
+  # CHANGELOG.md declares. It is shared with extapps, so it lives in m3trik
+  # and runs from the same sibling layout as tests.yml's api-retirements job.
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
+      published: ${{ steps.version.outputs.published }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: unitytk
+          # The gate diffs github.event.before..HEAD; a shallow clone lacks the
+          # pre-push commit, and the gate fails a range it cannot resolve.
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: m3trik/m3trik
+          ref: main
+          path: m3trik
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Get version
+        id: version
+        env:
+          # Empty on workflow_dispatch: with no push range the gate only reports.
+          BASE: ${{ github.event.before }}
+        run: |
+          # PyPI's version, "none" only when PyPI says it has no unitytk: any other
+          # failure (the network) fails here, never reading as a first release.
+          if LISTED=$(pip index versions unitytk 2>&1); then
+            PYPI=$(printf '%s\n' "$LISTED" | grep -oP 'Available versions: \K[^,]+')
+          elif printf '%s\n' "$LISTED" | grep -q 'No matching distribution found'; then
+            PYPI=none
+          else
+            echo "::error::pip index versions unitytk failed: $LISTED"
+            exit 1
+          fi
+          python m3trik/scripts/check_version_bump.py unitytk --repo unitytk --published "$PYPI" --base "$BASE" >> "$GITHUB_OUTPUT"
+          echo "published=$PYPI" >> "$GITHUB_OUTPUT"
+
+  # What may this release remove? push.ps1 asks check_api_surface.py --semver
+  # for the cascade; nothing asked it here, so a push could publish a removal
+  # nothing accounts for (no alias, no MOVED_NAMES row), one its notice still
+  # holds, or one under a patch bump. --published names the baseline (the
+  # v<PyPI version> tag; the full history carries the tags), --release the
+  # version this run publishes; exit 1 refuses, exit 2 is no verdict (that
+  # tag missing). Nothing published yet, or no v* tag in the repo yet, has
+  # nothing to judge against and passes, said in the log: the tag this run
+  # makes is the next release's baseline. Same sibling layout as tests.yml's
+  # api-retirements job.
+  semver:
+    needs: version
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: unitytk
+          fetch-depth: 0  # the release tags the baseline is read from
+
+      - uses: actions/checkout@v4
+        with:
+          repository: m3trik/m3trik
+          ref: main
+          path: m3trik
+
+      - uses: actions/checkout@v4
+        with:
+          repository: m3trik/pythontk
+          ref: dev
+          path: pythontk
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: The release owes no more than it gives
+        env:
+          PUBLISHED: ${{ needs.version.outputs.published }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: python m3trik/scripts/check_api_surface.py unitytk --semver --published "$PUBLISHED" --release "$VERSION"
+
+  publish:
+    needs: [test, version, semver]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install build tools
+        run: pip install build twine
+      
+      - name: Build and Publish
+        if: inputs.dry_run != true
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          python -m build
+          twine upload dist/*
+
+      # The release's tag, as push.ps1 tags the cascade's: check_api_surface.py
+      # measures the next release (--changes, --semver) from the newest
+      # v<version> tag, and with none it has no baseline. After the upload, so a
+      # tag always names a version PyPI has.
+      - name: Tag the release
+        if: inputs.dry_run != true
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              tag -a "v$VERSION" -m "unitytk v$VERSION"
+          git push origin "v$VERSION"

@@ -1,0 +1,16 @@
+{
+    "name": "M3trik.Unitytk.Kernel.Runtime",
+    "rootNamespace": "M3trik.Unitytk.Kernel",
+    "references": [
+        "M3trik.Unitytk.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

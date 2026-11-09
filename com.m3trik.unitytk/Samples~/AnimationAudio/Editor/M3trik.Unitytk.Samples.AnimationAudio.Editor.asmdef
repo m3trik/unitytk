@@ -1,0 +1,18 @@
+{
+    "name": "M3trik.Unitytk.Samples.AnimationAudio.Editor",
+    "rootNamespace": "M3trik.Unitytk.Samples.AnimationAudio",
+    "references": [
+        "M3trik.Unitytk.AnimationAudio"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

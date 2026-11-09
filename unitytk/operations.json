@@ -1,0 +1,158 @@
+{
+  "format": 1,
+  "provider": "unitytk",
+  "operations": [
+    {
+      "id": "unity_package.compile",
+      "title": "Compile the package's C#",
+      "summary": "Compile every assembly under *source*, editor and player builds, without the optional packages and (given a reference project) with them.",
+      "effect": "read",
+      "target": "unitytk:UnityCompile.compile",
+      "dry_run": true,
+      "args": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The folder holding the package's `.asmdef` files; default: this checkout's own package (`com.m3trik.unitytk/`).",
+            "default": null
+          },
+          "editor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The editor whose compiler and assemblies to use: a Unity executable or an installed version (`\"6000.3.10f1\"`); default: the newest installed.",
+            "default": null
+          },
+          "reference_project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A project an editor imported with the URP, Input System and XR Interaction Toolkit packages, whose `Library/ScriptAssemblies` the package half compiles against; default, for the package itself (no *source*): the owned project of *editor* once imported; without one, only the half without them is built.",
+            "default": null
+          },
+          "tests": {
+            "type": "boolean",
+            "description": "Compile the package's test assemblies too, in the editor build with the packages, where the reference project holds the Test Framework (they are Editor-only and need its assemblies and NUnit); False leaves them out, a faster loop that cannot see a broken test file.",
+            "default": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    {
+      "id": "unity_project.build",
+      "title": "Build the owned test and demo project",
+      "summary": "Build the owned project for *editor* (the newest when `None`) and *pipeline*, or refresh it: made once by Unity's CLI from the editor's template, its manifest naming this checkout's package every time.",
+      "effect": "files",
+      "target": "unitytk:ProjectBuilder.build",
+      "dry_run": true,
+      "args": {
+        "type": "object",
+        "properties": {
+          "editor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An installed editor version.",
+            "default": null
+          },
+          "pipeline": {
+            "type": "string",
+            "description": "`\"urp\"` or `\"builtin\"`.",
+            "default": "urp"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Another project of its own beside the owned one (`folder`), built and refreshed alike: a run that must not share the owned project builds its own.",
+            "default": null
+          },
+          "replacements": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Per sample, a folder of files delivered in place of its own (`import_samples`).",
+            "default": null
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "string"
+      }
+    },
+    {
+      "id": "unity_project.install",
+      "title": "Install unitytk in a Unity project",
+      "summary": "Install unitytk's package in *project*: one line in its manifest.",
+      "effect": "files",
+      "target": "unitytk:UnityHost.install",
+      "dry_run": true,
+      "args": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string",
+            "description": "The Unity project folder."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "local",
+              "git"
+            ],
+            "description": "`\"local\"` or `\"git\"`.",
+            "default": "local"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "project"
+        ]
+      },
+      "result": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  ]
+}

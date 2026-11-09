@@ -1,0 +1,21 @@
+{
+    "name": "M3trik.Unitytk.Carrier.Editor",
+    "rootNamespace": "M3trik.Unitytk.Carrier",
+    "references": [
+        "M3trik.Unitytk.Core",
+        "M3trik.Unitytk.Kernel",
+        "M3trik.Unitytk.Contracts",
+        "M3trik.Unitytk.Contracts.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

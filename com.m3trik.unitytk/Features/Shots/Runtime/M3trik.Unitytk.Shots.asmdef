@@ -1,0 +1,17 @@
+{
+    "name": "M3trik.Unitytk.Shots",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Core",
+        "M3trik.Unitytk.Contracts"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

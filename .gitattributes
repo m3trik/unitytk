@@ -1,0 +1,6 @@
+# The operation catalogs are generated with LF (Python's json.dumps, and the
+# editor's C# writer, which matches it byte for byte), and test_editor_catalog
+# compares the file's bytes with that output. Pinned here, so a Windows checkout
+# (core.autocrlf=true, as on GitHub's runners) keeps them LF too.
+unitytk/operations.json text eol=lf
+unitytk/editor_operations.json text eol=lf

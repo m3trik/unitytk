@@ -1,0 +1,6 @@
+<Project>
+  <!-- Build output goes to pythontk's temp root, never beside the sources. -->
+  <PropertyGroup>
+    <ArtifactsPath>$([System.IO.Path]::Combine($([System.IO.Path]::GetTempPath()), 'ptk', 'unitytk_core_tests'))</ArtifactsPath>
+  </PropertyGroup>
+</Project>

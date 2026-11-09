@@ -1,0 +1,52 @@
+{
+  "name": "com.m3trik.unitytk",
+  "version": "0.7.0",
+  "displayName": "unitytk",
+  "description": "Unity import automation for DCC deliveries and a production toolset, used alike by people (menus) and agents (code run in an editor the tooling keeps): render effects (fades, highlights, visibility and animated emission), materials, animation audio, shot metadata, externally baked lightmaps, shadow planes and grabbable articulated rigs, driven by the data_export carrier's records.",
+  "unity": "6000.3",
+  "license": "MIT",
+  "documentationUrl": "https://github.com/m3trik/unitytk",
+  "changelogUrl": "https://github.com/m3trik/unitytk/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/m3trik/unitytk/blob/main/com.m3trik.unitytk/LICENSE.md",
+  "author": {
+    "name": "m3trik",
+    "url": "https://github.com/m3trik"
+  },
+  "samples": [
+    {
+      "displayName": "AnimationAudio",
+      "description": "A box moving through two shots with a chime that crosses the cut: each clip cues it with PlayAudio and StopAudio events, the first stopping it at the cut and the second playing it on from where it had reached, and the model's Animation Audio Player plays them; the demo scene plays the two clips in order.",
+      "path": "Samples~/AnimationAudio"
+    },
+    {
+      "displayName": "ArticulatedRig",
+      "description": "A desk lamp of rigid parts on joints, delivered with its articulation record: a post swivelling and tilting on its base, an upper arm hinged on the post, a section telescoping out of the arm and a shade hinged at its tip, each joint an Articulated Joint bound by reference with its limits, and the parts grabbable. The demo scene plays the take and lets the mouse grab any part, the shade's drag solving the chain.",
+      "path": "Samples~/ArticulatedRig"
+    },
+    {
+      "displayName": "Lightmaps",
+      "description": "Three boxes on a floor lit by a lightmap set baked elsewhere: the floor's own map and the boxes' shared atlas, each box its own rect, read through the second UV set and bound by a Lightmap Set through Unity's native lightmap fields; and the bake's reflection probe, a box-projected Reflection Probe whose panorama holds the bake's light. The demo scene shows them lit by the set alone.",
+      "path": "Samples~/Lightmaps"
+    },
+    {
+      "displayName": "Materials",
+      "description": "Four spheres, one glTF material each, written onto the render pipeline's own Lit: colour, metal / roughness (repacked into Unity's mask) and normal maps; an emission four times its colour; an unlit colour; and a tiled, offset colour map. The demo scene lines them up under a light.",
+      "path": "Samples~/Materials"
+    },
+    {
+      "displayName": "RenderEffects",
+      "description": "Render effects over two shots: a box that fades out and back (Fade), a sphere that pulses a highlight over its mapped emission (Highlight), and a two-material panel that blinks off for a moment and whose lamp group switches on (its active state, and an Emission Track on the group's material); the twins they wear are made into the model. The demo scene plays the two shots in order.",
+      "path": "Samples~/RenderEffects"
+    },
+    {
+      "displayName": "ShadowPlane",
+      "description": "Three objects on a ground, a box, a chair on four legs and an awning cantilevered past its post, each with a shadow plane bound by reference to its target, its source Light and its contact, marching the horizon map delivered with it: two follow a lamp keyed to sweep across the scene, so they move, lengthen and fade as it goes, and one follows the sun. The demo scene plays the lamp's sweep.",
+      "path": "Samples~/ShadowPlane"
+    },
+    {
+      "displayName": "Shots",
+      "description": "A box moving through three shots: one clip per shot, named after it, and the ShotList that gives each clip its description and section; the demo scene plays the shots in order and shows the playing shot's description.",
+      "path": "Samples~/Shots"
+    }
+  ]
+}

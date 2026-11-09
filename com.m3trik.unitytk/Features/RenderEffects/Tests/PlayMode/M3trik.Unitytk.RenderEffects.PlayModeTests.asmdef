@@ -1,0 +1,29 @@
+{
+    "name": "M3trik.Unitytk.RenderEffects.PlayModeTests",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Kernel.Runtime",
+        "M3trik.Unitytk.RenderEffects",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS",
+        "UNITYTK_TEST_FRAMEWORK"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.test-framework",
+            "expression": "1.6.0",
+            "define": "UNITYTK_TEST_FRAMEWORK"
+        }
+    ],
+    "noEngineReferences": false
+}

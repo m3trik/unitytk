@@ -1,0 +1,112 @@
+[build-system]
+requires = ["setuptools>=62.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unitytk"
+dynamic = ["version", "readme"]
+description = "The automation beside the unitytk Unity package: an owned editor for agents, the test and demo project, a compile check."
+authors = [{name = "Ryan Simpson", email = "m3trik@outlook.com"}]
+license = {text = "LGPL-3.0-or-later"}
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+]
+# The floor is HAND-RATCHETED: unitytk is off-chain from m3trik/push.ps1, so no
+# release cascade bumps it; m3trik's `check_api_surface.py unitytk --floors`
+# holds it to every pythontk name the automation calls. 0.21.0: the project
+# builder delivers each sample through `ptk.FolderDeliverer` and
+# `ptk.FileDeliveryBridge`, new in it. Unity's CLI is unitytk's own
+# (`unitytk.UnityCli`, standard library only). The Unity package itself needs
+# no Python at all.
+dependencies = ["pythontk>=0.21.0"]
+
+# Operations (``python -m pythontk ops``): unitytk's declarations, and the
+# editor's C# operations as the kernel's catalog run wrote them.
+[project.entry-points."pythontk.operations"]
+unitytk = "unitytk.operations"
+unitytk_editor = "unitytk.editor_operations"
+
+# The ``unity`` host: calls in a Unity editor this tooling starts (C# kernel).
+[project.entry-points."pythontk.operation_hosts"]
+unity = "unitytk:UnityHost.operation_host"
+
+[project.urls]
+Homepage = "https://github.com/m3trik/unitytk"
+Repository = "https://github.com/m3trik/unitytk"
+
+[tool.setuptools.dynamic]
+version = {attr = "unitytk.__version__"}
+readme = {file = "docs/README.md", content-type = "text/markdown"}
+
+[tool.setuptools]
+# The Python toolkit alone: the Unity package (com.m3trik.unitytk/, beside it)
+# is installed into a project by Unity's Package Manager, never by pip.
+packages = ["unitytk"]
+
+[tool.setuptools.package-data]
+"unitytk" = ["*.json"]
+
+[tool.m3trik.layers.csharp]
+# CODE_STANDARD section 0 (Parts): the Unity package's assemblies, top first. An
+# asmdef's part is the most specific folder pattern it lies in ("." is the root;
+# "*" any one folder, and two folders one "*" binds to different names are
+# peers at every rank). A reference points to its own part or one below; an
+# outside package is a door's alone. Checked by m3trik/scripts/check_layers.py
+# (references) and check_csharp.py (the kernel bypass below "kernel", prior art,
+# the generated *.g.cs) against frozen baselines of today's exceptions.
+root = "com.m3trik.unitytk"
+order = [
+    # Tools: menus and windows over the features' actions.
+    "Tools/*",
+    # Each feature's assemblies, peers of every other feature's: its tests,
+    # its doors (ArticulatedRig/XRI, ArticulatedRig/InputSystem), its editor half,
+    # its runtime half, its model.
+    "Features/*/Tests",
+    "Features/*/*",
+    "Features/*/Editor",
+    "Features/*/Runtime",
+    "Features/*/Model",
+    "Contracts/Editor",
+    "Contracts",
+    # The kernel's Edit Mode tests, over what they test.
+    "Kernel/Tests",
+    # The kernel's door: the render-pipeline host URP serves.
+    "Kernel/URP",
+    "Kernel/Editor",
+    # The kernel's runtime half: the render-pipeline host and its registry, the
+    # one material writer, its pipeline table and Unity's mask layout.
+    "Kernel/Runtime",
+    "Core",
+]
+kernel = "Kernel/Editor"
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+pythonpath = [".", "test"]
+addopts = "--ignore=test/temp_tests"
+
+[tool.ruff]
+# House formatter/linter - rule set, exemptions and gate status: m3trik/docs/CODE_STANDARD.md section 1.
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = ["E402"]  # house pattern: try-guarded DCC imports precede the other imports
+
+
+[tool.m3trik.names]
+# What produces unitytk's assets: it reads what is handed to it and names none
+# of them (CODE_STANDARD section 0, Parts; check_layers.py rule 6).
+forbid = ["Maya", "Blender", "mayapy", "bpy", "Arnold"]
+
+[tool.m3trik.api]
+# The maintainer's standing call (CODE_STANDARD section 5): no deprecation
+# window holds a removal, none owes a MOVED_NAMES row, and a notice is due by
+# its version alone; a removal still owes its minor bump. Read by
+# m3trik/scripts/check_api_surface.py (--check, --semver, --changes).
+no_back_compat = "no project uses unitytk"

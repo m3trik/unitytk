@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The features' ported models (com.m3trik.unitytk/Features/*/Model: no engine
+    reference) built over the engine-free core and tested on plain .NET: `dotnet test` here.
+    Each port is held to its Python reference's golden cases, which pythontk generates at
+    test time (ptk.Conformance; the Python is UNITYTK_PYTHON, else `python` on the PATH).
+    C# 9, the language Unity compiles it in.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../com.m3trik.unitytk/Core/*.cs" Link="Core/%(Filename)%(Extension)" />
+    <Compile Include="../../com.m3trik.unitytk/Features/*/Model/*.cs" Link="Models/%(Filename)%(Extension)" />
+    <Compile Include="*.cs" />
+    <Compile Include="../../com.m3trik.unitytk/Kernel/Tests/Support/HorizonCodes.cs" Link="Support/HorizonCodes.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="NUnit" Version="4.2.2" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+  </ItemGroup>
+</Project>

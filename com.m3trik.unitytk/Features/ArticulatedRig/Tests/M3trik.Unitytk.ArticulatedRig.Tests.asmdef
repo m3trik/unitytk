@@ -1,0 +1,36 @@
+{
+    "name": "M3trik.Unitytk.ArticulatedRig.Tests",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Core",
+        "M3trik.Unitytk.Kernel",
+        "M3trik.Unitytk.Contracts.Editor",
+        "M3trik.Unitytk.ArticulatedRig.Model",
+        "M3trik.Unitytk.ArticulatedRig",
+        "M3trik.Unitytk.ArticulatedRig.Editor",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS",
+        "UNITYTK_TEST_FRAMEWORK"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.test-framework",
+            "expression": "1.6.0",
+            "define": "UNITYTK_TEST_FRAMEWORK"
+        }
+    ],
+    "noEngineReferences": false
+}

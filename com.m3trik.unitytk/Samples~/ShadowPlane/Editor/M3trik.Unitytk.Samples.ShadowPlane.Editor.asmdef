@@ -1,0 +1,18 @@
+{
+    "name": "M3trik.Unitytk.Samples.ShadowPlane.Editor",
+    "rootNamespace": "M3trik.Unitytk.Samples.ShadowPlane",
+    "references": [
+        "M3trik.Unitytk.ShadowPlane"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,22 @@
+{
+    "name": "M3trik.Unitytk.ArticulatedRig.Editor",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Core",
+        "M3trik.Unitytk.Kernel",
+        "M3trik.Unitytk.Contracts.Editor",
+        "M3trik.Unitytk.ArticulatedRig.Model",
+        "M3trik.Unitytk.ArticulatedRig"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

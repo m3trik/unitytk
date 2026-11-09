@@ -1,0 +1,22 @@
+{
+    "name": "M3trik.Unitytk.AnimationAudio.Editor",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Core",
+        "M3trik.Unitytk.Kernel",
+        "M3trik.Unitytk.Contracts",
+        "M3trik.Unitytk.Contracts.Editor",
+        "M3trik.Unitytk.AnimationAudio"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

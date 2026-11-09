@@ -1,0 +1,25 @@
+{
+    "name": "M3trik.Unitytk.ArticulatedRig.InputSystem",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.ArticulatedRig",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITYTK_INPUTSYSTEM"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "1.18.0",
+            "define": "UNITYTK_INPUTSYSTEM"
+        }
+    ],
+    "noEngineReferences": false
+}

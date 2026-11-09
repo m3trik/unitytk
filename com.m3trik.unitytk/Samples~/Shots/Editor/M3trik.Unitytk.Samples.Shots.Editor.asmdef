@@ -1,0 +1,19 @@
+{
+    "name": "M3trik.Unitytk.Samples.Shots.Editor",
+    "rootNamespace": "M3trik.Unitytk.Samples.Shots",
+    "references": [
+        "M3trik.Unitytk.Shots",
+        "M3trik.Unitytk.Samples.Shots"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

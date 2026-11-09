@@ -1,0 +1,16 @@
+{
+    "name": "M3trik.Unitytk.ShadowPlane",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.ShadowPlane.Model"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

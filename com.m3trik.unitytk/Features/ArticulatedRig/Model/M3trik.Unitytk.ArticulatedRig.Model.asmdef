@@ -1,0 +1,16 @@
+{
+    "name": "M3trik.Unitytk.ArticulatedRig.Model",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
