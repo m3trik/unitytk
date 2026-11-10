@@ -1,6 +1,6 @@
 {
   "name": "com.m3trik.unitytk",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "displayName": "unitytk",
   "description": "Unity import automation for DCC deliveries and a production toolset, used alike by people (menus) and agents (code run in an editor the tooling keeps): render effects (fades, highlights, visibility and animated emission), materials, animation audio, shot metadata, externally baked lightmaps, shadow planes and grabbable articulated rigs, driven by the data_export carrier's records.",
   "unity": "6000.3",
