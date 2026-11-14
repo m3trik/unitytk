@@ -1,6 +1,7 @@
 # unitytk — Changelog
 
 ## 2026
+- **2026-11-12 -- Tests: the test folder is `tests/`, the pytest convention (was `test/`).** `test` is the standard library's own package name, so `from test.x import ...` could resolve to it. The longer folder name broke one guard: `tests/temp_tests/articulated_rig_runtime_<tag>/urp` was 102 characters at this checkout against `UnityProject.URP_ROOT_MAX` 101 (`test_every_suite_fits_a_urp_project_under_the_default_base` failed), so that suite allocates as `articulated_runtime`; `test_generated_files_hook.py` skips `tests`, not `test`.
 - **2026-11-12 -- Fixed (tests): `test_unity_cli.py` `test_a_project_is_made_in_its_parent_with_its_version_and_template` builds its project path for the running platform.** A literal `C:\work\Demo` does not split on Linux, so the Ubuntu job read `C:\work\Demo` as the project name and the isolation check failed with it; the release PR stood red on that alone.
   - Test(s): the module 17 passed on Windows; the Ubuntu job re-runs on the PR.
 - **2026-11-11 -- Fixed (CI): the Layer rules job installs its pythontk checkout (`.github/workflows/tests.yml`).** The generated-file check runs `sync_scene_records.py`, which imports pythontk, and `SceneRecords`' shadow record imports numpy, a declared pythontk dependency the job never installed: the 0.8.0 release PR failed "No module named 'numpy'". An editable install brings pythontk's own declared dependencies, so the job lists none of them.

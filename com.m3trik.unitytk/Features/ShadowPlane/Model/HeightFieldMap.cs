@@ -7,7 +7,7 @@
 //
 // The port is pinned against the reference by the golden cases of
 // ``ptk.Conformance.cases("shadow_horizon")`` under `dotnet test` in
-// test/models_dotnet. Arithmetic the reference does in float32 (every
+// tests/models_dotnet. Arithmetic the reference does in float32 (every
 // quantisation) is done in float32 here, each step rounded by a cast; the
 // march is double, as numpy's is.
 // ----------------------------------------------------------------------------

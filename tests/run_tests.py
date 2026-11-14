@@ -27,8 +27,8 @@ Environment-scoped skips:
     a failing exit code for CI.
 
 Directory Structure:
-    - Main Test Suite: unitytk/test/ (Standardized test_*.py files only)
-    - Temporary Tests: unitytk/test/temp_tests/ (Reproduction scripts, scratchpad tests)
+    - Main Test Suite: unitytk/tests/ (Standardized test_*.py files only)
+    - Temporary Tests: unitytk/tests/temp_tests/ (Reproduction scripts, scratchpad tests)
 """
 import importlib
 import os
@@ -191,7 +191,7 @@ class UnityTestRunner:
         temp dir, and so did every child it launched. Every sibling runner
         does this; ``conftest.py`` calls this for a bare ``pytest``, which never
         runs this runner. The integration suites' Unity projects are
-        unaffected: they live under ``test/temp_tests/``
+        unaffected: they live under ``tests/temp_tests/``
         (:class:`base_test.TempProjects`), not in the temp dir, and so does
         the run's owned project (:meth:`base_test.TempProjects.owned`), whose
         path the sandbox's root would make too deep for URP.
@@ -218,7 +218,7 @@ class UnityTestRunner:
 
     @staticmethod
     def reclaim_scratch() -> list:
-        """Reclaim stale scratch runs under ``test/temp_tests/``, all prefixes,
+        """Reclaim stale scratch runs under ``tests/temp_tests/``, all prefixes,
         and the Hub entries of the projects they held.
 
         The integration suites keep their generated Unity project on purpose

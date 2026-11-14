@@ -346,7 +346,7 @@ class UnityEnvTest(unittest.TestCase):
         from unitytk.unity_cli import UnityCli
 
         self._editors({"6000.3.10f1": "C:/U/6000/Unity.exe"})
-        project = os.path.join(REPO_ROOT, "test", "temp_tests", "never_made")
+        project = os.path.join(REPO_ROOT, "tests", "temp_tests", "never_made")
 
         class Case(unittest.TestCase):
             def test_create(self):

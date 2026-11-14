@@ -71,7 +71,7 @@ jobs:
           set +e
           # Stream through tee, not a capture: a buffered capture shows nothing
           # in the log while a suite is hung.
-          python test/run_tests.py --all --no-badge 2>&1 | tee run_out.txt
+          python tests/run_tests.py --all --no-badge 2>&1 | tee run_out.txt
           # PIPESTATUS, not $? - tee always exits 0 and would turn every failure
           # green.
           RC=${PIPESTATUS[0]}

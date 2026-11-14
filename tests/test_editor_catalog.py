@@ -9,7 +9,7 @@ what needs no editor: the committed file is written exactly as Python writes
 JSON, every declared id is in it, it keeps pythontk's catalog rules, and the
 kernel's engine-free half passes its own .NET tests where the SDK is
 installed. That its operations agree with the other hosts' twins is the
-workspace's to hold (``m3trik/test/test_sync_workspace.py``): unitytk names
+workspace's to hold (``m3trik/tests/test_sync_workspace.py``): unitytk names
 no other host.
 """
 import json

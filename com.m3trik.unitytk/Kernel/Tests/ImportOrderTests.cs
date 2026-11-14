@@ -14,7 +14,7 @@ namespace M3trik.Unitytk.Kernel.Tests
     /// <see cref="ImportRankAttribute"/> ranks within 0 to <see cref="ImportOrder.MaxRank"/>,
     /// so a bad declaration fails here, not at an import, where the order refuses it
     /// only once an importer asks. The table's rules are held engine-free, over stand-in
-    /// contracts (<c>test/core_dotnet</c>).
+    /// contracts (<c>tests/core_dotnet</c>).
     /// </summary>
     public class ImportOrderTests
     {

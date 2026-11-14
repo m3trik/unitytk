@@ -6,7 +6,7 @@
 //
 // The port is pinned against the reference by the golden cases of
 // ``ptk.Conformance.cases("shadow_projection")``: under `dotnet test` in
-// test/models_dotnet, and in Unity by test_shadow_plane_runtime_integration.py.
+// tests/models_dotnet, and in Unity by test_shadow_plane_runtime_integration.py.
 // Unity's frame (the plane's space, its axes, the record's unit) is the runtime
 // part's (ShadowPlane), never this one's.
 // ----------------------------------------------------------------------------

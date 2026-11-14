@@ -16,7 +16,7 @@
 // A joint's rig-space pose composes through its parent JOINT, never its part's
 // scene parent, so a flat model chains. The port is pinned against the
 // reference by the golden cases of ``ptk.Conformance.cases("articulation")``:
-// under `dotnet test` in test/models_dotnet, and in Unity by
+// under `dotnet test` in tests/models_dotnet, and in Unity by
 // test_articulated_rig_runtime.py.
 //
 // The model is the same in any axes a mirror relates: stated in Unity's (X
