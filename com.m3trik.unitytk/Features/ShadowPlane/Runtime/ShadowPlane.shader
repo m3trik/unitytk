@@ -20,7 +20,7 @@
 // `m3trik/scripts/sync_shadow_shaders.py` and guarded by its `--check`.
 // `HeightFieldMap.alpha` beside that source is the numeric oracle the Unity
 // pixels are compared against (its C# port, `HeightFieldMap.Alpha`, in
-// ShadowPlaneActionsTests; `unitytk/test/test_shadow_plane_runtime_integration.py`).
+// ShadowPlaneActionsTests; `unitytk/tests/test_shadow_plane_runtime_integration.py`).
 //
 // The march does not run per screen pixel: with _Cached on, the plane samples
 // its rect (_CacheRect) of the global R8 atlas _ShadowCache, into which

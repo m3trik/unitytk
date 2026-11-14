@@ -1,5 +1,5 @@
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.en.html)
-[![Tests](https://img.shields.io/badge/Tests-146%20passed-brightgreen.svg)](../test/)
+[![Tests](https://img.shields.io/badge/Tests-146%20passed-brightgreen.svg)](../tests/)
 ![Platform](https://img.shields.io/badge/Platform-Windows%2C%20Linux-lightgrey.svg)
 
 # unitytk

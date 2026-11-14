@@ -1,4 +1,4 @@
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 #: Where the Unity package's C# is, relative to this folder: the checkout keeps
 #: it beside this one (a wheel carries none). Read as data by ``ptk.ApiSurface``

@@ -71,7 +71,7 @@ jobs:
           set +e
           # Stream through tee, not a capture: a buffered capture shows nothing
           # in the log while a suite is hung.
-          python test/run_tests.py --all --no-badge 2>&1 | tee run_out.txt
+          python tests/run_tests.py --all --no-badge 2>&1 | tee run_out.txt
           # PIPESTATUS, not $? - tee always exits 0 and would turn every failure
           # green.
           RC=${PIPESTATUS[0]}
@@ -167,8 +167,9 @@ jobs:
     # door); check_csharp.py: editor code above the kernel goes through its
     # OpContext and import log, each part assembly records its prior art, and
     # every *.g.cs is what its generator writes (the generators read
-    # pythontk's declarations, hence its checkout). Source only: no install,
-    # no Unity. Today's exceptions are frozen in m3trik's baselines.
+    # pythontk's declarations, hence its checkout, installed editable for its
+    # declared dependencies: SceneRecords' shadow record imports numpy). No
+    # Unity. Today's exceptions are frozen in m3trik's baselines.
     name: Layer rules
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -193,6 +194,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Install pythontk (the generators import it)
+        run: python -m pip install --no-cache-dir -e ./pythontk
 
       - name: Layer order, dependencies and assembly references
         run: python m3trik/scripts/check_layers.py --check unitytk

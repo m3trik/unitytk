@@ -466,7 +466,7 @@ class SuiteOptions:
 
 
 class TempProjects:
-    """Per-run scratch dirs under ``test/temp_tests/``, removed with their suite.
+    """Per-run scratch dirs under ``tests/temp_tests/``, removed with their suite.
 
     The integration suites generate a whole Unity project per run -- 1.65 GB for
     a URP one. They used to keep it on purpose (a failed import is diagnosable
@@ -499,7 +499,7 @@ class TempProjects:
 
     Not the system temp dir: these artifacts are deliberately durable and large,
     the repo lives on a roomy drive where C: is routinely full, and
-    ``.gitignore`` already covers ``test/temp_tests/``.
+    ``.gitignore`` already covers ``tests/temp_tests/``.
     """
 
     #: In-repo scratch base shared by every integration suite: the default.

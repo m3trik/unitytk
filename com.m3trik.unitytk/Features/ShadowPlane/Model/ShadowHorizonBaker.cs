@@ -7,7 +7,7 @@
 //
 // The port is pinned against the reference by the golden cases of
 // ``ptk.Conformance.cases("shadow_horizon")`` under `dotnet test` in
-// test/models_dotnet: the packed image byte for byte (the cases allow a port
+// tests/models_dotnet: the packed image byte for byte (the cases allow a port
 // one code of slack where the reference rounds; this one is held to none). The
 // reference's vectorised passes are spelled as
 // loops in the same arithmetic: double where numpy computes in float64,

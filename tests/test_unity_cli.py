@@ -205,15 +205,15 @@ class UnityCliTest(unittest.TestCase):
         self.assertEqual(UnityCli.version_key("6000.3.10f1")[:3], (6000, 3, 10))
 
     def test_a_project_is_made_in_its_parent_with_its_version_and_template(self):
-        made = {"path": r"C:\work\Demo", "version": "6000.3.10f1"}
+        # This platform's own absolute path: a Windows one does not split on Linux.
+        demo = os.path.join(os.path.abspath(os.sep), "work", "Demo")
+        made = {"path": demo, "version": "6000.3.10f1"}
         with _spawn(_Child(_answer(made))) as spawned:
-            path = UnityCli.create_project(
-                r"C:\work\Demo", version="6000.3.10f1", template="com.unity.template.urp-blank"
-            )
-        self.assertEqual(path, r"C:\work\Demo")
+            path = UnityCli.create_project(demo, version="6000.3.10f1", template="com.unity.template.urp-blank")
+        self.assertEqual(path, demo)
         args = spawned.call_args[0][0]
         self.assertEqual(args[1:4], ["projects", "new", "Demo"])
-        self.assertEqual(args[args.index("--path") + 1], os.path.dirname(os.path.abspath(r"C:\work\Demo")))
+        self.assertEqual(args[args.index("--path") + 1], os.path.dirname(demo))
         self.assertEqual(args[args.index("--editor-version") + 1], "6000.3.10f1")
         self.assertEqual(args[args.index("--template") + 1], "com.unity.template.urp-blank")
 

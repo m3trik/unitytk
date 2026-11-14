@@ -19,10 +19,10 @@ Its map is [com.m3trik.unitytk/AGENTS.md](com.m3trik.unitytk/AGENTS.md), in the 
 ## Run tests
 
 ```powershell
-& python unitytk\test\run_tests.py test_unity_host -k install    # pointed: modules, -k
-& python unitytk\test\run_tests.py --all                  # full: review / release
-& python unitytk\test\run_tests.py --all --strict-env     # env-gated contract must run
-& python unitytk\test\run_tests.py --edit-mode            # the package's Edit Mode tests (ProjectBuilder.test)
+& python unitytk\tests\run_tests.py test_unity_host -k install    # pointed: modules, -k
+& python unitytk\tests\run_tests.py --all                  # full: review / release
+& python unitytk\tests\run_tests.py --all --strict-env     # env-gated contract must run
+& python unitytk\tests\run_tests.py --edit-mode            # the package's Edit Mode tests (ProjectBuilder.test)
 ```
 
 What a change reaches: `python m3trik/scripts/affected_tests.py <files> --run` (root Testing).

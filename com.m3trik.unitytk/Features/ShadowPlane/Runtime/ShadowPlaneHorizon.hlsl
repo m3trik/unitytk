@@ -5,7 +5,7 @@
 //  truth, `pythontk/geo_utils/shadow_horizon.glsl`, by
 //  `m3trik/scripts/sync_shadow_shaders.py` (`--check` is the CI gate).
 //  `HorizonMap.alpha` beside that source is the numeric oracle
-//  `unitytk/test/test_shadow_plane_runtime_integration.py` compares Unity's
+//  `unitytk/tests/test_shadow_plane_runtime_integration.py` compares Unity's
 //  rendered pixels against.
 //
 //  A Unity project has no Python, so it carries this copy rather than

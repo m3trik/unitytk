@@ -23,6 +23,7 @@ public static class UnitytkRecords
     public const string Audio = "audio";                     // channel → AnimationAudioImporter
     public const string Lightmaps = "lightmaps";             // channel → LightmapsImporter
     public const string Shadows = "shadows";                 // channel → ShadowPlaneImporter
+    public const string Lods = "lods";                       // channel → LodsImporter
     public const string RenderEffects = "render_effects";    // channel → RenderEffectsImporter
     public const string Articulation = "articulation";       // channel → ArticulationRecord
     /// <summary>The materials record: two features read it (MaterialsImporter,

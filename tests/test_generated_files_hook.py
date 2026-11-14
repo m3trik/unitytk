@@ -19,7 +19,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(REPO, ".agents", "generated_files_hook.py")
 SETTINGS = os.path.join(REPO, ".claude", "settings.json")
 #: Folders that hold no package source: build copies, tests, tool state.
-SKIP = {"build", "test", "docs", "__pycache__", ".git", ".agents", ".claude"}
+SKIP = {"build", "tests", "docs", "__pycache__", ".git", ".agents", ".claude"}
 
 
 def _run(event):
