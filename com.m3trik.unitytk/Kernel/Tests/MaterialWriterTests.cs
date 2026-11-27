@@ -435,6 +435,38 @@ namespace M3trik.Unitytk.Kernel.Tests
         }
 
         [Test]
+        public void A_twin_is_one_whether_the_editor_validated_its_original_or_not_and_its_validation_keeps_it()
+        {
+            // Built-in's Default-Material ships RealtimeEmissive | EmissiveIsBlack with no _EMISSION, which the editor's
+            // validation of a material asset (Standard's inspector, on the asset's first property read) turns into
+            // emission on; a material in memory is never validated. A twin states no emission one way, so neither counts.
+            var host = RenderPipelineHosts.BuiltIn;
+            var shipped = Made(new Material(Shader.Find("Standard"))
+            {
+                name = "Shipped",
+                globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive | MaterialGlobalIlluminationFlags.EmissiveIsBlack,
+            });
+            if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets", Path.GetFileName(Folder));
+            var validated = new Material(shipped) { name = "Validated" };
+            AssetDatabase.CreateAsset(validated, Folder + "/Validated.mat");
+            validated.GetColor("_Color");  // its first read: the editor validates it
+            Assume.That(validated.IsKeywordEnabled("_EMISSION"), "this editor validates a material asset on its first read");
+            foreach (TwinState state in new[] { TwinState.Blended, TwinState.Glowing, TwinState.Blended | TwinState.Glowing })
+            {
+                Material twin = Made(MaterialWriter.Twin(shipped, state, host));
+                Assert.That(MaterialWriter.Equivalent(Made(MaterialWriter.Twin(validated, state, host)), twin), Is.True,
+                            $"{state}: one twin of the original, validated or not");
+                Material kept = MaterialWriter.Twin(shipped, state, host);
+                AssetDatabase.CreateAsset(kept, $"{Folder}/Kept {(int)state}.mat");
+                kept.GetColor("_Color");  // kept as an asset, as a table keeps it: validated on its first read
+                Assert.That(MaterialWriter.Equivalent(kept, twin), Is.True, $"{state}: its validation leaves the kept twin as made");
+            }
+            Material faded = Made(MaterialWriter.Twin(validated, TwinState.Blended, host));
+            Assert.That(faded.IsKeywordEnabled("_EMISSION"), Is.False, "no emission shown, none stated");
+            Assert.That(faded.globalIlluminationFlags, Is.EqualTo(MaterialGlobalIlluminationFlags.EmissiveIsBlack), "as a write states none");
+        }
+
+        [Test]
         public void No_host_makes_no_twin()
         {
             var original = Blank();

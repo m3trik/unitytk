@@ -25,18 +25,21 @@ namespace M3trik.Unitytk.Kernel
     /// keepers are the registry the C# rules allow: plain objects, each added again by its owner as the editor's
     /// domain loads. What a write asked is held from its start to its end alone, which no domain reload interrupts.
     /// One that throws is said (the Console, with its stack) and the rest are still asked, so one broken keeper never
-    /// leaves another's edits in the file nor another's state not taken again. A scene's write that fails raises no
-    /// <c>sceneSaved</c>, so each is taken again once the editor is back from the call that wrote too (nothing then,
-    /// where <c>sceneSaved</c> took it). A prefab's write has no hook once written: code that writes one and reads the
-    /// scene within one call (an exec, a test) finds it given back until the editor is back from that call, but for
-    /// <see cref="SceneCapture"/>, which takes each again first.
+    /// leaves another's edits in the file nor another's state not taken again. A scene's write is taken again at its
+    /// <c>sceneSaved</c>; a write that raises none (one that failed) and a prefab's write, which has no hook once
+    /// written, are taken again once the editor is back from the call that wrote (nothing then, where
+    /// <c>sceneSaved</c> took it): code that writes a prefab and reads the scene within one call (an exec, a test)
+    /// finds it given back until then, but for <see cref="SceneCapture"/>, which takes each again first.
     ///
     /// Prior art: Unity's <c>EditorSceneManager.sceneSaving</c> and <c>sceneSaved</c>, the documented hooks around a
-    /// scene's save, and <c>AssetModificationProcessor.OnWillSaveAssets</c>, the one call before Unity writes a
-    /// prefab (one made from a scene object, an instance's overrides applied), which has no counterpart once the
-    /// file is written: a prefab's write is taken back once the editor is back from the call that writes it
-    /// (<c>EditorApplication.delayCall</c>). <c>PrefabStage.prefabSaving</c>, which the previews joined before, was
-    /// not taken: they show nothing in Prefab Mode's preview scene.
+    /// scene's save; <c>AssetModificationProcessor.OnWillSaveAssets</c>, the one call before Unity writes a prefab
+    /// (one made from a scene object, an instance's overrides applied, a prefab's contents saved), which has no
+    /// counterpart once the file is written; <c>EditorApplication.delayCall</c>, the next editor tick, stands in for
+    /// one. <c>AssetPostprocessor.OnPostprocessAllAssets</c> was tried and not taken: Unity raises it inside the call
+    /// once it imports a prefab's written file, but a prefab written unchanged is not imported again and raises nothing,
+    /// so it would take only some writes back sooner and leave the next tick's take-back, and
+    /// <see cref="SceneCapture"/>'s, as they are: one timing for every prefab write is kept. <c>PrefabStage.prefabSaving</c>
+    /// was weighed and not taken: what a keeper shows is never shown in Prefab Mode's preview scene.
     /// </remarks>
     public static class SaveSuspension
     {
@@ -48,11 +51,7 @@ namespace M3trik.Unitytk.Kernel
         [InitializeOnLoadMethod]
         static void Register()
         {
-            EditorSceneManager.sceneSaving += (scene, path) =>
-            {
-                Suspend();
-                EditorApplication.delayCall += Resume;  // a write that failed raises no sceneSaved
-            };
+            EditorSceneManager.sceneSaving += (scene, path) => BeforeWrite();
             EditorSceneManager.sceneSaved += scene => Resume();
         }
 
@@ -64,15 +63,20 @@ namespace M3trik.Unitytk.Kernel
         {
             static string[] OnWillSaveAssets(string[] paths)
             {
-                foreach (string path in paths)
-                    if (path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
-                    {
-                        Suspend();
-                        EditorApplication.delayCall += Resume;
-                        break;
-                    }
+                if (Array.Exists(paths, path => path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))) BeforeWrite();
                 return paths;
             }
+        }
+
+        /// <summary>
+        /// What a write runs first, a scene's or a prefab's: every one there is gives back (<see cref="Suspend"/>), and
+        /// each is taken again once the editor is back from the call that writes, where no hook once written took it
+        /// (a scene's write that failed; any prefab's).
+        /// </summary>
+        internal static void BeforeWrite()
+        {
+            Suspend();
+            EditorApplication.delayCall += Resume;
         }
 
         /// <summary>

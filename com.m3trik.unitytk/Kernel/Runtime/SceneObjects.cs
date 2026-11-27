@@ -4,7 +4,7 @@ namespace M3trik.Unitytk.Kernel
 {
     /// <summary>
     /// The loaded scenes' switched-on component of a kind: who a part with no one named of its own acts
-    /// for (the scene's hand, traveler, placard). The one lookup every part asks, so "switched on" means
+    /// for. The one lookup every part asks, so "switched on" means
     /// the same everywhere: on an active object and enabled.
     /// </summary>
     /// <remarks>

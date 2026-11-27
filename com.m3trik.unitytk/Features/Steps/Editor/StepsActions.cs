@@ -678,13 +678,8 @@ namespace M3trik.Unitytk.Steps
                 ctx.Raise(MissingCode, $"'{sender}' has no component holding the event: make it first");
                 return false;
             }
-            if (owner != null && target != null)
-            {
-                IReadOnlyList<PersistentCalls.Call> calls = PersistentCalls.Of(owner, when, ctx);
-                if (calls == null) return false;  // its calls cannot be read: raised, and nothing wired twice
-                foreach (PersistentCalls.Call call in calls)
-                    if (call.Calls(target, method) && (argument == null || call.Argument as string == argument)) return false;
-            }
+            // Wired already, or its calls cannot be read (raised): nothing wired twice.
+            if (owner != null && target != null && PersistentCalls.Wired(owner, when, target, method, argument, ctx)) return false;
             string action = $"{what} to '{sequence}'";
             object asked = owner != null ? (object)owner : sender;
             if (ctx.Planned("change", asked, action)) return false;

@@ -229,6 +229,60 @@ namespace M3trik.Unitytk.ShadowPlane.Tests
         }
 
         [Test]
+        public void The_cache_atlas_and_its_listening_go_with_the_last_plane_it_holds()
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null || !SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.R8))
+                Assert.Inconclusive("no graphics device draws here (-nographics): no atlas is made");
+            ShadowPlanePreview.BeforeReload();  // from a cache that holds nothing
+            int listening = CameraDrawing.Listeners;
+            Light lamp = Lamp(new Vector3(1.5f, 2f, -1f));
+            ShadowPlane first = Rig(lamp, out _);
+            ShadowPlane second = Rig(lamp, out _);
+            second.target.name = "Barrel";
+            second.name = "Barrel_shadow";
+            foreach (ShadowPlane plane in new[] { first, second })
+            {
+                ShadowPlaneActions.BakeHorizon(plane);
+                plane.cacheShadow = true;
+                plane.ApplyNow();
+            }
+            RenderTexture atlas = ShadowPlaneCache.Atlas;
+            Assert.That(atlas != null && first.cacheSlot >= 0 && second.cacheSlot >= 0, Is.True, "both cache into one atlas");
+            Assert.That(CameraDrawing.Listeners, Is.EqualTo(listening + 1), "it listens for the frame's cameras while it holds them");
+
+            ShadowPlaneCache.Release(first);  // what a plane switched off, or the editor's preview letting it go, runs
+            Assert.That(atlas != null && ShadowPlaneCache.Atlas == atlas, Is.True, "kept while a plane holds a slot in it");
+
+            ShadowPlaneCache.Release(second);
+            Assert.That(atlas == null && ShadowPlaneCache.Atlas == null, Is.True, "destroyed with the last plane it served: a scene unloaded leaves no atlas behind");
+            Assert.That(CameraDrawing.Listeners, Is.EqualTo(listening), "and the frame's cameras let go");
+
+            second.ApplyNow();
+            Assert.That(ShadowPlaneCache.Atlas != null && second.cacheSlot >= 0, Is.True, "the next caching plane makes an atlas again");
+        }
+
+        [Test]
+        public void The_cache_listens_for_the_frames_cameras_while_it_holds_a_staged_plane_and_a_script_reload_lets_go()
+        {
+            ShadowPlanePreview.BeforeReload();  // from a cache that holds nothing
+            int listening = CameraDrawing.Listeners;
+            var plane = new GameObject("Crate_shadow").AddComponent<ShadowPlane>();
+            try
+            {
+                ShadowPlaneCache.Stage(plane);  // marched before the frame's first camera draws
+                ShadowPlaneCache.Stage(plane);
+                Assert.That(CameraDrawing.Listeners, Is.EqualTo(listening + 1), "it listens while it holds a staged plane, once");
+                ShadowPlanePreview.BeforeReload();  // what the editor runs before scripts reload
+                Assert.That(CameraDrawing.Listeners, Is.EqualTo(listening), "let go: a reload would leave it listening for nothing");
+            }
+            finally
+            {
+                ShadowPlanePreview.BeforeReload();
+                Object.DestroyImmediate(plane.gameObject);
+            }
+        }
+
+        [Test]
         public void Create_puts_a_plane_under_its_target_its_horizon_baked()
         {
             var target = new GameObject("Crate");

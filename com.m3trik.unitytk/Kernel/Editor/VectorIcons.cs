@@ -8,7 +8,7 @@ using UnityEngine.UIElements;
 namespace M3trik.Unitytk.Kernel
 {
     /// <summary>
-    /// The editor's icon set: the ecosystem's shared SVG icons (the Shot Manifest's), copied
+    /// The editor's icon set: the ecosystem's shared SVG icons, copied
     /// beside this assembly as <c>Icons/&lt;name&gt;.svg</c> by
     /// <c>m3trik/scripts/sync_unity_icons.py</c>, their icon colour written white. Unity's
     /// built-in SVG importer makes each a UI

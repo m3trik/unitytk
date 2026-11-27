@@ -101,7 +101,7 @@ namespace M3trik.Unitytk.Interaction.Tests
         [Test]
         public void A_timed_press_is_held_its_time_before_it_is_let_go_or_at_once_on_a_fast_walk()
         {
-            // The actor selected a timed button (nothing listens to a selection there), and the walk let go of it at once.
+            // A timed button is pressed, never selected (nothing listens to a selection there), and held its time.
             var (button, trigger, player, actor) = Button(whileHeld: false, pressSeconds: 0.5f);
             Assert.That(actor.Act(button, out bool held), Is.EqualTo("pressed BUTTON"));
             Assert.That((held, trigger.Counting, player.IsPlaying("Open")), Is.EqualTo((true, true, false)), "pressed, counting its time");

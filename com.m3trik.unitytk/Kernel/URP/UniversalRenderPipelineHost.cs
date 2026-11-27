@@ -101,8 +101,8 @@ namespace M3trik.Unitytk.Kernel.URP
             material.SetShaderPassEnabled("DepthOnly", !blended);
             // Shadows as URP's own validation sets them (BaseShaderGUI.UpdateMaterialSurfaceOptions, run on every material
             // an asset import brings in): the Cast Shadows switch where the shader has one, else an opaque surface casts and
-            // a transparent one does not. Left as the original was, a twin saved in an asset came back from its import with
-            // its shadows off while the one made at runtime kept them, and never read as made.
+            // a transparent one does not. Left as the original is, a twin saved in an asset would come back from its import
+            // with its shadows off while one made at runtime keeps them, and never read as made.
             material.SetShaderPassEnabled("ShadowCaster", material.HasProperty("_CastShadows") ? material.GetFloat("_CastShadows") != 0f : !blended);
             int queue = blended ? (int)RenderQueue.Transparent : clipped ? (int)RenderQueue.AlphaTest : (int)RenderQueue.Geometry;
             material.renderQueue = queue + (material.HasProperty("_QueueOffset") ? (int)material.GetFloat("_QueueOffset") : 0);
@@ -188,18 +188,13 @@ namespace M3trik.Unitytk.Kernel.URP
                 volume.priority = options.priority;
                 volume.sharedProfile = _profile;
                 foreach (Camera camera in _cameras ?? Camera.allCameras) PostOn(camera);
-                if (_cameras == null) RenderPipelineManager.beginContextRendering += PostOn;
+                if (_cameras == null) CameraDrawing.Rendering += PostOn;  // each camera a render draws, before it starts
                 _shown.Add(this);
             }
 
             // Whether it turns post-processing on for camera.
             bool Covers(Camera camera)
                 => camera != null && (_cameras == null ? camera.cameraType == CameraType.Game : System.Array.IndexOf(_cameras, camera) >= 0);
-
-            void PostOn(ScriptableRenderContext context, System.Collections.Generic.List<Camera> cameras)
-            {
-                foreach (Camera camera in cameras) PostOn(camera);
-            }
 
             void PostOn(Camera camera)
             {
@@ -212,7 +207,7 @@ namespace M3trik.Unitytk.Kernel.URP
 
             public void Dispose()
             {
-                RenderPipelineManager.beginContextRendering -= PostOn;
+                CameraDrawing.Rendering -= PostOn;
                 _shown.Remove(this);
                 foreach (UniversalAdditionalCameraData data in _turnedOn)
                 {

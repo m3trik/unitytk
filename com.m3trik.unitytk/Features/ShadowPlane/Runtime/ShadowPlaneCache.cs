@@ -90,7 +90,7 @@ namespace M3trik.Unitytk.ShadowPlane
             }
         }
 
-        static void FlushOncePerFrame()
+        static void FlushOncePerFrame(Camera camera)
         {
             if (_staged.Count == 0 || _flushedFrame == Time.frameCount) return;
             _flushedFrame = Time.frameCount;
@@ -104,13 +104,23 @@ namespace M3trik.Unitytk.ShadowPlane
                 _slots[c.cacheSlot] = null;
             c.cacheSlot = -1;
             c.cacheValid = false;
+            // the last plane gone (switched off, a scene unloaded): what served it goes with it
+            if (!Holds() && (_atlas != null || _cmd != null || _hooked)) Dispose();
+        }
+
+        // Whether a plane still holds anything here: one staged, or a slot taken.
+        static bool Holds()
+        {
+            if (_staged.Count > 0) return true;
+            for (int i = 0; i < _slots.Count; i++) if (_slots[i] != null) return true;
+            return false;
         }
 
         /// <summary>
         /// Free the atlas and the command buffer, every plane's slot given up, so the next
-        /// caching plane makes an atlas again. The editor calls it before scripts reload: the
-        /// reload empties the static, and an atlas it held (kept alive by its hide flags)
-        /// would be orphaned, one per recompile.
+        /// caching plane makes an atlas again. The last plane's <see cref="Release"/> runs it,
+        /// and the editor before scripts reload: the reload empties the static, and an atlas it
+        /// held (kept alive by its hide flags) would be orphaned, one per recompile.
         /// </summary>
         internal static void Dispose()
         {

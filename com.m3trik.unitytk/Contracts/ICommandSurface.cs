@@ -19,6 +19,8 @@ namespace M3trik.Unitytk.Contracts
         /// <param name="owner">What the command belongs to (it takes its commands away with <see cref="Remove"/>).</param>
         /// <param name="label">The command's label.</param>
         /// <param name="run">What running it does.</param>
+        /// <exception cref="ArgumentException"><paramref name="label"/> is empty: a command no one could find to press.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="run"/> is null.</exception>
         void Add(UnityEngine.Object owner, string label, Action run);
 
         /// <summary>Take away every command <paramref name="owner"/> put on it.</summary>
@@ -32,7 +34,8 @@ namespace M3trik.Unitytk.Contracts
 
     /// <summary>
     /// The command surface's stand-in: one a test reads back what it was given by (its commands by label, in the order
-    /// put on, and its status), and runs a command of, as a person pressing its button would.
+    /// put on, and its status), and runs a command of, as a person pressing its button would. It refuses what every
+    /// surface refuses.
     /// </summary>
     public sealed class PureCommandSurface : ICommandSurface
     {
@@ -47,6 +50,8 @@ namespace M3trik.Unitytk.Contracts
         /// <inheritdoc/>
         public void Add(UnityEngine.Object owner, string label, Action run)
         {
+            if (string.IsNullOrEmpty(label)) throw new ArgumentException("label the command", nameof(label));
+            if (run == null) throw new ArgumentNullException(nameof(run), "say what the command does");
             int at = _commands.FindIndex(command => command.owner == owner && command.label == label);
             if (at >= 0) _commands[at] = (owner, label, run);
             else _commands.Add((owner, label, run));

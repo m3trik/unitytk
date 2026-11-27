@@ -158,14 +158,30 @@ namespace M3trik.Unitytk.RenderEffects
         protected override void OnEnable()
         {
             base.OnEnable();
-            IndicatorGlow.Join(this);
+            ShowGlow();
         }
 
-        /// <summary>Unity's: its glow is drawn no more.</summary>
+        /// <summary>Unity's: its glow is drawn no more, and its card is destroyed.</summary>
         protected override void OnDisable()
         {
-            IndicatorGlow.Leave(this);
+            HideGlow();
             base.OnDisable();
+        }
+
+        /// <summary>Its glow while it is switched on; null while it is off.</summary>
+        internal IndicatorGlow Glow { get; private set; }
+
+        // What switching it on and off does to its glow (an Edit Mode test, which is sent neither, calls them itself).
+        internal void ShowGlow()
+        {
+            if (Glow == null) Glow = new IndicatorGlow(this);
+        }
+
+        internal void HideGlow()
+        {
+            if (Glow == null) return;
+            Glow.Dispose();
+            Glow = null;
         }
 
         internal override void Touch()

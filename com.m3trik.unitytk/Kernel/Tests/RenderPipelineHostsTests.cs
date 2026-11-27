@@ -104,11 +104,46 @@ namespace M3trik.Unitytk.Kernel.Tests
                 host.Blends = false;
                 Assert.That(host.SetBlended(material, true), Is.False);
                 Assert.That(host.Blended, Is.EqualTo(new[] { (material, true) }));
+                Assert.That(host.SetAdditive(material), Is.True, "an additive switch for every shader by default");
+                host.Adds = false;
+                Assert.That(host.SetAdditive(material), Is.False, "a pipeline with none");
+                Assert.That(host.Added, Is.EqualTo(new[] { material, material }), "each asked kept");
             }
             finally
             {
                 Object.DestroyImmediate(material);
             }
+        }
+
+        [Test]
+        public void The_built_in_pipeline_has_no_additive_switch_and_leaves_the_material_as_it_was()
+        {
+            IRenderPipelineHost host = RenderPipelineHosts.BuiltIn;
+            foreach (string shader in new[] { host.LitShader, host.UnlitShader(true), host.UnlitShader(false) })
+            {
+                var material = new Material(Shader.Find(shader));
+                try
+                {
+                    if (material.HasProperty("_Mode")) Assert.That(host.SetBlended(material, true), Is.True, "premise: " + shader + " faded");
+                    string before = State(material);
+                    Assert.That(host.SetAdditive(material), Is.False, shader);
+                    Assert.That(State(material), Is.EqualTo(before), shader + ": unchanged");
+                }
+                finally
+                {
+                    Object.DestroyImmediate(material);
+                }
+            }
+        }
+
+        // What a blend or additive switch writes on a material: its shader, queue, RenderType, keywords and blend floats.
+        static string State(Material material)
+        {
+            var floats = new System.Text.StringBuilder();
+            foreach (string name in new[] { "_Mode", "_SrcBlend", "_DstBlend", "_ZWrite", "_Blend", "_Surface" })
+                if (material.HasProperty(name)) floats.Append(name).Append('=').Append(material.GetFloat(name)).Append(' ');
+            return $"{material.shader.name} {material.renderQueue} {material.GetTag("RenderType", false)} " +
+                   $"[{string.Join(",", material.shaderKeywords)}] {floats}";
         }
 
         [Test]

@@ -112,8 +112,8 @@ namespace M3trik.Unitytk.Kernel.Tests
             Assert.That(_said, Is.EqualTo(new[] { "suspend first", "suspend late", "resume late", "resume first" }), "asked from the next write on");
         }
 
-        // A keeper that threw stopped the write's asking: those after it saved their edits into the file, and on the way
-        // back those before it were never taken again.
+        // One keeper's throw ends no asking: those after it still give back before the file is written, and on the way
+        // back those before it are still taken again.
         [Test]
         public void A_keeper_that_throws_is_said_and_every_other_is_still_asked_both_ways()
         {
@@ -129,8 +129,8 @@ namespace M3trik.Unitytk.Kernel.Tests
             }));
         }
 
-        // A prefab's write is taken back once the editor is back from the call that wrote it: an image taken in that same
-        // call (an exec's) showed the scene with every look and preview given back.
+        // A prefab's write is taken back once the editor is back from the call that wrote it, so an image taken in that
+        // same call (an exec's) takes it back first: it shows the scene with its looks and previews, as a person sees it.
         [Test]
         public void An_image_taken_in_the_call_that_wrote_a_prefab_shows_what_the_write_gave_back_taken_again()
         {
@@ -167,6 +167,26 @@ namespace M3trik.Unitytk.Kernel.Tests
             {
                 Object.DestroyImmediate(made);
             }
+        }
+
+        // A scene's write that fails raises sceneSaving and no sceneSaved: what its sceneSaving runs takes each keeper
+        // again on its own once the editor is back.
+        [UnityTest]
+        public IEnumerator A_write_no_hook_follows_is_taken_again_once_the_editor_is_back()
+        {
+            Add("first");
+            Add("second");
+            SaveSuspension.BeforeWrite();  // what sceneSaving runs; no sceneSaved follows
+            Assert.That(_said, Is.EqualTo(new[] { "suspend first", "suspend second" }), "given back for the write");
+            bool back = false;
+            EditorApplication.delayCall += () => back = true;  // after the kernel's, which BeforeWrite queued first
+            while (!back) yield return null;
+            Assert.That(_said, Is.EqualTo(new[] { "suspend first", "suspend second", "resume second", "resume first" }),
+                        "taken again, the last first, with no sceneSaved");
+            _said.Clear();
+            Save();
+            Assert.That(_said, Is.EqualTo(new[] { "suspend first", "suspend second", "resume second", "resume first" }),
+                        "the next write asks them again, once each");
         }
     }
 }

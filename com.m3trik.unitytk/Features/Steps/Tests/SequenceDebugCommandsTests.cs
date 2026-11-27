@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using M3trik.Unitytk.Contracts;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
@@ -18,20 +16,7 @@ namespace M3trik.Unitytk.Steps.Tests
         GameObject _root;
         Sequence _sequence;
         SequenceDebugCommands _commands;
-        Surface _surface;
-
-        // A stand-in for a debug panel: the commands by label, the status said.
-        sealed class Surface : ICommandSurface
-        {
-            internal readonly List<(Object owner, string label, Action run)> Commands = new List<(Object, string, Action)>();
-            internal string Status = "";
-
-            public void Add(Object owner, string label, Action run) => Commands.Add((owner, label, run));
-
-            public void Remove(Object owner) => Commands.RemoveAll(c => c.owner == owner);
-
-            public void SetStatus(string text) => Status = text ?? "";
-        }
+        PureCommandSurface _surface;
 
         [SetUp]
         public void SetUp()
@@ -51,7 +36,7 @@ namespace M3trik.Unitytk.Steps.Tests
             _commands.sequence = _sequence;
             _commands.autopilot = _root.AddComponent<SequenceAutopilot>();
             _commands.autopilot.enabled = false;
-            _surface = new Surface();
+            _surface = new PureCommandSurface();
             _commands.Surface = _surface;
         }
 
@@ -81,9 +66,11 @@ namespace M3trik.Unitytk.Steps.Tests
         {
             _commands.restartLabel = "Start Over";
             Assert.That(_commands.Show(), Is.True);
-            Assert.That(_surface.Commands.ConvertAll(c => c.label), Is.EqualTo(new[] { "Skip", "Back", "Start Over", "Autopilot" }));
+            Assert.That(_surface.Commands, Is.EqualTo(new[] { "Skip", "Back", "Start Over", "Autopilot" }));
+            Assert.That(_commands.Show(), Is.True);
+            Assert.That(_surface.Commands, Is.EqualTo(new[] { "Skip", "Back", "Start Over", "Autopilot" }), "shown again: each replaced, none twice");
             _sequence.Begin();
-            _surface.Commands.Find(c => c.label == "Skip").run();
+            Assert.That(_surface.Run("Skip"), Is.True);
             Assert.That(_sequence.Current.id, Is.EqualTo("A02"), "the surface's Skip skips");
             _commands.Surface = null;
             Assert.That(_commands.Show(), Is.False, "no surface set, none beside it: nowhere to put them");
@@ -92,8 +79,8 @@ namespace M3trik.Unitytk.Steps.Tests
         [Test]
         public void Back_resumes_on_the_reloaded_scenes_load_alone_with_the_autopilot_among_its_own_objects()
         {
-            // Any scene's load ended the wait, and the walk took the first autopilot anywhere: an additive start over's
-            // old copy is still loaded beside the new one.
+            // Only the reloaded scene's own load ends the wait, and its own autopilot walks it back: an additive start
+            // over's old copy is still loaded beside the new one.
             SequenceAutopilot old = _commands.autopilot;
             Scene copy = EditorSceneManager.NewPreviewScene();  // a second scene beside the test's, saving nothing
             try
@@ -117,7 +104,7 @@ namespace M3trik.Unitytk.Steps.Tests
         [Test]
         public void A_scene_part_none_names_is_looked_up_once_none_is_found_until_its_owner_is_switched_on_again()
         {
-            // With no sequence in the scene, every access searched the scene, several times a frame.
+            // A part none names is looked up once, not on every access (several a frame), until its owner is switched on again.
             Assume.That(Object.FindAnyObjectByType<WindZone>(), Is.Null, "a kind no test leaves in the scene");
             var lookup = new SceneLookup<WindZone>();
             Assert.That(lookup.Get(), Is.Null, "none there");
@@ -139,7 +126,7 @@ namespace M3trik.Unitytk.Steps.Tests
         [Test]
         public void The_scenes_sequence_and_autopilot_are_kept_once_found_and_found_again_once_gone()
         {
-            // Each frame searched the scene for both where none was named.
+            // Where none is named, each is found once and kept, not looked up every frame.
             SequenceAutopilot pilot = _commands.autopilot;
             _commands.sequence = null;
             _commands.autopilot = null;

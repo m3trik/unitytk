@@ -13,8 +13,7 @@ namespace M3trik.Unitytk.Kernel
     /// and macOS only '/' and NUL), so a name an editor there writes can be one Windows
     /// refuses, and a project saved on one OS breaks on another; the set here is fixed,
     /// Windows' (the strictest of the three). <c>AssetDatabase.CreateFolder</c> makes one
-    /// level, so <see cref="Ensure"/> walks the path. A helper two features' actions
-    /// shared (Lightmaps, ShadowPlane), moved down.
+    /// level, so <see cref="Ensure"/> walks the path.
     /// </remarks>
     public static class AssetFolders
     {

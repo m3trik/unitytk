@@ -168,6 +168,33 @@ namespace M3trik.Unitytk.RenderEffects.Tests
         }
 
         [Test]
+        public void A_twin_made_once_stays_made_though_the_editor_validates_it_on_a_read()
+        {
+            // Unity's Default-Material (what the Tasks sample's renderers wear on Built-in) ships RealtimeEmissive |
+            // EmissiveIsBlack with its emission keyword off, which the editor's validation of a material asset (its
+            // shader's inspector, run on the asset's first property read) turns into emission on: the kept twin, read by
+            // the next run's comparison, then differed from a twin made afresh, and every run after it made the twin again.
+            Assume.That(_stage.Table, Is.SameAs(LitTable.BuiltIn), "Built-in's Default-Material: the Built-in project's test");
+            var shipped = _stage.Made(new Material(Shader.Find(_stage.Host.LitShader))
+            {
+                name = "Shipped",
+                globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive | MaterialGlobalIlluminationFlags.EmissiveIsBlack,
+            });
+            _stage.Renderer("Hinge", _door.transform, shipped);
+            _door.AddComponent<Fade>();
+            _door.AddComponent<Highlight>();
+            if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets", Path.GetFileName(Folder));
+            string path = Folder + "/Shed Twins.asset";
+            Assert.That(RenderEffectsActions.PrepareMaterials(_model, path), Is.GreaterThan(0));
+            for (int run = 2; run <= 3; run++)
+            {
+                var again = new OpContext(dryRun: true);
+                RenderEffectsActions.PrepareMaterials(_model, path, again);
+                Assert.That(again.Changes.Select(c => $"{c.kind} {c.target}: {c.action}"), Is.Empty, $"run {run} plans nothing");
+            }
+        }
+
+        [Test]
         public void A_dry_run_prepares_the_twins_of_the_effects_it_only_planned_as_its_live_run_does()
         {
             // A build adds its effects and prepares their twins in one run; its dry run has added nothing yet.

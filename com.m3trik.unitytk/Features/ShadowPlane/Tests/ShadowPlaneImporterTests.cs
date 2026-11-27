@@ -316,6 +316,8 @@ namespace M3trik.Unitytk.ShadowPlane.Tests
             Shader shader = Shader.Find(ShadowPlaneImporter.ShaderName);
             Assert.That(RenderPipelineHosts.BuiltIn.Draws(shader), Is.True);
             Assert.That(RenderPipelineHosts.DrawnThroughUntaggedSubshader(shader, ""), Is.True);
+            IRenderPipelineHost host = RenderPipelineHosts.Current;
+            if (host != null) Assert.That(host.Draws(shader), Is.True, "and the pipeline the project draws with draws it");
         }
 
         int WireWith(string record, IModelMedia media, List<string> depends = null)

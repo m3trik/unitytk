@@ -71,8 +71,9 @@ namespace M3trik.Unitytk.Kernel
                 if (missing.Length > 0)
                     throw new ArgumentException($"No object named {string.Join(", ", missing.Select(n => $"'{n}'"))}.");
             }
-            // What a prefab's write earlier in this same call gave back, taken again first: the image is the scene as a
-            // person sees it (the write's own take-back waits for the editor to be back from the call).
+            // What a write earlier in this same call gave back and no hook took again (a prefab's, a scene's that failed:
+            // theirs waits for the editor to be back from the call), taken again first: the image is the scene as a
+            // person sees it.
             SaveSuspension.Resume();
             string path = CapturePath();
             GameObject temp = null;

@@ -11,7 +11,8 @@ namespace M3trik.Unitytk.Panels.Tests
     /// <summary>
     /// The command surface's contract (<see cref="ICommandSurface"/>), one fixture run against its stand-in
     /// (<see cref="PureCommandSurface"/>) and each provider (<see cref="DebugPanel"/>): commands put on in order, one per
-    /// owner and label, run by label, taken away with their owner; a status, none for null.
+    /// owner and label, run by label, taken away with their owner; one with no label or nothing to run refused, the
+    /// surface left as it was; a status, none for null.
     /// </summary>
     public class CommandSurfaceContractTests
     {
@@ -52,6 +53,10 @@ namespace M3trik.Unitytk.Panels.Tests
                 Assert.That(commands(), Is.EqualTo(new[] { "Skip", "Lights" }), "in the order put on; one owner's label replaced");
                 Assert.That(run("Skip"), Is.True);
                 Assert.That(ran, Is.EqualTo(new[] { "skip again" }));
+                Assert.Throws<ArgumentException>(() => surface.Add(first, "", () => ran.Add("unlabelled")), "no label: refused");
+                Assert.Throws<ArgumentException>(() => surface.Add(first, null, () => ran.Add("unlabelled")), "no label: refused");
+                Assert.Throws<ArgumentNullException>(() => surface.Add(first, "Restart", null), "nothing to run: refused");
+                Assert.That(commands(), Is.EqualTo(new[] { "Skip", "Lights" }), "a refused command is not put on");
                 surface.Remove(first);
                 Assert.That(commands(), Is.EqualTo(new[] { "Lights" }), "the owner's commands go with it");
                 surface.SetStatus("Step A02");

@@ -19,7 +19,7 @@ namespace M3trik.Unitytk.Kernel.URP.Tests
         public void A_display_table_of_its_size_shows_with_every_camera_post_processed_at_once_and_goes_away()
         {
             // Post-processing is on before a camera's next frame, not from the frame after: a camera reads it
-            // before its own rendering starts. Added: 2026-11-22
+            // before its own rendering starts.
             var camera = new GameObject("CAMERA").AddComponent<Camera>();
             var data = camera.GetUniversalAdditionalCameraData();
             data.renderPostProcessing = false;
@@ -87,13 +87,24 @@ namespace M3trik.Unitytk.Kernel.URP.Tests
         }
 
         [Test]
-        public void It_draws_the_shadow_planes_shader_through_its_unlit_pass_beside_the_cache_pass()
+        public void It_draws_a_legacy_shader_through_its_unlit_pass_beside_a_pass_of_its_own_light_mode()
         {
-            // Legacy CG with no LightMode on its drawing pass, and a pass of its own LightMode
-            // that a command buffer draws (ShadowPlaneCache): URP draws it as SRPDefaultUnlit.
-            Shader shader = Shader.Find("m3trik/ShadowPlane");
-            Assume.That(shader, Is.Not.Null, "the ShadowPlane feature's shader imported");
-            Assert.That(_host.Draws(shader), Is.True);
+            // Legacy CG with no LightMode on its drawing pass, and a pass of its own LightMode that
+            // a command buffer draws: URP draws it as SRPDefaultUnlit.
+            const string program = "CGPROGRAM\n#pragma vertex vert\n#pragma fragment frag\n" +
+                                   "float4 vert(float4 v : POSITION) : SV_POSITION { return v; }\n" +
+                                   "fixed4 frag() : SV_Target { return 1; }\nENDCG";
+            var shader = UnityEditor.ShaderUtil.CreateShaderAsset(
+                "Shader \"Hidden/UnitytkTests/UnlitWithOwnPass\" { SubShader { " +
+                $"Pass {{ {program} }} Pass {{ Tags {{ \"LightMode\" = \"UNITYTKTESTPASS\" }} {program} }} }} }}", false);
+            try
+            {
+                Assert.That(_host.Draws(shader), Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(shader);
+            }
         }
 
         [Test]
@@ -213,7 +224,7 @@ namespace M3trik.Unitytk.Kernel.URP.Tests
             }
         }
 
-        // A glow card is added over the scene, as the viewer's additive blending draws it.
+        // Additive: its colour times its alpha added to what is behind it, writing no depth.
         [Test]
         public void Its_unlit_shader_adds_its_colour_over_the_scene_as_urps_inspector_sets_additive()
         {
@@ -240,8 +251,8 @@ namespace M3trik.Unitytk.Kernel.URP.Tests
             }
         }
 
-        // Two displays over one camera: the first turned its post-processing on, the second found it on and kept nothing,
-        // and putting the first away turned it off under the second.
+        // Two displays over one camera: the first turns its post-processing on and the second finds it on, so the first
+        // hands it on as it is put away, and the last one shown over it turns it off.
         [Test]
         public void A_cameras_post_processing_stays_on_while_any_display_over_it_is_shown()
         {
@@ -268,6 +279,83 @@ namespace M3trik.Unitytk.Kernel.URP.Tests
                 first?.Dispose();
                 second?.Dispose();
                 Object.DestroyImmediate(camera.gameObject);
+                Object.DestroyImmediate(table);
+            }
+        }
+
+        // The default options cover every game camera (no list of cameras): whichever of two is put away first, the
+        // camera keeps its post-processing while the other is shown, and the last one shown turns it off.
+        [Test]
+        public void Displays_over_every_game_camera_keep_its_post_processing_on_until_the_last_is_put_away_in_either_order()
+        {
+            var camera = new GameObject("CAMERA").AddComponent<Camera>();
+            var data = camera.GetUniversalAdditionalCameraData();
+            int size = _host.DisplaySize;
+            var table = new Texture2D(size * size, size, TextureFormat.RGBAHalf, false, true);
+            System.IDisposable first = null, second = null;
+            try
+            {
+                foreach (bool firstAwayFirst in new[] { true, false })
+                {
+                    data.renderPostProcessing = false;
+                    first = _host.Display(table, 1f / 16f, out string why);
+                    Assert.That(first, Is.Not.Null, why);
+                    second = _host.Display(table, 1f / 16f, out why, new DisplayOptions { priority = 1f });
+                    Assert.That(second, Is.Not.Null, why);
+                    Assert.That(data.renderPostProcessing, Is.True, "premise: on");
+                    (firstAwayFirst ? first : second).Dispose();
+                    Assert.That(data.renderPostProcessing, Is.True, (firstAwayFirst ? "the second" : "the first") + " still shows over it");
+                    (firstAwayFirst ? second : first).Dispose();
+                    first = second = null;
+                    Assert.That(data.renderPostProcessing, Is.False, "off again with the last, as it was");
+                }
+            }
+            finally
+            {
+                first?.Dispose();
+                second?.Dispose();
+                Object.DestroyImmediate(camera.gameObject);
+                Object.DestroyImmediate(table);
+            }
+        }
+
+        // A display over every game camera turns post-processing on for one that starts to draw later too, before its own
+        // drawing starts: switched off as the display was shown, it was not among the cameras there then.
+        [Test]
+        public void A_game_camera_drawn_after_a_display_is_shown_over_every_one_has_post_processing_on_before_it_starts()
+        {
+            var target = new RenderTexture(16, 16, 16);
+            var camera = new GameObject("CAMERA").AddComponent<Camera>();
+            camera.enabled = false;
+            camera.targetTexture = target;
+            var data = camera.GetUniversalAdditionalCameraData();
+            data.renderPostProcessing = false;
+            int size = _host.DisplaySize;
+            var table = new Texture2D(size * size, size, TextureFormat.RGBAHalf, false, true);
+            bool onAsItStarted = false;
+            void Starting(Camera drawing)
+            {
+                if (drawing == camera) onAsItStarted = data.renderPostProcessing;
+            }
+            System.IDisposable shown = null;
+            try
+            {
+                shown = _host.Display(table, 1f / 16f, out string why);
+                Assert.That(shown, Is.Not.Null, why);
+                Assert.That(data.renderPostProcessing, Is.False, "premise: switched off, not among the cameras there");
+                CameraDrawing.Starting += Starting;
+                camera.Render();
+                Assert.That(onAsItStarted, Is.True, "on before its own drawing starts");
+                shown.Dispose();
+                shown = null;
+                Assert.That(data.renderPostProcessing, Is.False, "off again once put away");
+            }
+            finally
+            {
+                CameraDrawing.Starting -= Starting;
+                shown?.Dispose();
+                Object.DestroyImmediate(camera.gameObject);
+                Object.DestroyImmediate(target);
                 Object.DestroyImmediate(table);
             }
         }
