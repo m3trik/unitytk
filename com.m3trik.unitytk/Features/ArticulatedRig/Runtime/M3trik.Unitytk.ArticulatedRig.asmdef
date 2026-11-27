@@ -3,6 +3,7 @@
     "rootNamespace": "",
     "references": [
         "M3trik.Unitytk.Core",
+        "M3trik.Unitytk.Kernel.Runtime",
         "M3trik.Unitytk.ArticulatedRig.Model"
     ],
     "includePlatforms": [],

@@ -72,6 +72,17 @@ class TestUnityCompileModel(UnityTkTestCase):
         self.assertEqual([a["name"] for a in order], ["Pkg.Core", "Pkg.Feature"])
         self.assertEqual([f.name for f in order[1]["files"]], ["Feature.cs"])
 
+    def test_assemblies_that_reference_none_of_each_other_share_a_wave(self):
+        """A variant compiled its assemblies one after another, a compiler
+        process each: the package's ninety took most of two minutes. Those in
+        one wave compile side by side. Added: 2026-11-25"""
+        names = lambda waves: [[a["name"] for a in wave] for wave in waves]  # noqa: E731
+        core, a, b = {"name": "Core"}, {"name": "A", "references": ["Core", "Outside"]}, {"name": "B", "references": ["Core"]}
+        kit = {"name": "Kit", "references": ["A", "B"]}
+        self.assertEqual(names(UnityCompile._waves([core, a, b, kit])), [["Core"], ["A", "B"], ["Kit"]])
+        self.assertEqual(names(UnityCompile._waves([a, kit])), [["A"], ["Kit"]], "a reference the build leaves out holds nothing back")
+        self.assertEqual(UnityCompile._waves([]), [])
+
     def test_define_constraints_hold_negation_and_either(self):
         self.assertTrue(UnityCompile._satisfied(["A", "!B", "C || D"], ["A", "D"]))
         self.assertFalse(UnityCompile._satisfied(["!B"], ["B"]))
@@ -92,6 +103,48 @@ class TestUnityCompileModel(UnityTkTestCase):
         ), mock.patch.object(ProjectBuilder, "imported", return_value=None) as imported:
             UnityCompile.compile(editor="6000.3.9f1")
         imported.assert_called_once_with("6000.3.9f1")
+
+
+    def test_ugui_is_a_package_and_an_editor_build_against_a_project_names_the_netfx_shims(self):
+        """uGUI's door compiled only where its versionDefine saw the package, and
+        a project's editor assemblies (uGUI's among them) name mscorlib, which
+        only the .NET Framework shims supply: the editor build against the
+        project references them, the player build never does.
+        Added: 2026-11-24"""
+        import subprocess
+        from unittest import mock
+
+        self.assertIn("com.unity.ugui", UnityCompile.PACKAGES)
+        root = Path(self.create_temp_dir())
+        data = root / "Data"
+        for rel in ("Managed/UnityEngine/UnityEngine.dll", "Managed/UnityEngine/UnityEditor.dll",
+                    "NetStandard/ref/2.1.0/netstandard.dll", "NetStandard/compat/2.1.0/shims/netfx/mscorlib.dll"):
+            (data / rel).parent.mkdir(parents=True, exist_ok=True)
+            (data / rel).write_bytes(b"")
+        project = root / "Project"
+        scripts = project / "Library" / "ScriptAssemblies"
+        scripts.mkdir(parents=True)
+        for name in ("UnityEngine.UI.dll", "UnityEditor.UI.dll"):
+            (scripts / name).write_bytes(b"")
+        door = {
+            "name": "Pkg.UGUI",
+            "files": [],
+            "references": [],
+            "defineConstraints": ["PKG_UGUI"],
+            "versionDefines": [{"name": "com.unity.ugui", "expression": "2.0.0", "define": "PKG_UGUI"}],
+        }
+        ran = mock.Mock(return_value=subprocess.CompletedProcess([], 0, stdout="", stderr=""))
+        rsp = {}
+        with mock.patch.object(subprocess, "run", ran):
+            for variant in (("editor+packages", True, True), ("player+packages", False, True)):
+                result = UnityCompile._build(data, "6000.3.10f1", [door], variant, {"com.unity.ugui": "2.0.0"}, project, root / "out")
+                self.assertEqual([a["assembly"] for a in result["assemblies"]], ["Pkg.UGUI"], "its define seen: it compiles")
+                rsp[variant[0]] = (root / "out" / variant[0].replace("+", "_") / "Pkg.UGUI.rsp").read_text(encoding="utf-8")
+        self.assertIn("mscorlib.dll", rsp["editor+packages"])
+        self.assertIn("UnityEditor.UI.dll", rsp["editor+packages"])
+        self.assertNotIn("mscorlib.dll", rsp["player+packages"], "a player build names no .NET Framework shim")
+        self.assertNotIn("UnityEditor.UI.dll", rsp["player+packages"], "nor an editor assembly")
+        self.assertIn("PKG_UGUI", rsp["player+packages"])
 
 
 @EnvSkip.unless(_HAS_UNITY, "no Unity editor installed")
@@ -225,7 +278,7 @@ class TestUnityCompile(UnityTkTestCase):
     def test_the_shipped_package_compiles(self):
         # The fast loop on unitytk's own C#: what CI cannot run, in seconds. With a
         # reference project the editor build also compiles the test assemblies
-        # (measured: 37 s without them, 58 s with, on a machine busy with an editor).
+        # (measured at 94 assemblies: 34 s, each wave side by side; 110 s one at a time).
         result = UnityCompile.compile()
         self.assertEqual(result["errors"], 0, json.dumps(result["variants"], indent=1))
         self.assertLess(result["seconds"], 120)

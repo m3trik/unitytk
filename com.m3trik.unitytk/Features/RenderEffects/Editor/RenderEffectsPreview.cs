@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using M3trik.Unitytk.Kernel;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -12,9 +13,9 @@ namespace M3trik.Unitytk.RenderEffects
     /// <see cref="RenderEffect.Apply"/> leaves holding renderers (an inspector edit, a script,
     /// an agent's code, a clip's preview) is held here, and its renderers are given back --
     /// their materials as authored, what it hid shown, its twins freed -- when the effect is
-    /// removed (or its Add undone), disabled or deactivated, and before a scene is saved or
-    /// closed, before a prefab is written, before scripts reload, as play mode starts and when
-    /// a clip's preview stops.
+    /// removed (or its Add undone), disabled or deactivated, before a scene or a prefab is written
+    /// (shown again once it is), before a scene is closed, before scripts reload, as play mode starts
+    /// and when a clip's preview stops.
     /// While the Animation window or a Timeline previews a clip (Animation mode), every live
     /// effect in the open scenes shows the values it samples, each editor update. So nothing
     /// an effect showed reaches a saved scene or outlives a reload; an effect in a prefab or
@@ -40,29 +41,34 @@ namespace M3trik.Unitytk.RenderEffects
             EditorApplication.update += Update;
             AssemblyReloadEvents.beforeAssemblyReload += ReleaseAll;
             EditorApplication.playModeStateChanged += OnPlayMode;
-            EditorSceneManager.sceneSaving += OnSceneSaving;
+            SaveSuspension.Add(new Saves());
             EditorSceneManager.sceneClosing += OnSceneClosing;
-            PrefabStage.prefabSaving += OnPrefabSaving;
         }
 
         /// <summary>
-        /// Before Unity writes a prefab -- one made from a scene object (dragged into the
-        /// Project window, <c>PrefabUtility.SaveAsPrefabAsset</c>) or an instance's overrides
-        /// applied -- every held effect is given back, so the asset holds the renderers'
-        /// materials as authored, never an effect's twin (in memory only, it would save as a
-        /// missing material).
+        /// The kernel's save hook (<see cref="SaveSuspension"/>): before a scene or a prefab is written
+        /// every held effect is given back, so the file saves the renderers' materials as authored, never
+        /// an effect's twin (in memory only, it would save as a missing material); once it is written each
+        /// that showed shows again.
         /// </summary>
-        sealed class PrefabSaves : AssetModificationProcessor
+        sealed class Saves : ISaveSuspended
         {
-            static string[] OnWillSaveAssets(string[] paths)
+            readonly List<RenderEffect> _shown = new List<RenderEffect>();
+
+            public void Suspend()
             {
-                foreach (string path in paths)
-                    if (path.EndsWith(".prefab", System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        ReleaseAll();
-                        break;
-                    }
-                return paths;
+                // Asked again before it shows them again (a scene's save right after a prefab's write): it
+                // holds nothing then, and what it gave back the first time stays the list to show again.
+                foreach (RenderEffect effect in _held)
+                    if (!_shown.Contains(effect)) _shown.Add(effect);
+                ReleaseAll();
+            }
+
+            public void Resume()
+            {
+                foreach (RenderEffect effect in _shown)
+                    if (effect != null && effect.Live && InScene(effect)) effect.Show();
+                _shown.Clear();
             }
         }
 
@@ -186,11 +192,7 @@ namespace M3trik.Unitytk.RenderEffects
             if (change == PlayModeStateChange.ExitingEditMode) ReleaseAll();
         }
 
-        static void OnSceneSaving(Scene scene, string path) => ReleaseIn(scene);
-
         static void OnSceneClosing(Scene scene, bool removing) => ReleaseIn(scene);
-
-        static void OnPrefabSaving(GameObject prefab) => ReleaseAll();
 
         // Every held effect on an object of scene, or on none any more.
         static void ReleaseIn(Scene scene)

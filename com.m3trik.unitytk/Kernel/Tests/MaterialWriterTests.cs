@@ -435,6 +435,38 @@ namespace M3trik.Unitytk.Kernel.Tests
         }
 
         [Test]
+        public void A_twin_is_one_whether_the_editor_validated_its_original_or_not_and_its_validation_keeps_it()
+        {
+            // Built-in's Default-Material ships RealtimeEmissive | EmissiveIsBlack with no _EMISSION, which the editor's
+            // validation of a material asset (Standard's inspector, on the asset's first property read) turns into
+            // emission on; a material in memory is never validated. A twin states no emission one way, so neither counts.
+            var host = RenderPipelineHosts.BuiltIn;
+            var shipped = Made(new Material(Shader.Find("Standard"))
+            {
+                name = "Shipped",
+                globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive | MaterialGlobalIlluminationFlags.EmissiveIsBlack,
+            });
+            if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets", Path.GetFileName(Folder));
+            var validated = new Material(shipped) { name = "Validated" };
+            AssetDatabase.CreateAsset(validated, Folder + "/Validated.mat");
+            validated.GetColor("_Color");  // its first read: the editor validates it
+            Assume.That(validated.IsKeywordEnabled("_EMISSION"), "this editor validates a material asset on its first read");
+            foreach (TwinState state in new[] { TwinState.Blended, TwinState.Glowing, TwinState.Blended | TwinState.Glowing })
+            {
+                Material twin = Made(MaterialWriter.Twin(shipped, state, host));
+                Assert.That(MaterialWriter.Equivalent(Made(MaterialWriter.Twin(validated, state, host)), twin), Is.True,
+                            $"{state}: one twin of the original, validated or not");
+                Material kept = MaterialWriter.Twin(shipped, state, host);
+                AssetDatabase.CreateAsset(kept, $"{Folder}/Kept {(int)state}.mat");
+                kept.GetColor("_Color");  // kept as an asset, as a table keeps it: validated on its first read
+                Assert.That(MaterialWriter.Equivalent(kept, twin), Is.True, $"{state}: its validation leaves the kept twin as made");
+            }
+            Material faded = Made(MaterialWriter.Twin(validated, TwinState.Blended, host));
+            Assert.That(faded.IsKeywordEnabled("_EMISSION"), Is.False, "no emission shown, none stated");
+            Assert.That(faded.globalIlluminationFlags, Is.EqualTo(MaterialGlobalIlluminationFlags.EmissiveIsBlack), "as a write states none");
+        }
+
+        [Test]
         public void No_host_makes_no_twin()
         {
             var original = Blank();
@@ -473,6 +505,38 @@ namespace M3trik.Unitytk.Kernel.Tests
             Assert.That(host.Blended, Has.Some.EqualTo((faded, true)), "blended through the host's switch");
             MaterialWriter.SetTwinValues(glowing, original, host, 1f, new Color(0f, 3f, 0f, 1f));
             Assert.That(glowing.GetColor("_EmissiveColor").g, Is.GreaterThan(1f), "the emission colour slot, above 1 kept");
+        }
+
+        // The one rule every writer of an emission keeps (a material's, a twin's, a plain glowing part's) had no test of its
+        // own, nor HDRP's emitting twin of a material with no map.
+        [Test]
+        public void The_emission_switch_turns_its_keyword_on_by_its_rows_rule()
+        {
+            var builtIn = Written(new LitSurface(), RenderPipelineHosts.BuiltIn);
+            Assert.That(builtIn.IsKeywordEnabled("_EMISSION"), Is.False, "premise: no emission written");
+            MaterialWriter.SwitchEmission(builtIn, LitTable.BuiltIn, false);
+            Assert.That(builtIn.IsKeywordEnabled("_EMISSION"), Is.True, "Built-in: an emission needs its keyword, mapped or not");
+
+            var host = Hdrp();
+            var hdrp = Written(new LitSurface(), host);
+            MaterialWriter.SwitchEmission(hdrp, host.Lit, true);
+            Assert.That(hdrp.IsKeywordEnabled("_EMISSIVE_COLOR_MAP"), Is.True, "HDRP: a map to sample");
+            MaterialWriter.SwitchEmission(hdrp, host.Lit, false);
+            Assert.That(hdrp.IsKeywordEnabled("_EMISSIVE_COLOR_MAP"), Is.False, "no map: its keyword off");
+            MaterialWriter.SwitchEmission(hdrp, null, true);
+            Assert.That(hdrp.IsKeywordEnabled("_EMISSIVE_COLOR_MAP"), Is.False, "no table: nothing switched");
+        }
+
+        [Test]
+        public void Hdrps_row_twins_of_a_material_with_no_emission_map_leave_its_map_keyword_off()
+        {
+            var host = Hdrp();
+            var original = Written(new LitSurface { emission = Color.white }, host);
+            var emitting = Made(MaterialWriter.Twin(original, TwinState.Emitting, host));
+            Assert.That(emitting.IsKeywordEnabled("_EMISSIVE_COLOR_MAP"), Is.False, "an emission with no map: nothing to sample");
+            Assert.That(emitting.globalIlluminationFlags, Is.EqualTo(MaterialGlobalIlluminationFlags.RealtimeEmissive));
+            var glowing = Made(MaterialWriter.Twin(original, TwinState.Glowing, host));
+            Assert.That(glowing.IsKeywordEnabled("_EMISSIVE_COLOR_MAP"), Is.False, "a glow samples no map");
         }
 
         // -- binding a mask alone ------------------------------------------------------------

@@ -26,7 +26,7 @@ namespace M3trik.Unitytk.Kernel
     /// and UnityGLTF's importer map the same glTF model per pipeline, but onto shader
     /// graphs of their own (glTFast's glTF graphs, UnityGLTF's PBRGraph), which give a
     /// Unity user materials they would not recognise, a package dependency, and a
-    /// shader every other writer (fade, highlight) would have to learn; so neither is
+    /// shader every other material writer would have to learn; so neither is
     /// adopted now, and glTFast stays an opt-in door for reading GLB files, not built.
     /// This maps onto the pipeline's own Lit by the names its own inspectors write
     /// (Built-in's <c>StandardShaderGUI</c>, URP's <c>BaseShaderGUI</c> and
@@ -145,9 +145,15 @@ namespace M3trik.Unitytk.Kernel
         /// its map kept for <see cref="TwinState.Emitting"/> (<see cref="Normalized"/>: a
         /// glow takes the place of an emission). An effect instances it while the effect
         /// is active and puts the original back at rest; one made in the editor is the
-        /// template whose shader variant a player build keeps. Returns null for
-        /// <see cref="TwinState.None"/> (the original is its own), or where there is no
-        /// host or the host names no table (a pipeline no door serves).
+        /// template whose shader variant a player build keeps. A twin that adds no emission
+        /// to an original showing none states it off as <see cref="Write"/> does (its
+        /// keyword off, EmissiveIsBlack), whatever flags the original holds: Built-in's
+        /// Default-Material ships RealtimeEmissive and EmissiveIsBlack with no emission
+        /// keyword, which the editor's validation of a material asset (its shader's
+        /// inspector, on the asset's first property read) turns into emission on, so a twin
+        /// copying them would differ by whether it or its original had been read yet.
+        /// Returns null for <see cref="TwinState.None"/> (the original is its own), or where
+        /// there is no host or the host names no table (a pipeline no door serves).
         /// </summary>
         /// <param name="original">The material as authored.</param>
         /// <param name="state">What the effect asks of it.</param>
@@ -169,17 +175,33 @@ namespace M3trik.Unitytk.Kernel
             {
                 bool glowing = (state & TwinState.Glowing) != 0;
                 if (glowing && Has(twin, table.EmissionMap)) twin.SetTexture(table.EmissionMap, null);
-                if (table.EmissionKeyword != null)
-                {
-                    // Built-in's and URP's turns emission on; HDRP's samples the map, set aside by a glow.
-                    if (!table.EmissionKeywordForMapOnly) twin.EnableKeyword(table.EmissionKeyword);
-                    else if (glowing) twin.DisableKeyword(table.EmissionKeyword);
-                }
+                SwitchEmission(twin, table, Has(twin, table.EmissionMap) && twin.GetTexture(table.EmissionMap) != null);
                 twin.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 if (!Has(twin, table.EmissionColor))
                     losses?.Add($"{shader} has no emission colour the {host.Name} pipeline's table names: an added glow or emission is not shown");
             }
+            else if (Has(twin, table.EmissionColor) && !EmissionMapped(twin, host) && EmissionOf(twin, host).maxColorComponent <= 0f)
+            {
+                EmissionOff(twin, table);
+            }
             return twin;
+        }
+
+        /// <summary>
+        /// Switch <paramref name="material"/>'s emission on as <paramref name="table"/>'s Lit reads it: its keyword on
+        /// where emission needs one at all (Built-in's and URP's), or only where it samples a map
+        /// (<see cref="LitTable.EmissionKeywordForMapOnly"/>, HDRP's: off where <paramref name="mapped"/> is not), so
+        /// every writer of an emission (a material's, a twin's glow, a plain glowing part's) keeps the one rule.
+        /// Its colour and lightmap flags are the caller's.
+        /// </summary>
+        /// <param name="material">The material.</param>
+        /// <param name="table">Its pipeline's Lit (null: nothing switched).</param>
+        /// <param name="mapped">Whether it has an emission map bound.</param>
+        public static void SwitchEmission(Material material, LitTable table, bool mapped)
+        {
+            if (material == null || table?.EmissionKeyword == null) return;
+            if (!table.EmissionKeywordForMapOnly || mapped) material.EnableKeyword(table.EmissionKeyword);
+            else material.DisableKeyword(table.EmissionKeyword);
         }
 
         /// <summary>
@@ -347,13 +369,21 @@ namespace M3trik.Unitytk.Kernel
             SetColor(material, table.EmissionColor, emission);
             if (!emits)
             {
-                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
+                EmissionOff(material, table);
                 return;
             }
             SetMap(material, table.EmissionMap, surface.emissionMap, mapped);
-            if (table.EmissionKeyword != null && (!table.EmissionKeywordForMapOnly || surface.emissionMap != null))
-                material.EnableKeyword(table.EmissionKeyword);
+            SwitchEmission(material, table, surface.emissionMap != null);
             material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+        }
+
+        // No emission, as a write and a twin state it: its keyword off and its lightmap flags EmissiveIsBlack alone,
+        // the one state of none the editor's validation of a material asset keeps (its shader's inspector keeps
+        // EmissiveIsBlack only alone or beside a black baked emission, and switches the emission keyword on without it).
+        static void EmissionOff(Material material, LitTable table)
+        {
+            if (table.EmissionKeyword != null) material.DisableKeyword(table.EmissionKeyword);
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
         }
 
         // The clip toggle first: URP's blend switch reads it to queue a cut surface.

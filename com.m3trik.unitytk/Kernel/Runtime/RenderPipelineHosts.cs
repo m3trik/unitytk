@@ -25,6 +25,27 @@ namespace M3trik.Unitytk.Kernel
         /// <summary>The Built-in pipeline's host, which serves a project with no pipeline asset.</summary>
         public static IRenderPipelineHost BuiltIn { get; } = new BuiltInRenderPipelineHost();
 
+        /// <summary>
+        /// Put <paramref name="material"/>, on <paramref name="host"/>'s Lit, onto <paramref name="baked"/> -- a shader a
+        /// part brings written over that Lit (every property Lit's), such as a baked surface's -- where the host draws
+        /// it, its values and queue kept, so a renderer it was not brought for draws as before; true where it draws with
+        /// <paramref name="baked"/> now (false: its shader is not the host's Lit, or the host does not draw
+        /// <paramref name="baked"/>; it is left as it is).
+        /// </summary>
+        /// <param name="host">The host whose Lit the material must be on.</param>
+        /// <param name="material">The material (null: nothing).</param>
+        /// <param name="baked">The shader written over the host's Lit (null: nothing).</param>
+        public static bool SwapLit(IRenderPipelineHost host, Material material, Shader baked)
+        {
+            if (host == null || material == null || material.shader == null || baked == null) return false;
+            if (material.shader == baked) return true;
+            if (material.shader.name != host.LitShader || !host.Draws(baked)) return false;
+            int queue = material.renderQueue;
+            material.shader = baked;
+            material.renderQueue = queue;
+            return true;
+        }
+
         /// <summary>The host of the pipeline drawing now (the quality level's asset, else the default one), or null when none serves it.</summary>
         public static IRenderPipelineHost Current => For(GraphicsSettings.currentRenderPipeline);
 

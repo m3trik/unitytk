@@ -8,6 +8,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
 
 namespace M3trik.Unitytk.Lightmaps.Tests
 {
@@ -20,7 +21,8 @@ namespace M3trik.Unitytk.Lightmaps.Tests
     /// maps, which outlive Apply's clear; a cancelled bake gives the sets back their
     /// bindings; Assign fills one by hand, one Ctrl+Z taking it back; Validate refuses sets
     /// of disagreeing modes in one scene and names a scene a bake owns that holds sets and
-    /// a rotated probed model.
+    /// a rotated probed model (its scene rules alone, asked of no render pipeline: what a
+    /// pipeline's renderers do to a set is its door's tests').
     /// </summary>
     public class LightmapsActionsTests
     {
@@ -123,7 +125,7 @@ namespace M3trik.Unitytk.Lightmaps.Tests
                 UnityEngine.TestTools.LogAssert.Expect(LogType.Warning,
                     new System.Text.RegularExpressions.Regex("No Lightmap Set in the open scene"));
                 Assert.That(LightmapsActions.Apply(), Is.EqualTo(0), "no set of the open scenes: the stage's and the preview's are left alone");
-                Assert.That(LightmapsActions.Validate(), Is.EqualTo(0), "nor validated");
+                Assert.That(LightmapsActions.Validate(null, null), Is.EqualTo(0), "nor validated");
             }
             finally
             {
@@ -359,14 +361,43 @@ namespace M3trik.Unitytk.Lightmaps.Tests
             probe.transform.SetParent(set.transform, false);
             probe.boxProjection = true;
             set.probe = probe;
-            Assert.That(LightmapsActions.Validate(new OpContext(dryRun: true)), Is.EqualTo(0), "unrotated: nothing to say");
+            Assert.That(LightmapsActions.Validate(null, new OpContext(dryRun: true)), Is.EqualTo(0), "unrotated: nothing to say");
             set.transform.rotation = Quaternion.Euler(0f, 30f, 0f);
             var ctx = new OpContext(dryRun: true);
-            Assert.That(LightmapsActions.Validate(ctx), Is.EqualTo(1));
+            Assert.That(LightmapsActions.Validate(null, ctx), Is.EqualTo(1));
             Assert.That(ctx.Issues.Select(i => (i.code, i.severity)), Is.EqualTo(new[] { (LightmapsActions.ProbeRotatedCode, "warning") }));
             Assert.That(ctx.Issues[0].message, Does.Contain("Room"));
             probe.boxProjection = false;
-            Assert.That(LightmapsActions.Validate(new OpContext(dryRun: true)), Is.EqualTo(0), "a distant probe has no box to turn");
+            Assert.That(LightmapsActions.Validate(null, new OpContext(dryRun: true)), Is.EqualTo(0), "a distant probe has no box to turn");
+        }
+
+        [Test]
+        public void Validate_names_a_realtime_light_that_lights_mapped_renderers_again()
+        {
+            Room(Map(), out Renderer part);
+            var sun = new GameObject("Directional Light").AddComponent<Light>();
+            sun.type = LightType.Directional;
+            var ctx = new OpContext(dryRun: true);
+            Assert.That(LightmapsActions.Validate(null, ctx), Is.EqualTo(1));
+            Assert.That(ctx.Issues.Select(i => (i.code, i.severity)), Is.EqualTo(new[] { (LightmapsActions.LitTwiceCode, "warning") }));
+            Assert.That(ctx.Issues[0].message, Does.Contain("Directional Light"));
+            sun.cullingMask = ~(1 << part.gameObject.layer);
+            Assert.That(LightmapsActions.Validate(null, new OpContext(dryRun: true)), Is.EqualTo(0), "kept off the mapped renderers' layer");
+            sun.cullingMask = ~0;
+            sun.enabled = false;
+            Assert.That(LightmapsActions.Validate(null, new OpContext(dryRun: true)), Is.EqualTo(0), "switched off");
+        }
+
+        [Test]
+        public void Apply_names_the_lights_its_sets_switch_off_as_they_bind()
+        {
+            LightmapSet set = Room(Map(), out _);
+            set.lightsOff = true;
+            var sun = new GameObject("Directional Light").AddComponent<Light>();
+            sun.type = LightType.Directional;
+            LogAssert.Expect(LogType.Log, new System.Text.RegularExpressions.Regex("lit only their renderers are off while they bind: Directional Light"));
+            Assert.That(LightmapsActions.Apply(new OpContext()), Is.EqualTo(1));
+            Assert.That(sun.enabled, Is.False);
         }
 
         [Test]
@@ -395,6 +426,25 @@ namespace M3trik.Unitytk.Lightmaps.Tests
         }
 
         [Test]
+        public void A_nested_roots_plan_names_each_change_as_its_run_does()
+        {
+            Texture2D map = Map();
+            var site = new GameObject("Site");
+            var room = new GameObject("Room");
+            room.transform.SetParent(site.transform, false);
+            Renderer part = Part(room, "Part", Vector3.zero);
+            var rect = new Vector4(1f, 1f, 0f, 0f);
+
+            var plan = new OpContext(dryRun: true);
+            LightmapsActions.Assign(room, part, map, rect, plan);
+            var live = new OpContext();
+            LightmapsActions.Assign(room, part, map, rect, live);
+            Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(plan.Changes.Select(c => (c.kind, c.target, c.action))),
+                        "the plan names the set's object by its path, as the run does");
+            Assert.That(plan.Changes.Last().target, Is.EqualTo("Site/Room"));
+        }
+
+        [Test]
         public void Assign_refuses_a_renderer_of_another_scene_and_a_prefab_asset()
         {
             var room = new GameObject("Room");
@@ -417,12 +467,12 @@ namespace M3trik.Unitytk.Lightmaps.Tests
             LightmapSet two = Room(map, out _);
             two.mode = LightmapsMode.CombinedDirectional;
             var ctx = new OpContext(dryRun: true);
-            Assert.That(LightmapsActions.Validate(ctx), Is.EqualTo(1));
+            Assert.That(LightmapsActions.Validate(null, ctx), Is.EqualTo(1));
             var issue = ctx.Issues.Single();
             Assert.That(issue.code, Is.EqualTo(LightmapsActions.ModesDisagreeCode));
             Assert.That(issue.severity, Is.EqualTo("error"));
             two.mode = one.mode;
-            Assert.That(LightmapsActions.Validate(new OpContext(dryRun: true)), Is.EqualTo(0), "one mode: nothing to say");
+            Assert.That(LightmapsActions.Validate(null, new OpContext(dryRun: true)), Is.EqualTo(0), "one mode: nothing to say");
         }
 
         [Test]
@@ -431,7 +481,7 @@ namespace M3trik.Unitytk.Lightmaps.Tests
             Room(Map(), out _);
             string bake = Bake();
             var ctx = new OpContext(dryRun: true);
-            Assert.That(LightmapsActions.Validate(ctx), Is.EqualTo(1));
+            Assert.That(LightmapsActions.Validate(null, ctx), Is.EqualTo(1));
             var issue = ctx.Issues.Single();
             Assert.That(issue.code, Is.EqualTo(LightmapsActions.BakeOwnsSetsCode));
             Assert.That(issue.message, Does.Contain(bake).And.Contain("Room"));

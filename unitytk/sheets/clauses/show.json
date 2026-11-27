@@ -1,0 +1,15 @@
+{
+  "behavior": "show",
+  "order": 60,
+  "also": [
+    "highlight"
+  ],
+  "description": "A hidden target appears, highlighted.",
+  "detect": [
+    "^highlighted\\s+(?P<targets>.+?)\\s+appears?\\s+in\\s+place$"
+  ],
+  "roles": [
+    "shows",
+    "plural"
+  ]
+}

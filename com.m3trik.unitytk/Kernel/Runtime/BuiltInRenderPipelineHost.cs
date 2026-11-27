@@ -62,6 +62,21 @@ namespace M3trik.Unitytk.Kernel
         }
 
         /// <inheritdoc/>
+        /// <remarks>None: the Standard inspector's modes blend by alpha (Fade, Transparent) or cut, and the pipeline's
+        /// unlit shaders blend by a state written in their passes.</remarks>
+        public bool SetAdditive(Material material) => false;
+
+        /// <inheritdoc/>
+        public int DisplaySize => 0;
+
+        /// <inheritdoc/>
+        public System.IDisposable Display(Texture2D display, float scale, out string why, DisplayOptions options = null)
+        {
+            why = "the Built-in pipeline has no post-processing stack of its own to show a display transform through";
+            return null;
+        }
+
+        /// <inheritdoc/>
         public void Render(Camera camera, RenderTexture target)
         {
             RenderTexture was = camera.targetTexture;

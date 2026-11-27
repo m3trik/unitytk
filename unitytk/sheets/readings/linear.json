@@ -1,0 +1,27 @@
+{
+  "strict": true,
+  "names": {
+    "inline": "\\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\\b",
+    "viewpoint": "^VIEW_",
+    "arrow": "^(?P<part>.+)_ARROW$"
+  },
+  "columns": [
+    "step_id",
+    "step_name",
+    "description",
+    "assets",
+    "clip",
+    "audio",
+    "audio_file"
+  ],
+  "cell_columns": [
+    "Step",
+    "Step Name",
+    "Voice",
+    "Audio",
+    "Action",
+    "Target",
+    "Settings",
+    "Notes"
+  ]
+}

@@ -30,7 +30,7 @@ namespace M3trik.Unitytk.ArticulatedRig.XRI
             // A node may hold several rigs, each with its own setup.
             foreach (ArticulatedRigXRSetup held in rig.GetComponents<ArticulatedRigXRSetup>())
                 if (held.rig == rig) return true;
-            if (ctx != null && !ctx.ShouldCreate($"{rig.name}/{nameof(ArticulatedRigXRSetup)}",
+            if (ctx != null && !ctx.ShouldCreate(OpContextEdits.Key(rig.gameObject, typeof(ArticulatedRigXRSetup)),
                                                  "add an XR setup: each grab part becomes an XR interactable")) return ctx.DryRun;
             ArticulatedRigXRSetup setup = ctx.AddComponent<ArticulatedRigXRSetup>(rig.gameObject);
             setup.rig = rig;

@@ -168,6 +168,88 @@ namespace M3trik.Unitytk.RenderEffects.Tests
         }
 
         [Test]
+        public void A_twin_made_once_stays_made_though_the_editor_validates_it_on_a_read()
+        {
+            // Unity's Default-Material (what the Tasks sample's renderers wear on Built-in) ships RealtimeEmissive |
+            // EmissiveIsBlack with its emission keyword off, which the editor's validation of a material asset (its
+            // shader's inspector, run on the asset's first property read) turns into emission on: the kept twin, read by
+            // the next run's comparison, then differed from a twin made afresh, and every run after it made the twin again.
+            Assume.That(_stage.Table, Is.SameAs(LitTable.BuiltIn), "Built-in's Default-Material: the Built-in project's test");
+            var shipped = _stage.Made(new Material(Shader.Find(_stage.Host.LitShader))
+            {
+                name = "Shipped",
+                globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive | MaterialGlobalIlluminationFlags.EmissiveIsBlack,
+            });
+            _stage.Renderer("Hinge", _door.transform, shipped);
+            _door.AddComponent<Fade>();
+            _door.AddComponent<Highlight>();
+            if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets", Path.GetFileName(Folder));
+            string path = Folder + "/Shed Twins.asset";
+            Assert.That(RenderEffectsActions.PrepareMaterials(_model, path), Is.GreaterThan(0));
+            for (int run = 2; run <= 3; run++)
+            {
+                var again = new OpContext(dryRun: true);
+                RenderEffectsActions.PrepareMaterials(_model, path, again);
+                Assert.That(again.Changes.Select(c => $"{c.kind} {c.target}: {c.action}"), Is.Empty, $"run {run} plans nothing");
+            }
+        }
+
+        [Test]
+        public void A_dry_run_prepares_the_twins_of_the_effects_it_only_planned_as_its_live_run_does()
+        {
+            // A build adds its effects and prepares their twins in one run; its dry run has added nothing yet.
+            if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets", Path.GetFileName(Folder));
+            string path = Folder + "/Shed Twins.asset";
+            void Run(OpContext ctx)
+            {
+                RenderEffectsActions.AddHighlight(_door, true, ctx: ctx);
+                RenderEffectsActions.AddFadeTo(_door, 1f, ctx: ctx);
+                RenderEffectsActions.PrepareMaterials(_model, path, ctx);
+            }
+            var dry = new OpContext(dryRun: true);
+            Run(dry);
+            Assert.That(File.Exists(path), Is.False, "a dry run writes nothing");
+            var live = new OpContext();
+            Run(live);
+            Assert.That(dry.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(live.Changes.Select(c => (c.kind, c.target, c.action))),
+                        "the plan is the run, the twins of the planned effects with it");
+            Assert.That(live.Changes.Count(c => c.action.StartsWith("add the twin", StringComparison.Ordinal)), Is.EqualTo(3),
+                        "a Fade's and a Highlight's three states");
+            Assert.That(_door.GetComponent<Highlight>().twins, Is.SameAs(AssetDatabase.LoadAssetAtPath<MaterialTwins>(path)));
+        }
+
+        [Test]
+        public void A_table_already_at_the_path_is_added_to_and_given_to_new_effects_never_a_second_beside_it()
+        {
+            if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets", Path.GetFileName(Folder));
+            string path = Folder + "/Shed Twins.asset";
+            _door.AddComponent<Highlight>();
+            Assert.That(RenderEffectsActions.PrepareMaterials(_model, path), Is.EqualTo(1 + 1));
+            // The scene built anew: the same effect made again, with no table.
+            UnityEngine.Object.DestroyImmediate(_door.GetComponent<Highlight>());
+            var again = _door.AddComponent<Highlight>();
+            var ctx = new OpContext();
+            Assert.That(RenderEffectsActions.PrepareMaterials(_model, path, ctx), Is.EqualTo(1), "its twin is there: the table is only given to it");
+            Assert.That(ctx.Changes.Select(c => c.kind), Is.EqualTo(new[] { "change" }));
+            Assert.That(again.twins, Is.SameAs(AssetDatabase.LoadAssetAtPath<MaterialTwins>(path)));
+            Assert.That(AssetDatabase.FindAssets("t:MaterialTwins", new[] { Folder }).Length, Is.EqualTo(1), "one table");
+        }
+
+        [Test]
+        public void What_is_left_out_of_the_effects_above_it_needs_no_twin_of_theirs()
+        {
+            if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets", Path.GetFileName(Folder));
+            _door.AddComponent<Highlight>();
+            var arrow = _stage.Node("Arrow", _door.transform);
+            arrow.AddComponent<EffectExempt>();
+            _stage.Renderer("Shaft", arrow.transform, _stage.Lit("Blue"));
+            string path = Folder + "/Shed Twins.asset";
+            RenderEffectsActions.PrepareMaterials(_model, path);
+            Assert.That(AssetDatabase.LoadAssetAtPath<MaterialTwins>(path).twins.Select(t => t.original.name), Is.EqualTo(new[] { "Wood" }),
+                        "the door's panel glows; the arrow under it does not");
+        }
+
+        [Test]
         public void Prepare_materials_saves_what_it_wrote_and_no_other_asset()
         {
             _door.AddComponent<Fade>();
@@ -181,6 +263,87 @@ namespace M3trik.Unitytk.RenderEffects.Tests
             Assert.That(RenderEffectsActions.PrepareMaterials(_model, path), Is.GreaterThan(0));
             Assert.That(EditorUtility.IsDirty(AssetDatabase.LoadAssetAtPath<MaterialTwins>(path)), Is.False, "the table it wrote is saved");
             Assert.That(EditorUtility.IsDirty(other), Is.True, "another asset's unsaved edit is the person's to save");
+        }
+
+        [Test]
+        public void A_highlight_and_fades_for_a_step_are_planned_made_disabled_once_and_undone()
+        {
+            void Run(OpContext ctx)
+            {
+                RenderEffectsActions.AddHighlight(_door, true, ctx: ctx);
+                RenderEffectsActions.AddFadeTo(_door, 1f, ctx: ctx);
+                RenderEffectsActions.AddFadeTo(_door, 0f, ctx: ctx);
+                RenderEffectsActions.AddFadeTo(_door, 0f, ctx: ctx);
+            }
+            var dry = new OpContext(dryRun: true);
+            Run(dry);
+            Assert.That(_door.GetComponent<Highlight>() == null && _door.GetComponent<Fade>() == null, "a dry run makes nothing");
+            OpContext.RunMenu("Effects for a step", ctx =>
+            {
+                Run(ctx);
+                Assert.That(ctx.Changes.Select(c => (c.kind, c.target)), Is.EqualTo(dry.Changes.Select(c => (c.kind, c.target))));
+            });
+            var highlight = _door.GetComponent<Highlight>();
+            Assert.That(!highlight.enabled && highlight.intensity == 1f && highlight.pulse, "made disabled: a step enables it");
+            Assert.That(_door.GetComponent<Fade>().alpha, Is.EqualTo(0f), "a fade in starts hidden");
+            Assert.That(_door.GetComponents<FadeTo>().Select(f => (f.alpha, f.enabled)), Is.EqualTo(new[] { (1f, false), (0f, false) }));
+            Assert.That(_door.GetComponent<FadeTo>().seconds, Is.EqualTo(FadeTo.DefaultSeconds), "the effect recipe's length");
+            var again = new OpContext(dryRun: true);
+            Run(again);
+            Assert.That(again.Changes, Is.Empty);
+            Undo.PerformUndo();
+            Assert.That(_door.GetComponent<Highlight>() == null && _door.GetComponent<FadeTo>() == null, "one Ctrl+Z took them away");
+        }
+
+        [Test]
+        public void A_state_switch_for_a_step_is_planned_made_disabled_once_and_switches_its_track()
+        {
+            Material lensMat = _stage.Lit("lens_led", new LitSurface { emission = Color.white });
+            Renderer lens = _stage.Renderer("Lens", _door.transform, lensMat);
+            var track = _stage.Node("lens_led", _model.transform).AddComponent<EmissionTrack>();
+            track.material = lensMat;
+            track.color = MaterialColor.Encode(Color.white);
+            track.strength = 2f;
+            track.weight = 0f;
+            track.states.Add(new EmissionState { name = "off", tint = Color.white, weight = 0f });
+            track.states.Add(new EmissionState { name = "amber", tint = new Color(1f, 0.5f, 0f), weight = 1f });
+
+            var dry = new OpContext(dryRun: true);
+            Assert.That(RenderEffectsActions.AddStateSwitch(track, "amber", ctx: dry), Is.Null);
+            Assert.That(track.GetComponent<EmissionStateSwitch>(), Is.Null, "a dry run makes nothing");
+            Assert.That(dry.Changes.Count, Is.EqualTo(1));
+            EmissionStateSwitch amber = RenderEffectsActions.AddStateSwitch(track, "amber");
+            Assert.That(amber.enabled, Is.False, "made disabled: a step enables it");
+            Assert.That(RenderEffectsActions.AddStateSwitch(track, "amber"), Is.SameAs(amber), "once per state");
+            Assert.That(RenderEffectsActions.AddStateSwitch(track, "off"), Is.Not.SameAs(amber), "a switch per state");
+
+            Assert.That(amber.Switch(), Is.True, "what enabling it does");
+            Assert.That(track.weight, Is.EqualTo(1f));
+            Stage.AssertRgb(_stage.Emission(lens.sharedMaterial), new Color(2f, 1f, 0f), "white x amber x strength 2");
+            var refused = Assert.Throws<ArgumentException>(() => RenderEffectsActions.AddStateSwitch(track, "blue"));
+            Assert.That(refused.Message, Does.Contain("off, amber"), "its states named");
+        }
+
+        [Test]
+        public void Each_adds_switched_on_where_asked_and_names_a_repeated_node_by_its_path()
+        {
+            Highlight glow = RenderEffectsActions.AddHighlight(_door, false, startEnabled: true);
+            FadeTo fade = RenderEffectsActions.AddFadeTo(_door, 0f, 2f, startEnabled: true);
+            Assert.That(glow.enabled && fade.enabled, Is.True, "switched on from the start");
+            Assert.That(fade.seconds, Is.EqualTo(2f));
+
+            var twin = new GameObject(_door.name);  // another object of its name: plans name each by its path
+            try
+            {
+                var plan = new OpContext(dryRun: true);
+                RenderEffectsActions.AddHighlight(twin, ctx: plan);
+                Assert.That(plan.Changes.Single().target, Is.EqualTo($"{twin.name}/{nameof(Highlight)}"), "a root's path is its name");
+                Assert.That(OpContextEdits.Key(_door, typeof(Highlight)), Does.Contain("/" + _door.name + "/"), "the nested one by its path");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(twin);
+            }
         }
     }
 }

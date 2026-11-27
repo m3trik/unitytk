@@ -1,0 +1,33 @@
+{
+    "name": "M3trik.Unitytk.Interaction.UGUI.Editor",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Core",
+        "M3trik.Unitytk.Kernel",
+        "M3trik.Unitytk.Kernel.Runtime",
+        "M3trik.Unitytk.Interaction",
+        "M3trik.Unitytk.Interaction.Editor",
+        "M3trik.Unitytk.Interaction.UGUI",
+        "UnityEngine.UI",
+        "UnityEditor.UI"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITYTK_UGUI"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.ugui",
+            "expression": "2.0.0",
+            "define": "UNITYTK_UGUI"
+        }
+    ],
+    "noEngineReferences": false
+}

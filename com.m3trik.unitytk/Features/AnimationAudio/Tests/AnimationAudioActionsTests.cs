@@ -33,6 +33,84 @@ namespace M3trik.Unitytk.AnimationAudio.Tests
             _sound = AudioClip.Create("step", 8000, 1, 8000, false);
         }
 
+        [Test]
+        public void A_sound_cue_is_planned_then_made_off_and_flat_and_plays_its_sound_once_on()
+        {
+            var dry = new OpContext(dryRun: true);
+            Assert.That(AnimationAudioActions.AddSoundCue("Voices", "A01", _sound, ctx: dry), Is.Null, "a dry run makes nothing");
+            Assert.That(AnimationAudioActions.AddSoundCue("Voices", "A01", _sound, ctx: dry), Is.Null, "planned once");
+            var live = new OpContext();
+            SoundCue cue = AnimationAudioActions.AddSoundCue("Voices", "A01", _sound, ctx: live);
+            Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(dry.Changes.Select(c => (c.kind, c.target, c.action))));
+            Assert.That(dry.Changes.Select(c => c.target), Is.EqualTo(new[] { "Voices", "Voices/A01/SoundCue" }), "the holder and the cue, by their paths");
+            Assert.That(cue.transform.parent.name, Is.EqualTo("Voices"));
+            Assert.That((cue.enabled, cue.clip, cue.Length), Is.EqualTo((false, _sound, 1f)), "made off, for a step to switch on");
+            Assert.That(cue.Source.spatialBlend, Is.Zero, "a voice in the ears, not in the room");
+            Assert.That(cue.Source.playOnAwake, Is.False, "its source waits for it (the cue sets it up, not the action)");
+            Assert.That(AnimationAudioActions.AddSoundCue("Voices", "A01", _sound, ctx: new OpContext(dryRun: true)), Is.SameAs(cue));
+            Assert.That(cue.Play(), Is.True);
+            Assert.That((cue.Source.clip, cue.Source.loop), Is.EqualTo((_sound, false)));
+        }
+
+        [Test]
+        public void Two_cues_of_one_name_under_two_holders_are_planned_apart_as_they_are_made()
+        {
+            void Run(OpContext ctx)
+            {
+                AnimationAudioActions.AddSoundCue("Left", "A01", _sound, ctx: ctx);
+                AnimationAudioActions.AddSoundCue("Right", "A01", _sound, ctx: ctx);
+            }
+            var dry = new OpContext(dryRun: true);
+            Run(dry);
+            var live = new OpContext();
+            Run(live);
+            Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(dry.Changes.Select(c => (c.kind, c.target, c.action))));
+            Assert.That(dry.Changes.Count, Is.EqualTo(4), "each holder and its own cue");
+        }
+
+        [Test]
+        public void A_sound_cue_switched_on_plays_its_sound_and_switched_off_stops_it()
+        {
+            SoundCue cue = AnimationAudioActions.AddSoundCue("Voices", "A01", _sound, spatialBlend: 1f);
+            Assert.That(cue.Play(), Is.True, "what switching it on does");
+            Assert.That((cue.Source.isPlaying, cue.Source.clip, cue.Source.spatialBlend), Is.EqualTo((true, _sound, 1f)), "its sound, set on its source as it plays");
+            cue.Stop();
+            Assert.That(cue.Source.isPlaying, Is.False, "what switching it off does");
+            cue.clip = null;
+            Assert.That(cue.Play(), Is.False, "no sound: nothing plays");
+        }
+
+        [Test]
+        public void A_sound_cue_plays_placed_looping_or_as_its_source_is_set_up_as_asked()
+        {
+            SoundCue cue = AnimationAudioActions.AddSoundCue("Voices", "A01", _sound, startEnabled: true, spatialBlend: 1f, loop: true);
+            Assert.That((cue.enabled, cue.spatialBlend, cue.loop), Is.EqualTo((true, 1f, true)), "switched on from the start, placed, looping");
+            cue.Play();
+            Assert.That((cue.Source.spatialBlend, cue.Source.loop), Is.EqualTo((1f, true)));
+
+            var plan = new OpContext(dryRun: true);
+            AnimationAudioActions.AddSoundCue("Voices", "A01", _sound, ctx: plan);
+            Assert.That(plan.Changes.Single().kind, Is.EqualTo("change"), "played another way: brought up to date");
+
+            var own = AudioClip.Create("own", 4000, 1, 8000, false);
+            try
+            {
+                cue.setSource = false;
+                cue.clip = null;
+                cue.Source.clip = own;
+                cue.Source.loop = false;
+                cue.Source.spatialBlend = 0.5f;
+                Assert.That(cue.Play(), Is.True);
+                Assert.That((cue.Source.clip, cue.Source.loop, cue.Source.spatialBlend), Is.EqualTo((own, false, 0.5f)),
+                            "the source played as it is set up");
+                Assert.That(cue.Length, Is.EqualTo(0.5f), "the source's own clip's length");
+            }
+            finally
+            {
+                Object.DestroyImmediate(own);
+            }
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -67,7 +145,7 @@ namespace M3trik.Unitytk.AnimationAudio.Tests
             Assert.That(AnimationUtility.GetAnimationEvents(_clip), Is.Empty, "a dry run adds nothing");
             var live = new OpContext();
             AnimationAudioActions.AddCue(_clip, _sound, 0.5f, ctx: live);
-            Assert.That(live.Changes.Select(c => (c.kind, c.target)), Is.EqualTo(plan.Changes.Select(c => (c.kind, c.target))));
+            Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(plan.Changes.Select(c => (c.kind, c.target, c.action))));
             Assert.That(Functions(_clip), Is.EqualTo(new[] { "PlayAudio@0.50" }), "no stop: it plays to its end or its clip's");
 
             var again = new OpContext(dryRun: true);
@@ -140,7 +218,7 @@ namespace M3trik.Unitytk.AnimationAudio.Tests
             Assert.That(actor.GetComponent<AnimationAudioPlayer>() == null, "a dry run adds nothing");
             var live = new OpContext();
             AnimationAudioActions.AddPlayer(actor, live);
-            Assert.That(live.Changes.Select(c => (c.kind, c.target)), Is.EqualTo(plan.Changes.Select(c => (c.kind, c.target))));
+            Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(plan.Changes.Select(c => (c.kind, c.target, c.action))));
             var again = new OpContext(dryRun: true);
             Assert.That(AnimationAudioActions.AddPlayer(actor, again), Is.False);
             Assert.That(again.Changes, Is.Empty);

@@ -1,0 +1,8 @@
+{
+  "behavior": "set_state",
+  "order": 90,
+  "description": "Targets' indicator lights switch to a state ('The solenoid LED turns amber'): the default indicator states; a task with others adds its own clause.",
+  "detect": [
+    "^(?P<targets>.+?)\\s+(?:turns|goes|switches\\s+to)\\s+(?P<state>off|green|blue|amber|red)$"
+  ]
+}

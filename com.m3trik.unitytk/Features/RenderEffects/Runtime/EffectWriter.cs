@@ -111,6 +111,7 @@ namespace M3trik.Unitytk.RenderEffects
             var groups = new Dictionary<(Fade, Highlight), int>();
             foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
             {
+                if (EffectExempt.Leaves(renderer.transform, root.transform)) continue;  // no part of what this root shows
                 Fade fade = null;
                 Highlight highlight = null;
                 for (Transform t = renderer.transform; t != null; t = t.parent)
@@ -174,6 +175,9 @@ namespace M3trik.Unitytk.RenderEffects
             }
         }
 
+        /// <summary>The renderers it holds: a track's, each wearing its material (<see cref="IndicatorGlow"/> draws at them).</summary>
+        internal IReadOnlyList<Renderer> Renderers => _renderers;
+
         /// <summary>Whether it holds a renderer under <paramref name="node"/>.</summary>
         internal bool HoldsUnder(Transform node)
         {
@@ -230,7 +234,7 @@ namespace M3trik.Unitytk.RenderEffects
         }
 
         // The material as authored behind worn: the original of the twin another writer has on it, else worn.
-        static Material Authored(Material worn)
+        internal static Material Authored(Material worn)
         {
             if (worn == null) return null;
             foreach (EffectWriter writer in _holding)

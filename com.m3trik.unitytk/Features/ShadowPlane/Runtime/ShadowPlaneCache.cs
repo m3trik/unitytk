@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using M3trik.Unitytk.Kernel;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -13,8 +14,8 @@ namespace M3trik.Unitytk.ShadowPlane
     /// a rect of its slot sized at <see cref="TexelInMapPixels"/> map pixels a
     /// texel, by the shader's SHADOWPLANECACHE pass; every staged plane goes
     /// through ONE command buffer per frame -- flushed as the frame's first camera
-    /// renders (Camera.onPreCull in Built-in, beginContextRendering in a scriptable
-    /// pipeline), after every plane's LateUpdate, with no component of its
+    /// renders (the kernel's CameraDrawing.Rendering: Camera.onPreCull in Built-in,
+    /// beginContextRendering in a scriptable pipeline), after every plane's LateUpdate, with no component of its
     /// own -- stalest first, within <see cref="TexelsPerFrame"/>. A plane the budget defers keeps the placement
     /// it was marched at, so its image and its position never disagree; one with
     /// no cache yet marches per pixel until its turn. The WebXR viewer's
@@ -85,12 +86,11 @@ namespace M3trik.Unitytk.ShadowPlane
             if (!_hooked)
             {
                 _hooked = true;
-                Camera.onPreCull += _ => FlushOncePerFrame();
-                RenderPipelineManager.beginContextRendering += (_, __) => FlushOncePerFrame();
+                CameraDrawing.Rendering += FlushOncePerFrame;
             }
         }
 
-        static void FlushOncePerFrame()
+        static void FlushOncePerFrame(Camera camera)
         {
             if (_staged.Count == 0 || _flushedFrame == Time.frameCount) return;
             _flushedFrame = Time.frameCount;
@@ -104,13 +104,23 @@ namespace M3trik.Unitytk.ShadowPlane
                 _slots[c.cacheSlot] = null;
             c.cacheSlot = -1;
             c.cacheValid = false;
+            // the last plane gone (switched off, a scene unloaded): what served it goes with it
+            if (!Holds() && (_atlas != null || _cmd != null || _hooked)) Dispose();
+        }
+
+        // Whether a plane still holds anything here: one staged, or a slot taken.
+        static bool Holds()
+        {
+            if (_staged.Count > 0) return true;
+            for (int i = 0; i < _slots.Count; i++) if (_slots[i] != null) return true;
+            return false;
         }
 
         /// <summary>
         /// Free the atlas and the command buffer, every plane's slot given up, so the next
-        /// caching plane makes an atlas again. The editor calls it before scripts reload: the
-        /// reload empties the static, and an atlas it held (kept alive by its hide flags)
-        /// would be orphaned, one per recompile.
+        /// caching plane makes an atlas again. The last plane's <see cref="Release"/> runs it,
+        /// and the editor before scripts reload: the reload empties the static, and an atlas it
+        /// held (kept alive by its hide flags) would be orphaned, one per recompile.
         /// </summary>
         internal static void Dispose()
         {
@@ -132,6 +142,8 @@ namespace M3trik.Unitytk.ShadowPlane
             _cols = 0;
             if (_cmd != null) _cmd.Release();
             _cmd = null;
+            if (_hooked) CameraDrawing.Rendering -= FlushOncePerFrame;
+            _hooked = false;
             Shader.SetGlobalTexture(ID_ShadowCache, (Texture)null);
         }
 

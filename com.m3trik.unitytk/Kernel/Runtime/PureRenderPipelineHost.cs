@@ -58,6 +58,12 @@ namespace M3trik.Unitytk.Kernel
         /// <summary>Every blend switch it was asked for, in order.</summary>
         public List<(Material material, bool blended)> Blended { get; } = new List<(Material, bool)>();
 
+        /// <summary>What its additive switch answers: true, a switch for every shader.</summary>
+        public bool Adds { get; set; } = true;
+
+        /// <summary>Every material its additive switch was asked for, in order.</summary>
+        public List<Material> Added { get; } = new List<Material>();
+
         /// <summary>Every camera it was asked to render, in order.</summary>
         public List<Camera> Rendered { get; } = new List<Camera>();
 
@@ -78,6 +84,42 @@ namespace M3trik.Unitytk.Kernel
         }
 
         /// <inheritdoc/>
+        public bool SetAdditive(Material material)
+        {
+            Added.Add(material);
+            return Adds;
+        }
+
+        /// <inheritdoc/>
         public void Render(Camera camera, RenderTexture target) => Rendered.Add(camera);
+
+        /// <summary>The table size it answers <see cref="DisplaySize"/> with (16 unless a test sets it).</summary>
+        public int DisplaySize { get; set; } = 16;
+
+        /// <summary>The display transforms shown and not yet put away, with their scale and options.</summary>
+        public List<(Texture2D display, float scale, DisplayOptions options)> Shown { get; } = new List<(Texture2D, float, DisplayOptions)>();
+
+        /// <inheritdoc/>
+        public IDisposable Display(Texture2D display, float scale, out string why, DisplayOptions options = null)
+        {
+            why = null;
+            var shown = (display, scale, options);
+            Shown.Add(shown);
+            return new PutAway(() => Shown.Remove(shown));
+        }
+
+        // What a display transform's disposal does: once.
+        sealed class PutAway : IDisposable
+        {
+            Action _away;
+
+            internal PutAway(Action away) => _away = away;
+
+            public void Dispose()
+            {
+                _away?.Invoke();
+                _away = null;
+            }
+        }
     }
 }

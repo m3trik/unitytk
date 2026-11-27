@@ -1,0 +1,19 @@
+{
+    "name": "M3trik.Unitytk.Placement",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Core",
+        "M3trik.Unitytk.Placement.Model",
+        "M3trik.Unitytk.Kernel.Runtime",
+        "M3trik.Unitytk.Contracts"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

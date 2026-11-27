@@ -55,6 +55,18 @@ namespace M3trik.Unitytk.AnimationAudio.Tests
         }
 
         [Test]
+        public void A_cue_whose_sound_something_else_plays_is_left_out()
+        {
+            // A task plays each step's voice line as the step starts; the same line, delivered in the step's
+            // take, would play a second time when the user sets the take off (2026-11-25).
+            _player.leave.Add(_sound.name);
+            _player.PlayAudio(Cue(PersistedStrings.PlayAudioFunction, _sound));
+            Assert.That(_player.Playing, Is.EqualTo(0), "left to what plays it");
+            _player.PlayAudio(Cue(PersistedStrings.PlayAudioFunction, _other));
+            Assert.That(_player.IsPlaying(_other), Is.True, "every other cue plays as before");
+        }
+
+        [Test]
         public void A_cue_plays_from_its_offset_until_its_stop_event()
         {
             _player.PlayAudio(Cue(PersistedStrings.PlayAudioFunction, _sound, 0.5f));

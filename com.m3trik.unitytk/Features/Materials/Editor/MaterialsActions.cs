@@ -159,18 +159,24 @@ namespace M3trik.Unitytk.Materials
         /// Import each texture <paramref name="material"/>'s slots bind in the role its
         /// slot reads it in, through the pipeline's table: a normal map as a normal map,
         /// the metal / smoothness, mask and occlusion maps linear (sRGB off), the base
-        /// colour and emission maps as sRGB colour. Its import settings change and it
-        /// reimports; nothing else does. A texture two slots read in different roles is
-        /// said, and left.
+        /// colour and emission maps as sRGB colour, and, where full size is asked, each
+        /// still at the project's default cap (its default texture import preset's, else Unity's
+        /// 2048, which halves a 4K map) at its own size; a cap a person chose (any other) stays.
+        /// Its import settings change and it reimports; nothing else does. A texture two slots
+        /// read in different roles is said, and left.
         /// </summary>
         /// <param name="material">Any material, on its pipeline's Lit or Unlit.</param>
+        /// <param name="fullSize">Raise a texture still at the project's default cap to its own size; false: every cap
+        /// stays; null (the default): as the project's setting says (<see cref="MaterialsSettings.fullSize"/>, Project
+        /// Settings ▸ unitytk ▸ Materials).</param>
         /// <param name="ctx">The run's context: a dry run lists the changes; null just makes them. Each change is a
         /// write of the texture's import settings (its <c>.meta</c>), which an undo does not take back.</param>
         /// <returns>How many textures it reimported (in a dry run, would).</returns>
         /// <exception cref="ArgumentNullException"><paramref name="material"/> is null.</exception>
-        public static int FixTextureRoles(Material material, OpContext ctx = null)
+        public static int FixTextureRoles(Material material, bool? fullSize = null, OpContext ctx = null)
         {
             if (material == null) throw new ArgumentNullException(nameof(material));
+            bool full = fullSize ?? MaterialsSettings.instance.fullSize;
             IRenderPipelineHost host = RenderPipelineHosts.Current;
             if (host == null)
             {
@@ -211,16 +217,21 @@ namespace M3trik.Unitytk.Materials
                 bool srgb = pair.Value == TextureRole.Colour;
                 bool typed = normal ? importer.textureType == TextureImporterType.NormalMap
                                     : importer.textureType != TextureImporterType.NormalMap;
-                if (typed && (normal || importer.sRGBTexture == srgb)) continue;
+                bool roled = typed && (normal || importer.sRGBTexture == srgb);
+                int defaultCap = full ? MaterialsTextureRoles.DefaultCap(importer) : 0;
+                bool capped = full && MaterialsTextureRoles.FullSize(importer, false, defaultCap);
+                if (roled && !capped) continue;
                 string role = normal ? "a normal map" : srgb ? "sRGB colour" : "linear data";
+                string what = roled ? "import it at its own size" : capped ? $"import it as {role}, at its own size" : $"import it as {role}";
                 fixedCount++;
-                if (ctx != null && !ctx.ShouldWrite(pair.Key + ".meta", $"import it as {role}")) continue;
+                if (ctx != null && !ctx.ShouldWrite(pair.Key + ".meta", what)) continue;
                 if (normal) importer.textureType = TextureImporterType.NormalMap;
                 else
                 {
                     if (importer.textureType == TextureImporterType.NormalMap) importer.textureType = TextureImporterType.Default;
                     importer.sRGBTexture = srgb;
                 }
+                if (full) MaterialsTextureRoles.FullSize(importer, true, defaultCap);
                 importer.SaveAndReimport();
             }
             return fixedCount;

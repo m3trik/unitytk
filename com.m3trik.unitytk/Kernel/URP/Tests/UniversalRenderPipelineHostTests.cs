@@ -16,6 +16,66 @@ namespace M3trik.Unitytk.Kernel.URP.Tests
         readonly IRenderPipelineHost _host = new UniversalRenderPipelineHost();
 
         [Test]
+        public void A_display_table_of_its_size_shows_with_every_camera_post_processed_at_once_and_goes_away()
+        {
+            // Post-processing is on before a camera's next frame, not from the frame after: a camera reads it
+            // before its own rendering starts.
+            var camera = new GameObject("CAMERA").AddComponent<Camera>();
+            var data = camera.GetUniversalAdditionalCameraData();
+            data.renderPostProcessing = false;
+            int size = _host.DisplaySize;
+            var wrong = new Texture2D(8, 8, TextureFormat.RGBAHalf, false, true);
+            var right = new Texture2D(size * size, size, TextureFormat.RGBAHalf, false, true);
+            try
+            {
+                Assert.That(size, Is.EqualTo(UniversalRenderPipeline.asset.colorGradingLutSize));
+                Assert.That(_host.Display(wrong, 1f / 16f, out string why), Is.Null);
+                Assert.That(why, Does.Contain("size"));
+                System.IDisposable shown = _host.Display(right, 1f / 16f, out why);
+                Assert.That(shown, Is.Not.Null, why);
+                Assert.That(data.renderPostProcessing, Is.True, "on at once");
+                shown.Dispose();
+                Assert.That(data.renderPostProcessing, Is.False, "off again where it was off");
+            }
+            finally
+            {
+                Object.DestroyImmediate(camera.gameObject);
+                Object.DestroyImmediate(wrong);
+                Object.DestroyImmediate(right);
+            }
+        }
+
+        [Test]
+        public void A_lit_material_takes_the_shader_brought_for_a_baked_surface_with_its_values_and_another_is_left()
+        {
+            // A shader URP draws, written over Lit's properties: Simple Lit stands in for a part's own.
+            Shader baked = Shader.Find("Universal Render Pipeline/Simple Lit");
+            var lit = new Material(Shader.Find(_host.LitShader));
+            var other = new Material(Shader.Find("Hidden/Internal-Colored"));
+            try
+            {
+                lit.SetColor("_BaseColor", new Color(0.2f, 0.4f, 0.6f, 1f));
+                lit.renderQueue = 2010;
+                Assert.That(RenderPipelineHosts.SwapLit(_host, lit, baked), Is.True);
+                Assert.That(lit.shader, Is.SameAs(baked));
+                Assert.That(Vector4.Distance(lit.GetColor("_BaseColor"), new Color(0.2f, 0.4f, 0.6f, 1f)), Is.LessThan(1e-4f), "its values kept");
+                Assert.That(lit.renderQueue, Is.EqualTo(2010));
+                Assert.That(RenderPipelineHosts.SwapLit(_host, lit, baked), Is.True, "on it already");
+                Assert.That(RenderPipelineHosts.SwapLit(_host, other, baked), Is.False, "not Lit: left as it is");
+                Assert.That(other.shader.name, Is.EqualTo("Hidden/Internal-Colored"));
+                var fresh = new Material(Shader.Find(_host.LitShader));
+                Assert.That(RenderPipelineHosts.SwapLit(_host, fresh, Shader.Find("Standard")), Is.False, "a shader URP does not draw: left as it is");
+                Assert.That(RenderPipelineHosts.SwapLit(_host, fresh, null), Is.False);
+                Object.DestroyImmediate(fresh);
+            }
+            finally
+            {
+                Object.DestroyImmediate(lit);
+                Object.DestroyImmediate(other);
+            }
+        }
+
+        [Test]
         public void It_draws_its_own_shaders_and_a_legacy_unlit_pass_but_not_built_ins_lit_ones()
         {
             Assert.That(_host.Draws(Shader.Find(_host.UnlitShader(true))), Is.True, "tagged UniversalPipeline");
@@ -27,13 +87,24 @@ namespace M3trik.Unitytk.Kernel.URP.Tests
         }
 
         [Test]
-        public void It_draws_the_shadow_planes_shader_through_its_unlit_pass_beside_the_cache_pass()
+        public void It_draws_a_legacy_shader_through_its_unlit_pass_beside_a_pass_of_its_own_light_mode()
         {
-            // Legacy CG with no LightMode on its drawing pass, and a pass of its own LightMode
-            // that a command buffer draws (ShadowPlaneCache): URP draws it as SRPDefaultUnlit.
-            Shader shader = Shader.Find("m3trik/ShadowPlane");
-            Assume.That(shader, Is.Not.Null, "the ShadowPlane feature's shader imported");
-            Assert.That(_host.Draws(shader), Is.True);
+            // Legacy CG with no LightMode on its drawing pass, and a pass of its own LightMode that
+            // a command buffer draws: URP draws it as SRPDefaultUnlit.
+            const string program = "CGPROGRAM\n#pragma vertex vert\n#pragma fragment frag\n" +
+                                   "float4 vert(float4 v : POSITION) : SV_POSITION { return v; }\n" +
+                                   "fixed4 frag() : SV_Target { return 1; }\nENDCG";
+            var shader = UnityEditor.ShaderUtil.CreateShaderAsset(
+                "Shader \"Hidden/UnitytkTests/UnlitWithOwnPass\" { SubShader { " +
+                $"Pass {{ {program} }} Pass {{ Tags {{ \"LightMode\" = \"UNITYTKTESTPASS\" }} {program} }} }} }}", false);
+            try
+            {
+                Assert.That(_host.Draws(shader), Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(shader);
+            }
         }
 
         [Test]
@@ -97,6 +168,9 @@ namespace M3trik.Unitytk.Kernel.URP.Tests
                 Assert.That(material.IsKeywordEnabled("_ALPHAMODULATE_ON"), Is.False);
                 Assert.That(material.GetTag("RenderType", false), Is.EqualTo("Transparent"));
                 Assert.That(material.GetShaderPassEnabled("DepthOnly"), Is.False, "a blended surface writes no depth prepass");
+                bool switched = material.HasProperty("_CastShadows");
+                Assert.That(material.GetShaderPassEnabled("ShadowCaster"), Is.EqualTo(switched && material.GetFloat("_CastShadows") != 0f),
+                            "shadows as URP's own validation sets them: a transparent surface with no Cast Shadows switch casts none");
                 Assert.That(material.renderQueue, Is.EqualTo((int)RenderQueue.Transparent + (int)material.GetFloat("_QueueOffset")));
 
                 Assert.That(_host.SetBlended(material, false), Is.True);
@@ -106,6 +180,7 @@ namespace M3trik.Unitytk.Kernel.URP.Tests
                 Assert.That(material.IsKeywordEnabled("_SURFACE_TYPE_TRANSPARENT"), Is.False);
                 Assert.That(material.GetTag("RenderType", false), Is.EqualTo("Opaque"));
                 Assert.That(material.GetShaderPassEnabled("DepthOnly"), Is.True);
+                Assert.That(material.GetShaderPassEnabled("ShadowCaster"), Is.True, "opaque again: it casts shadows");
                 Assert.That(material.renderQueue, Is.EqualTo((int)RenderQueue.Geometry));
             }
             finally
@@ -146,6 +221,142 @@ namespace M3trik.Unitytk.Kernel.URP.Tests
             finally
             {
                 Object.DestroyImmediate(material);
+            }
+        }
+
+        // Additive: its colour times its alpha added to what is behind it, writing no depth.
+        [Test]
+        public void Its_unlit_shader_adds_its_colour_over_the_scene_as_urps_inspector_sets_additive()
+        {
+            var material = new Material(Shader.Find(_host.UnlitShader(true)));
+            var standard = new Material(Shader.Find("Standard"));
+            try
+            {
+                Assert.That(_host.SetAdditive(material), Is.True);
+                Assert.That(material.GetFloat("_Surface"), Is.EqualTo(1f), "Transparent");
+                Assert.That(material.GetFloat("_Blend"), Is.EqualTo(2f), "Additive");
+                Assert.That(material.GetFloat("_SrcBlend"), Is.EqualTo((float)BlendMode.SrcAlpha));
+                Assert.That(material.GetFloat("_DstBlend"), Is.EqualTo((float)BlendMode.One));
+                Assert.That(material.GetFloat("_DstBlendAlpha"), Is.EqualTo((float)BlendMode.One));
+                Assert.That(material.GetFloat("_ZWrite"), Is.EqualTo(0f));
+                Assert.That(material.renderQueue, Is.EqualTo((int)RenderQueue.Transparent + (int)material.GetFloat("_QueueOffset")));
+                int queue = standard.renderQueue;
+                Assert.That(_host.SetAdditive(standard), Is.False, "a shader with no surface switch");
+                Assert.That(standard.renderQueue, Is.EqualTo(queue), "unchanged");
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(standard);
+            }
+        }
+
+        // Two displays over one camera: the first turns its post-processing on and the second finds it on, so the first
+        // hands it on as it is put away, and the last one shown over it turns it off.
+        [Test]
+        public void A_cameras_post_processing_stays_on_while_any_display_over_it_is_shown()
+        {
+            var camera = new GameObject("CAMERA").AddComponent<Camera>();
+            var data = camera.GetUniversalAdditionalCameraData();
+            data.renderPostProcessing = false;
+            int size = _host.DisplaySize;
+            var table = new Texture2D(size * size, size, TextureFormat.RGBAHalf, false, true);
+            System.IDisposable first = null, second = null;
+            try
+            {
+                first = _host.Display(table, 1f / 16f, out string why, new DisplayOptions { cameras = new[] { camera } });
+                Assert.That(first, Is.Not.Null, why);
+                second = _host.Display(table, 1f / 16f, out why, new DisplayOptions { cameras = new[] { camera }, priority = 1f });
+                Assert.That(second, Is.Not.Null, why);
+                Assert.That(data.renderPostProcessing, Is.True, "premise: on");
+                first.Dispose();
+                Assert.That(data.renderPostProcessing, Is.True, "the second still shows over it");
+                second.Dispose();
+                Assert.That(data.renderPostProcessing, Is.False, "off again with the last, as it was");
+            }
+            finally
+            {
+                first?.Dispose();
+                second?.Dispose();
+                Object.DestroyImmediate(camera.gameObject);
+                Object.DestroyImmediate(table);
+            }
+        }
+
+        // The default options cover every game camera (no list of cameras): whichever of two is put away first, the
+        // camera keeps its post-processing while the other is shown, and the last one shown turns it off.
+        [Test]
+        public void Displays_over_every_game_camera_keep_its_post_processing_on_until_the_last_is_put_away_in_either_order()
+        {
+            var camera = new GameObject("CAMERA").AddComponent<Camera>();
+            var data = camera.GetUniversalAdditionalCameraData();
+            int size = _host.DisplaySize;
+            var table = new Texture2D(size * size, size, TextureFormat.RGBAHalf, false, true);
+            System.IDisposable first = null, second = null;
+            try
+            {
+                foreach (bool firstAwayFirst in new[] { true, false })
+                {
+                    data.renderPostProcessing = false;
+                    first = _host.Display(table, 1f / 16f, out string why);
+                    Assert.That(first, Is.Not.Null, why);
+                    second = _host.Display(table, 1f / 16f, out why, new DisplayOptions { priority = 1f });
+                    Assert.That(second, Is.Not.Null, why);
+                    Assert.That(data.renderPostProcessing, Is.True, "premise: on");
+                    (firstAwayFirst ? first : second).Dispose();
+                    Assert.That(data.renderPostProcessing, Is.True, (firstAwayFirst ? "the second" : "the first") + " still shows over it");
+                    (firstAwayFirst ? second : first).Dispose();
+                    first = second = null;
+                    Assert.That(data.renderPostProcessing, Is.False, "off again with the last, as it was");
+                }
+            }
+            finally
+            {
+                first?.Dispose();
+                second?.Dispose();
+                Object.DestroyImmediate(camera.gameObject);
+                Object.DestroyImmediate(table);
+            }
+        }
+
+        // A display over every game camera turns post-processing on for one that starts to draw later too, before its own
+        // drawing starts: switched off as the display was shown, it was not among the cameras there then.
+        [Test]
+        public void A_game_camera_drawn_after_a_display_is_shown_over_every_one_has_post_processing_on_before_it_starts()
+        {
+            var target = new RenderTexture(16, 16, 16);
+            var camera = new GameObject("CAMERA").AddComponent<Camera>();
+            camera.enabled = false;
+            camera.targetTexture = target;
+            var data = camera.GetUniversalAdditionalCameraData();
+            data.renderPostProcessing = false;
+            int size = _host.DisplaySize;
+            var table = new Texture2D(size * size, size, TextureFormat.RGBAHalf, false, true);
+            bool onAsItStarted = false;
+            void Starting(Camera drawing)
+            {
+                if (drawing == camera) onAsItStarted = data.renderPostProcessing;
+            }
+            System.IDisposable shown = null;
+            try
+            {
+                shown = _host.Display(table, 1f / 16f, out string why);
+                Assert.That(shown, Is.Not.Null, why);
+                Assert.That(data.renderPostProcessing, Is.False, "premise: switched off, not among the cameras there");
+                CameraDrawing.Starting += Starting;
+                camera.Render();
+                Assert.That(onAsItStarted, Is.True, "on before its own drawing starts");
+                shown.Dispose();
+                shown = null;
+                Assert.That(data.renderPostProcessing, Is.False, "off again once put away");
+            }
+            finally
+            {
+                CameraDrawing.Starting -= Starting;
+                shown?.Dispose();
+                Object.DestroyImmediate(camera.gameObject);
+                Object.DestroyImmediate(target);
+                Object.DestroyImmediate(table);
             }
         }
     }

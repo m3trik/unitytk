@@ -1,0 +1,11 @@
+{
+  "behavior": "checklist",
+  "order": 51,
+  "description": "The checklist goes from the placard.",
+  "detect": [
+    "^(?:the\\s+)?checklist\\s+(?:fades\\s+(?:away|out)|goes\\s+away|is\\s+(?:removed|hidden))$"
+  ],
+  "settings": {
+    "checklistShow": "Hide"
+  }
+}

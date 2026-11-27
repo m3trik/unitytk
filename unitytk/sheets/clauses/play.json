@@ -1,0 +1,9 @@
+{
+  "behavior": "play",
+  "order": 32,
+  "clip": true,
+  "description": "The step plays the row's clip on its own, after the row before it.",
+  "detect": [
+    "^trigger\\s+(?P<phrase>.+?)\\s+animation$"
+  ]
+}

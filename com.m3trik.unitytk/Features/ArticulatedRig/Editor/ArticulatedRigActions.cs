@@ -56,7 +56,7 @@ namespace M3trik.Unitytk.ArticulatedRig
             InScene(root);
             ArticulatedRig existing = root.GetComponent<ArticulatedRig>();
             if (existing != null) return existing;
-            if (ctx != null && !ctx.ShouldCreate($"{root.name}/{nameof(ArticulatedRig)}", "add an Articulated Rig")) return null;
+            if (ctx != null && !ctx.ShouldCreate(OpContextEdits.Key(root, typeof(ArticulatedRig)), "add an Articulated Rig")) return null;
             ArticulatedRig rig = ctx.AddComponent<ArticulatedRig>(root);
             ctx.Log($"Create Rig: an Articulated Rig on '{root.name}'.");
             return rig;
@@ -105,7 +105,7 @@ namespace M3trik.Unitytk.ArticulatedRig
             string under = parentJoint != null ? $"from '{parentJoint.name}'" : "as a root";
             bool live = existing != null
                 ? ctx == null || ctx.ShouldChange(existing, $"make '{part.name}' a joint {under} on {what}")
-                : ctx == null || ctx.ShouldCreate($"{part.name}/{nameof(ArticulatedJoint)}", $"add a joint {under} on {what}");
+                : ctx == null || ctx.ShouldCreate(OpContextEdits.Key(part.gameObject, typeof(ArticulatedJoint)), $"add a joint {under} on {what}");
             string listing = $"list the joint '{part.name}' on '{rig.name}'";
             if (!live)
             {

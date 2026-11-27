@@ -1,0 +1,2 @@
+Baked Lit: made on import from the project's own URP Lit by the Lightmaps feature's URP door
+(Editor/BakedLitImporter.cs), its forward pass rerouted through BakedLit.hlsl. This file holds nothing else.

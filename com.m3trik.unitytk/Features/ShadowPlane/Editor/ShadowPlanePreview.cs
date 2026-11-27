@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using M3trik.Unitytk.Kernel;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -13,8 +14,10 @@ namespace M3trik.Unitytk.ShadowPlane
     /// now, so dragging the light moves its shadow, and its placement is given back --
     /// its transform as it was, its block cleared, its cache slot freed -- when the
     /// inspector closes, the plane is removed, disabled or deactivated, and before a scene
-    /// is saved or closed, before a prefab is written, before scripts reload and as play
-    /// mode starts. So nothing a preview placed reaches a saved scene or prefab. A plane
+    /// is closed, before scripts reload and as play mode starts; before a scene or a prefab
+    /// is written its transform is given back, and placed again once it is written (the
+    /// kernel's save hook, <see cref="ISaveSuspended"/>). So nothing a preview placed reaches
+    /// a saved scene or prefab. A plane
     /// that does not follow its source is only faded: its transform is never held, so a
     /// move made to it stays. A plane in a prefab or model asset shows nothing (open the
     /// prefab, or place it in a scene).
@@ -43,29 +46,24 @@ namespace M3trik.Unitytk.ShadowPlane
             EditorApplication.update += Update;
             AssemblyReloadEvents.beforeAssemblyReload += BeforeReload;
             EditorApplication.playModeStateChanged += OnPlayMode;
-            EditorSceneManager.sceneSaving += (scene, path) => ReleaseIn(scene);
+            SaveSuspension.Add(new Saves());
             EditorSceneManager.sceneClosing += (scene, removing) => ReleaseIn(scene);
-            PrefabStage.prefabSaving += prefab => ReleaseAll();
         }
 
         /// <summary>
-        /// Before Unity writes a prefab -- one made from a scene object (dragged into the
-        /// Project window, <c>PrefabUtility.SaveAsPrefabAsset</c>) or an instance's overrides
-        /// applied -- every plane is given back, so the asset holds the plane's own transform,
-        /// never the preview's placement.
+        /// Around a write of a scene or a prefab (one made from a scene object, dragged into the
+        /// Project window or <c>PrefabUtility.SaveAsPrefabAsset</c>, or an instance's overrides
+        /// applied): every placed plane's transform given back before it is written, so the file
+        /// holds the plane's own transform, and every shown plane placed again once it is.
         /// </summary>
-        sealed class PrefabSaves : AssetModificationProcessor
+        sealed class Saves : ISaveSuspended
         {
-            static string[] OnWillSaveAssets(string[] paths)
+            public void Suspend()
             {
-                foreach (string path in paths)
-                    if (path.EndsWith(".prefab", System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        ReleaseAll();
-                        break;
-                    }
-                return paths;
+                foreach (Held held in _held) GiveBack(held);
             }
+
+            public void Resume() => Update();
         }
 
         /// <summary>Whether <paramref name="plane"/> shows through the preview.</summary>

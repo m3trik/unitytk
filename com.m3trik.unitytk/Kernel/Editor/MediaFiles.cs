@@ -11,10 +11,9 @@ namespace M3trik.Unitytk.Kernel
     /// <remarks>
     /// Prior art: Unity's own search by name (<c>AssetDatabase.FindAssets</c>) is
     /// project-wide, so of two models in one folder embedding a map of one name the
-    /// second bound the first's copy; the folders are asked instead. Three
-    /// importers (Lightmaps, Materials, ShadowPlane) each kept a copy, which drifted:
-    /// one read a record naming a folder for its file name alone, two refused no
-    /// folders; this is their union, moved down.
+    /// second bound the first's copy; the folders are asked instead. It is the one
+    /// copy every importer asks, so a record naming a folder and the folders refused
+    /// mean the same to each.
     /// </remarks>
     public static class MediaFiles
     {

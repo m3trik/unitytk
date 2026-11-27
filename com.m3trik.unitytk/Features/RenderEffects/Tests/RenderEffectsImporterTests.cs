@@ -88,6 +88,69 @@ namespace M3trik.Unitytk.RenderEffects.Tests
         }
 
         [Test]
+        public void A_tinted_material_takes_its_states_and_its_tint_curves_play_on_the_tracks_tint()
+        {
+            GameObject model = ImportFile(EffectsFbx.WriteStates());
+            var track = model.transform.Find("data_export/lensMat_led").GetComponent<EmissionTrack>();
+            Assert.That(track.states.Select(s => s.name), Is.EqualTo(new[] { "off", "green" }), "the record's states, in order");
+            Stage.AssertRgb(track.states[1].tint, new Color(0f, 1f, 0f), "a state's tint, linear as the record states it");
+            Assert.That(track.states[0].weight, Is.EqualTo(0f));
+            Assert.That(track.strength, Is.EqualTo(3f));
+
+            AnimationClip a = Clip("TakeA");
+            const string at = "data_export/lensMat_led";
+            Assert.That(Curve(a, at, typeof(EmissionTrack), "weight").Evaluate(0.25f), Is.EqualTo(0f).Within(1e-4f), "off");
+            Assert.That(Curve(a, at, typeof(EmissionTrack), "weight").Evaluate(0.75f), Is.EqualTo(1f).Within(1e-4f), "on");
+            Assert.That(Curve(a, at, typeof(EmissionTrack), "tint.r").Evaluate(0.25f), Is.EqualTo(1f).Within(1e-4f));
+            Assert.That(Curve(a, at, typeof(EmissionTrack), "tint.r").Evaluate(0.75f), Is.EqualTo(0f).Within(1e-4f), "green from 0.5 s");
+            Assert.That(Curve(a, at, typeof(EmissionTrack), "tint.g").Evaluate(0.75f), Is.EqualTo(1f).Within(1e-4f));
+            Assert.That(Curve(a, at, typeof(EmissionTrack), "tint.b").Evaluate(0.75f), Is.EqualTo(0f).Within(1e-4f));
+            Assert.That(model.GetComponentsInChildren<Transform>(true).Where(t => t.name.Contains("__")), Is.Empty, "no proxy reaches the prefab");
+            Assert.That(AnimationUtility.GetCurveBindings(a).Where(x => x.path.Contains("__")), Is.Empty, "no proxy curve left");
+        }
+
+        [Test]
+        public void An_entry_with_states_alone_gets_its_track_under_the_carrier_to_switch()
+        {
+            GameObject model = ImportFile(EffectsFbx.WriteStatesAlone());
+            var track = model.transform.Find("data_export/lensMat_led")?.GetComponent<EmissionTrack>();
+            Assert.That(track, Is.Not.Null, "under the node the record was read off, as a keyed one's");
+            Assert.That(track.states.Select(s => s.name), Is.EqualTo(new[] { "off", "green" }));
+            Assert.That(track.SetState("green"), Is.True);
+            Stage.AssertRgb(track.tint, new Color(0f, 1f, 0f), "switched by name");
+        }
+
+        [Test]
+        public void A_stated_tint_rests_the_track_at_the_weight_the_delivered_material_shows()
+        {
+            using (var stage = new Stage())
+            {
+                var material = stage.Lit("lens_led", new LitSurface { emission = new Color(0f, 1.5f, 0f) });
+                var model = stage.Node("Board");
+                model.AddComponent<Animator>();
+                var lens = stage.Renderer("Lens", model.transform, material);
+                var track = stage.Node("lens_led", model.transform).AddComponent<EmissionTrack>();
+                var entry = new RenderEffectsRecord.Shape.Material
+                {
+                    material = "lens_led",
+                    channels = new System.Collections.Generic.List<string> { "emission" },
+                    emission_color = new[] { 1.0, 1.0, 1.0 },
+                    emission_strength = 3.0,
+                    tint = new[] { 0.0, 1.0, 0.0 },
+                };
+                RenderEffectsImporter.Fill(track, material, entry, stage.Host);
+                Stage.AssertRgb(track.tint, new Color(0f, 1f, 0f), "the record's tint");
+                Assert.That(track.weight, Is.EqualTo(0.5f).Within(1e-4f), "green 1.5 over white x 3 x green");
+                track.Apply();
+                Assert.That(lens.sharedMaterial, Is.SameAs(material), "at rest: the delivered material, shared");
+
+                entry.tint = null;
+                RenderEffectsImporter.Fill(track, material, entry, stage.Host);
+                Stage.AssertRgb(track.tint, Color.white, "no tint stated: white");
+            }
+        }
+
+        [Test]
         public void The_import_makes_one_twin_per_material_and_state_into_the_model()
         {
             GameObject model = Import();

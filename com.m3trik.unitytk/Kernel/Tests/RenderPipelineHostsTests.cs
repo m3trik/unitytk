@@ -104,11 +104,46 @@ namespace M3trik.Unitytk.Kernel.Tests
                 host.Blends = false;
                 Assert.That(host.SetBlended(material, true), Is.False);
                 Assert.That(host.Blended, Is.EqualTo(new[] { (material, true) }));
+                Assert.That(host.SetAdditive(material), Is.True, "an additive switch for every shader by default");
+                host.Adds = false;
+                Assert.That(host.SetAdditive(material), Is.False, "a pipeline with none");
+                Assert.That(host.Added, Is.EqualTo(new[] { material, material }), "each asked kept");
             }
             finally
             {
                 Object.DestroyImmediate(material);
             }
+        }
+
+        [Test]
+        public void The_built_in_pipeline_has_no_additive_switch_and_leaves_the_material_as_it_was()
+        {
+            IRenderPipelineHost host = RenderPipelineHosts.BuiltIn;
+            foreach (string shader in new[] { host.LitShader, host.UnlitShader(true), host.UnlitShader(false) })
+            {
+                var material = new Material(Shader.Find(shader));
+                try
+                {
+                    if (material.HasProperty("_Mode")) Assert.That(host.SetBlended(material, true), Is.True, "premise: " + shader + " faded");
+                    string before = State(material);
+                    Assert.That(host.SetAdditive(material), Is.False, shader);
+                    Assert.That(State(material), Is.EqualTo(before), shader + ": unchanged");
+                }
+                finally
+                {
+                    Object.DestroyImmediate(material);
+                }
+            }
+        }
+
+        // What a blend or additive switch writes on a material: its shader, queue, RenderType, keywords and blend floats.
+        static string State(Material material)
+        {
+            var floats = new System.Text.StringBuilder();
+            foreach (string name in new[] { "_Mode", "_SrcBlend", "_DstBlend", "_ZWrite", "_Blend", "_Surface" })
+                if (material.HasProperty(name)) floats.Append(name).Append('=').Append(material.GetFloat(name)).Append(' ');
+            return $"{material.shader.name} {material.renderQueue} {material.GetTag("RenderType", false)} " +
+                   $"[{string.Join(",", material.shaderKeywords)}] {floats}";
         }
 
         [Test]
@@ -156,6 +191,36 @@ namespace M3trik.Unitytk.Kernel.Tests
                 RenderPipelineHosts.Unregister(host);
                 RenderPipelineHosts.Unregister(again);
                 Object.DestroyImmediate(asset);
+            }
+        }
+
+        [Test]
+        public void The_built_in_host_moves_standard_onto_a_shader_it_draws_and_shows_no_display_transform()
+        {
+            IRenderPipelineHost host = RenderPipelineHosts.BuiltIn;
+            Shader baked = Shader.Find("Legacy Shaders/Diffuse");  // drawn by Built-in, a _Color of its own
+            var standard = new Material(Shader.Find("Standard"));
+            var unlit = new Material(Shader.Find("Unlit/Color"));
+            try
+            {
+                standard.SetColor("_Color", new Color(0.2f, 0.4f, 0.6f, 1f));
+                standard.renderQueue = 2010;
+                Assert.That(RenderPipelineHosts.SwapLit(host, standard, baked), Is.True);
+                Assert.That(standard.shader, Is.SameAs(baked));
+                Assert.That(Vector4.Distance(standard.GetColor("_Color"), new Color(0.2f, 0.4f, 0.6f, 1f)), Is.LessThan(1e-4f), "its values kept");
+                Assert.That(standard.renderQueue, Is.EqualTo(2010), "its queue kept");
+                Assert.That(RenderPipelineHosts.SwapLit(host, standard, baked), Is.True, "on it already");
+                Assert.That(RenderPipelineHosts.SwapLit(host, unlit, baked), Is.False, "not Built-in's Lit: left as it is");
+                Assert.That(RenderPipelineHosts.SwapLit(host, unlit, null), Is.False);
+
+                Assert.That(host.DisplaySize, Is.EqualTo(0), "no colour lookup to read a table");
+                Assert.That(host.Display(Texture2D.whiteTexture, 1f, out string why, new DisplayOptions()), Is.Null);
+                Assert.That(why, Does.Contain("post-processing"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(standard);
+                Object.DestroyImmediate(unlit);
             }
         }
 

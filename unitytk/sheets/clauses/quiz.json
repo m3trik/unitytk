@@ -1,0 +1,11 @@
+{
+  "behavior": "quiz",
+  "order": 13,
+  "description": "A quoted button starts the quiz.",
+  "detect": [
+    "^selecting\\s+['\\\"](?P<label>[^'\\\"]+)['\\\"]\\s+triggers\\s+advancement\\s+to\\s+the\\s+quiz$"
+  ],
+  "roles": [
+    "questions"
+  ]
+}

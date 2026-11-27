@@ -17,6 +17,8 @@ The Python side drives Unity from outside, with Unity's own tools: `UnityHost` (
 
 ## More
 
+- [A scene from a build sheet: the manifest](manifest.md) — a sheet and its delivery staged into a project (`sheet.sync`, `unitytk.sheets`), the Manifest window that assesses and builds the scene from them, and how each half extends
+- [The Tasks kit](tasks.md) — the first set of behaviors a sheet's rows read as: the phrases, what each builds, the building blocks, the sample task
 - [The Unity package's README](../com.m3trik.unitytk/README.md) — the package's catalog, the FBX import contract, and installing it (one Package Manager line)
 - [pythontk's `DELIVERABLE_FORMAT.md`](https://github.com/m3trik/pythontk/blob/main/pythontk/core_utils/engines/scene_export/DELIVERABLE_FORMAT.md) — the data a deliverable carries, which the package reads (the `data_export` carrier and every scene record's block)
 - [`CHANGELOG.md`](../CHANGELOG.md) — notable changes

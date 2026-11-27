@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="Panels.uss" />
+    <ui:VisualElement name="placard" class="placard">
+        <ui:Label name="heading" class="placard-heading" />
+        <ui:Label name="text" class="placard-text" />
+        <ui:VisualElement name="choices" class="placard-choices" />
+        <ui:Label name="entry" class="placard-entry" />
+        <ui:VisualElement name="keys" class="placard-keys" />
+        <ui:VisualElement name="list" class="placard-list" />
+    </ui:VisualElement>
+</ui:UXML>

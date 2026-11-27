@@ -20,6 +20,7 @@ off the binary FBX itself in `OnPreprocessModel` (`CarrierFile`, by pythontk's r
 |---|---|---|
 | `animation` | JSON `{version: 2, shots:[{clip, description, metadata}]}` — per shot what a clip cannot hold: `clip` is the name of the file's take for that shot (one take per shot, spanning its range), `description` and `metadata` (any JSON values by key) are optional; a v1 record is refused (re-export) | `ShotList` |
 | `lightmaps` | JSON `{version: 3, unit_scale, objects:[{name, map, scaleOffset, hierarchy}], probe:{map, position, box}}` -- each baked object's map, read through its second UV set, and its rect in it; `unit_scale` metres per unit of every length; `probe` optional, `box` `{min, max}` or null for an open scene. The probe's `highlights` and the record's `lights` are optional extensions only some readers use, not read here (see [Lightmaps](#lightmaps)); a v2 record is refused (re-export) | `LightmapsImporter`, `LightmapSet` |
+| `handoff` | JSON `{version: 3, instructions, assembly:[...], rendering:{renderer:{toneMapping, toneMappingExposure}, environment, keyLight, lightmappedMaterials}}` -- the file's approved scene and the lighting it was approved under; read here: `rendering.renderer` (the look), and for a lightmapped file `environment.source` and `probeIntensity`, `keyLight.disabledWhen` (its Lightmap Set) and `lightmappedMaterials.envMapIntensity` and `reflectionNormalization` (its lightmapped materials); the rest is the web viewer's | `LooksImporter`, `SceneLook`; `LightmapsImporter`, `LightmapSet` |
 | `audio` | JSON `{version: 3, cues:[{clip, sound, time, offset, stop}], media:{sound: sha256}}` — per clip (`clip`: the name of the file's take for it, one per shot; `""` in a file with no shots, whose one take is the clip) each sound it plays: `sound` the delivered audio file's name, extension included; `time` and `stop` in seconds from the clip's start; `offset` seconds into the sound (a sound a cut divides plays on from where it had reached); `media` (optional: written by the exporters' dependency pass, so none in a raw export) the SHA-256 of each audio file the FBX embeds, by its sound; v1 and v2 are refused (re-export) | `AnimationAudioImporter` (PlayAudio / StopAudio events in the clips), `AnimationAudioPlayer` |
 | `materials` | JSON: literal glTF 2.0 -- `{version: 2, asset, extensionsUsed, materials:[{name, pbrMetallicRoughness:{baseColorFactor, baseColorTexture, metallicFactor, roughnessFactor, metallicRoughnessTexture}, normalTexture, occlusionTexture, emissiveTexture, emissiveFactor, alphaMode, alphaCutoff, doubleSided, extensions:{KHR_materials_unlit, KHR_materials_emissive_strength}}], textures, images:[{uri}], samplers}` -- a glTF document holding only its materials, each `name` the FBX material it describes, each image by the file name the FBX embeds it under, metal and roughness packed in glTF's layout, a map's UV transform as `KHR_texture_transform`; a v1 record (the flat shape) is refused (re-export) | `MaterialsImporter` (on import, see [Materials](#materials)) |
 | `render_effects` | JSON `{version: 2, tracks:[{node, channels, highlight_color, highlight_color_dim}], materials:[{material, channels, emission_color, emission_strength}]}` — per node the channels its subtree carries (`visibility`, `opacity`, `highlight`, the colours linear and optional), per material an animated `emission` (its curve a weight from 0 to 1 on `emission_color` x `emission_strength`, glTF's `emissiveFactor` and `KHR_materials_emissive_strength`); no curve: each rides the file's curve transport, a child transform `<target>__<channel>` (marked `curveProxy`, its `scale.x` the curve) of its node, or of the carrier for a material, in each take; v1 is refused (re-export) | `RenderEffectsImporter` (see [Render effects](#render-effects)): `Fade`, `Highlight`, `EmissionTrack` |
@@ -156,7 +157,7 @@ want it left alone entirely.
 
 ## Samples
 
-Each feature ships a sample: a small delivery to try it on, and the recipe that
+Each feature (and the Tasks kit) ships a sample: a small delivery to try it on, and the recipe that
 builds its demo scene. Import one from **Window ▸ Package Manager ▸ unitytk ▸
 Samples ▸ Import**: Unity copies it into
 `Assets/Samples/unitytk/<version>/<Sample>/`, where its FBX imports like any
@@ -171,12 +172,13 @@ delivery.
 | RenderEffects | `RenderEffects.fbx`: two shots, FadeOut and FadeIn, one take each: a box fading out and back in (a `Fade`), a sphere whose mapped emission takes a pulsing blue highlight (a `Highlight`, the map set aside while it glows), and a two-material panel that blinks off for a moment (its active state) and whose lamp face, wearing a material of its own (`Lamp_MAT_Signal`), switches on (that material's animated emission: an `EmissionTrack`). Its import adds the components, binds each curve onto its field and makes the twins into the model | **Tools ▸ unitytk ▸ Samples ▸ Render Effects Demo** builds `RenderEffectsDemo.unity` and its Animator Controller beside the model and opens it; press Play: the two clips play in turn |
 | ShadowPlane | `ShadowPlane.fbx`: a box, a chair on four legs and an awning cantilevered past its post on a ground, each with one shadow plane its record describes: the box's and the awning's follow the point light `Lamp`, keyed to sweep low across the scene and over it for three seconds, and the chair's follows the directional `Sun`; every plane's horizon map is embedded, and the fade is keyed nowhere. Its import gives each plane a `ShadowPlane` bound by reference to its target, its source Light and its contact, its delivered map bound; the Edit Mode tests also rebake each map in Unity (Bake Horizon) and hold it to the delivered one | **Tools ▸ unitytk ▸ Samples ▸ Shadow Plane Demo** builds `ShadowPlaneDemo.unity` and its Animator Controller beside the model and opens it: the model's lamp and sun light it (Unity's shadow maps off: the planes are the shadows); press Play: the lamp's two shadows swing, lengthen and fade as it sweeps over, the chair's holds where the sun casts it |
 | Shots | `Shots.fbx`: a box moving through three shots, one take each. Its import makes one clip per shot, named after it, and a `ShotList` giving each clip its description and its `section` | **Tools ▸ unitytk ▸ Samples ▸ Shots Demo** builds `ShotsDemo.unity` beside the model and opens it; press Play: the shots play in order, the playing shot's description on screen |
+| Tasks | A cabinet task, at life size: `cabinet.csv`, a sequence sheet in a studio's layout (step IDs, sections, one row per thing a step does); `cabinet.fbx`, its delivery (a cabinet with a hinged door, two latches, a bolt, a lid and a button, a table with a key and a wrench, a front and a back viewpoint, one take per clip row); and `cabinet.plan.json`, the plan unitytk reads from the two, which the Tasks kit builds the task from | **Tools ▸ unitytk ▸ Samples ▸ Task Demo** builds `TaskDemo.unity` beside the task and opens it: the task on a floor, its steps built, and a desktop rig at the front view; press Play: click what the step asks (the key, then each latch), drag with the right mouse button to look about, and press the step's choices on the placard that comes up in front of you with each step |
 
 A sample is one set of content with three uses: what you import to try a
 feature, what its demo scene is built from, and what the package's Edit Mode
 tests check (the owned test project imports every sample). Its delivery is
 generated, never edited by hand: the workspace's
-`m3trik/scripts/sync_unity_samples.py` exports it from its recipe and writes
+`m3trik/scripts/sync_unity_samples.py` exports it from its recipe (a producer's own export, or Python alone for the Tasks task) and writes
 `package.json`'s `samples`; its `--check` holds the committed one to a fresh
 export.
 
@@ -191,7 +193,11 @@ If the FBX was imported *before* these scripts existed in the project:
 
 An instance of a model plays its sounds through the player its import put on
 the model's root; an object of your own whose clips cue sounds gets one with
-`AnimationAudioActions.AddPlayer` (or Add Component ▸ Audio ▸ Animation Audio Player).
+`AnimationAudioActions.AddPlayer` (or Add Component ▸ Audio ▸ Animation Audio Player). A sound that
+plays for as long as something keeps it switched on is a **Sound Cue**
+(`AnimationAudioActions.AddSoundCue`): it plays each time it is switched on and stops as it is
+switched off, flat and once by default; its spatial blend and looping are its own, and with **Set Source**
+cleared it plays its AudioSource as that is set up.
 
 ---
 
@@ -251,6 +257,35 @@ render pipeline's own Lit materials, with no shader of unitytk's and nothing to 
   only its specular, so it reads neither. Keep a probed model unrotated: a reflection probe and its box
   stay aligned to the world axes (**Validate Scene Lightmaps** names a rotated one). Scaling it is fine:
   the set sizes the probe's box by the instance's scale whenever it binds.
+- **The scene it lands in is held to the approved lighting, where the hand-off says so.** A bake already
+  holds every light, so a hand-off states two rules of a lightmapped file (its `handoff` record:
+  `keyLight.disabledWhen`, `environment.source`); the import sets the set's two switches as it states
+  them (a set added by hand has both off), and the set keeps each while it binds, giving it back as it
+  releases, as its switch is turned off, and around every save, so a saved scene holds none of it. **Lights Off**: a realtime light that
+  lights the mapped renderers and nothing else (by its Culling Mask and, short of a directional light, its
+  range) is switched off, and **Apply Scene Lightmaps** says which; a light that also lights anything no map lights (a
+  new scene's sun over a tool or a hand) is kept, and **Validate Scene Lightmaps** names it. **Environment**:
+  the light the probe's panorama gives a surface facing each way (spherical harmonics the import works out)
+  is the scene's ambient light, and the probe's cubemap its default reflection, at the hand-off's
+  `probeIntensity`, in place of the scene's sky. Measured on a production room: a new scene's sun lit
+  every mapped wall a second time, and its sky lit the unmapped parts (doors, tools) at a tenth to a
+  twentieth of the room's own light, so the room read as too bright.
+- **A baked surface reflects as its bake allows**, where the hand-off states it (its
+  `rendering.lightmappedMaterials`; a file that states none keeps its materials on Lit). Its reflection's
+  scale (`envMapIntensity`) is the delivery's own reflection probe's intensity, which Unity hands each
+  renderer the probe reaches, per draw. On URP the import also puts each material a map lights on
+  `unitytk/Baked Lit`, which the feature's URP door makes on import from the project's own URP Lit: Lit
+  renamed, its forward pass rerouted, every property, keyword, pass and the inspector Lit's (so a
+  material keeps its values, and the SRP Batcher draws it as Lit). For `reflectionNormalization:
+  lightmapLuma` (the policy's; a material keyword) a surface's reflection is scaled per texel by the
+  bake's brightness over the light its probe gives it about its normal (the probe's blurriest mip toward
+  the normal, as URP samples it), so a shadow reflects next to nothing and a lit wall up to the probe,
+  where Lit added the probe whole and washed pale walls and the floor toward white. Two deliveries in one
+  scene each draw their own: each its probe, each its materials' keyword. A renderer no map lights draws
+  exactly as Lit; so does a **Deferred** renderer, whose GBuffer pass is Lit's: it draws none of the rule.
+  A material remapped to a project material is the project's: the import names it and leaves it. A URP
+  whose Lit is laid out otherwise makes no Baked Lit, and its import says so with URP's version.
+  `lightMapEnergy` and `normalRelief` are not drawn. Built-in keeps its materials on its Lit.
 - **One owner per scene.** A scene's baked lighting is Unity's bake's or its Lightmap Sets', never both.
   While the scene has a Lighting Data Asset (Unity baked it), its sets stand down: they bind nothing and
   switch their probes off. Otherwise they bind. Whichever ran last owns the scene: **Generate Lighting**
@@ -270,6 +305,11 @@ render pipeline's own Lit materials, with no shader of unitytk's and nothing to 
   `LightmapsActions.Assign(root, renderer, map, scaleOffset)` sets one renderer by hand. **Validate
   Scene Lightmaps** (`LightmapsActions.Validate`) refuses sets in one scene whose modes disagree (a scene
   reads one), names a scene Unity's bake owns that still holds sets, and names a rotated probed model.
+  It also names what the render pipeline drawing now does to the sets, each with its fix: a renderer that
+  reads reflection probes through an atlas (URP's Forward+ with probe blending), which breaks a
+  box-projected probe into scattered dark texels on the room it reflects
+  (`LightmapsActions.ReadProbesWhole`: the Forward path), and screen-space ambient occlusion switched on,
+  which darkens and speckles what the maps already shade (`LightmapsActions.SwitchOcclusionOff`).
   Each action has a dry run, asks before each change, and a menu's run is one undo step.
 - **Keep** a Linear colour-space project (the maps are linear; the import warns otherwise) and
   **Generate Lightmap UVs** off on the model (it would overwrite the DCC's lightmap UVs; the import
@@ -288,7 +328,7 @@ or filled by a delivery's `render_effects` record (the [RenderEffects sample](#s
 |:---|:---|:---|:---|
 | **Fade** | a subtree root | `alpha` (0..1) | The opacity of every renderer under it, multiplied by every Fade above (a `CanvasGroup`'s nesting). At 1 the materials are as authored: opaque, sorted with the opaque pass, writing depth, casting shadows. Below 1 each renderer wears its material's blended twin; at 0 it is hidden. |
 | **Highlight** | a subtree root | `intensity` (0..1) | A glow from `colorDim` (at 0) to `color` (at 1) added to each material's uniform emission. Over a mapped emission the map is set aside while the intensity is above 0 and is back at rest. `pulse` swings the glow on its own within the intensity. |
-| **Emission Track** | any object, naming a `material` | `weight` (0..1) | The material's emission, `color` x `strength` x `weight`, its map kept, on every renderer in scope wearing it (the nearest Animator's hierarchy). Each material a delivery's record animates the emission of arrives with a track. |
+| **Emission Track** | any object, naming a `material` | `weight` (0..1) | The material's emission, `color` x `strength` x `weight`, its map kept, on every renderer in scope wearing it (the nearest Animator's hierarchy). Each material a delivery's record animates the emission of arrives with a track. One with named `states` (an indicator light's off, green, amber...) is drawn a glow card while lit, at each renderer wearing its material: a soft disc in the emission's colour, never under 10 px across, for every camera (`IndicatorGlow`): a few-millimetre lens reads from where a person stands, with bloom off. |
 
 A visibility is the node's own active state (`GameObject.m_IsActive`, Unity's own binding), stepped: one curve
 hides the whole subtree, lights and colliders included.
@@ -322,8 +362,9 @@ after its namespace; two tracks (or material entries) of one such name are a tie
 **Actions** (`RenderEffectsActions`, each with a dry run and one undo step): `KeyFade` and `KeyPulse` key a
 fade or a pulse on a clip of the project's own, adding the component (a target in a prefab asset is refused:
 key it in Prefab Mode or on an instance); `PrepareMaterials` makes the twins of a
-hierarchy's effects into an asset and gives it to them (**Tools → unitytk → Render Effects → Prepare
-Materials**, on the selection; the inspector offers it where twins are missing).
+hierarchy's effects into an asset and gives it to them (a manifest's build runs it for the effects it makes;
+by hand, **Tools → unitytk → Render Effects → Prepare Materials**, on the selection; the inspector offers it
+where twins are missing).
 
 **Pipelines.** Built-in and URP, through their hosts' blend switches and their rows of the kernel's table
 (`LitTable`). HDRP's row names its emission slots, so a twin there sets an emissive map aside and writes
@@ -373,8 +414,14 @@ delivery:
   project's own; its mask is written beside it as a PNG.
 - `PackMetallicSmoothness(material, metallicRoughness, occlusion)` -- pack glTF's
   layout into Unity's mask, written beside the image, and bind it.
-- `FixTextureRoles(material)` -- import each bound texture in its slot's role
-  (normal map, linear data, sRGB colour).
+- `FixTextureRoles(material, fullSize = null)` -- import each bound texture in its slot's role
+  (normal map, linear data, sRGB colour); with full size (`fullSize`, left out: the project's
+  setting, Project Settings > unitytk > Materials), one still at the project's default cap (its
+  default texture import preset's, else Unity's 2048) at its own size.
+
+A delivery's maps keep the project's import cap, as every texture does, unless the project
+asks for them at their own size: **Project Settings ▸ unitytk ▸ Materials ▸ Full Size**
+(`MaterialsSettings.fullSize`, saved with the project), which each map's first import reads.
 - `Reapply(modelPath)` -- write a model's record onto the project materials its
   import is remapped to (extracted materials).
 
@@ -510,8 +557,8 @@ that would make a peer compile.
 | `Kernel/` | `OpContext`; the three operations (`unity.csharp.exec`, `unity.scene.view`, `unity.project.doctor`) and their batch and session servers; the provider registry (`[Provides]`, `Provided`); the import gate (`Imports.IsDelivery`: an FBX is a delivery); the import log; the render-pipeline host and its stand-in (`PureRenderPipelineHost`) | Core | `M3trik.Unitytk.Kernel` (editor) and a runtime twin; doors such as `M3trik.Unitytk.Kernel.URP` |
 | `Contracts/` | The interfaces features meet through (`IRecordSource`, `IModelMedia`, ...), each with its `Pure*` stand-in | Core, Kernel | `M3trik.Unitytk.Contracts` (and `.Editor`) |
 | `Features/<Feature>/` | One capability: `Model/` (a host-free port, `noEngineReferences`), `Runtime/` (components), `Editor/` (its actions and importer), a door per outside package (`XRI/`, `URP/`), `Tests/` | Core, Kernel, Contracts; never a peer feature | `M3trik.Unitytk.<Feature>[.Model/.Editor/.<Door>]` |
-| `Tools/<family>/` | Menus and windows over the features' actions; view state only | anything below | an editor assembly referencing only the features it serves |
-| `Kits/` | Recipes (short scripts over actions) and prefab kits | the features' public API | scripts and prefabs |
+| `Tools/<family>/` | Menus and windows over the features' actions; view state only (the Manifest window, the launchpad for [a scene a build sheet sets up](../docs/manifest.md), is one) | anything below | an editor assembly referencing only the features it serves |
+| `Kits/<Kit>/` | Recipes over several features' actions, and prefab kits: the one part that composes features ([a kit](../docs/parts/kit.md); the Tasks kit holds the behaviors a [task's sheet rows](../docs/tasks.md) read as, which the [manifest](../docs/manifest.md) builds) | the features' public API | `M3trik.Unitytk.Kits.<Kit>.Editor` (and `.Tests`) |
 | `Samples~/<Sample>/` | A feature's [sample](#samples): its delivery (generated) and its demo recipe | the feature's public API | `M3trik.Unitytk.Samples.<Sample>` (and `.Editor`), compiled where the sample is imported |
 
 The foundation (Core, Kernel and Contracts) changes only with the maintainer's

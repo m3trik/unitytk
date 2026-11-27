@@ -1,0 +1,11 @@
+{
+  "behavior": "take",
+  "order": 30,
+  "description": "Selecting a holdable puts it in the hand.",
+  "detect": [
+    "^selecting\\s+(?P<targets>.+?)\\s+places\\s+(?:it|them)\\s+in\\s+(?:the\\s+)?hand$"
+  ],
+  "roles": [
+    "takes"
+  ]
+}

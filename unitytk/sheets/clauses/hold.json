@@ -1,0 +1,8 @@
+{
+  "behavior": "hold",
+  "order": 41,
+  "description": "A holdable ends in the hand (after a clip that moved it).",
+  "detect": [
+    "^(?:the\\s+)?(?P<targets>.+?)\\s+returns?\\s+to\\s+(?:the\\s+)?hand$"
+  ]
+}

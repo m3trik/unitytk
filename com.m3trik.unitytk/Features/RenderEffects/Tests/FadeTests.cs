@@ -114,6 +114,39 @@ namespace M3trik.Unitytk.RenderEffects.Tests
         }
 
         [Test]
+        public void What_is_left_out_of_the_effects_above_it_stays_shown_and_wears_its_own_material()
+        {
+            // An arrow put under a part to point it out: the part fades and glows, the arrow does neither.
+            var material = _stage.Lit("Crate");
+            var own = _stage.Lit("Arrow", Color.blue);
+            var root = _stage.Node("Crate");
+            var fade = root.AddComponent<Fade>();
+            var glow = root.AddComponent<Highlight>();
+            var body = _stage.Renderer("Body", root.transform, material);
+            var cue = _stage.Node("Indicator", root.transform);
+            var arrow = _stage.Renderer("Arrow", cue.transform, own);
+
+            fade.alpha = 0f;
+            fade.Apply();
+            Assert.That(arrow.forceRenderingOff, Is.True, "red first: under the part, it is hidden with it");
+
+            cue.AddComponent<EffectExempt>();
+            fade.Apply();
+            Assert.That(body.forceRenderingOff, Is.True, "the part is hidden at 0");
+            Assert.That(arrow.forceRenderingOff, Is.False, "what is left out shows");
+
+            fade.alpha = 0.5f;
+            glow.intensity = 1f;
+            fade.Apply();
+            Assert.That(body.sharedMaterial, Is.Not.SameAs(material), "the part wears its twin");
+            Assert.That(arrow.sharedMaterial, Is.SameAs(own), "what is left out wears its own material: no twin is made of it");
+
+            Object.DestroyImmediate(cue.GetComponent<EffectExempt>());
+            fade.Apply();
+            Assert.That(arrow.sharedMaterial, Is.Not.SameAs(own), "no longer left out: the part's effects reach it again");
+        }
+
+        [Test]
         public void One_twin_per_material_is_shared_by_every_renderer_the_root_covers()
         {
             const int materials = 20, each = 10;

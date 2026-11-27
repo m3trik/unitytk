@@ -13,7 +13,7 @@ namespace M3trik.Unitytk.ArticulatedRig
     /// the values, and every part's transform is given back as it was when the inspector
     /// closes, as play mode starts, before scripts reload, before the scene is saved and
     /// before a prefab is written -- so no preview pose reaches a saved file -- while the
-    /// values stay; it shows again after a save while an inspector is open, and while any
+    /// values stay; it shows again once a save is written while an inspector is open, and while any
     /// of the rig's inspectors is; it holds only a part a value moves off its rest, yields a
     /// part the person moves (the move stays) until a value moves again, and leaves a rig
     /// that follows its animation to it.
@@ -176,13 +176,15 @@ namespace M3trik.Unitytk.ArticulatedRig
         {
             if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets", Path.GetFileName(Folder));
             var editor = UnityEditor.Editor.CreateEditor(_rig);
+            bool restWhileSaving = false;
+            void Saving(Scene saved, string path) => restWhileSaving = AtRest;
+            EditorSceneManager.sceneSaving += Saving;  // after the kernel's save hook: it sees what the file gets
             try
             {
                 Assert.That(EditorSceneManager.SaveScene(SceneManager.GetActiveScene(), Folder + "/Scene.unity"), Is.True);
-                Assert.That(AtRest, Is.True, "the save gave it back first");
-                ArticulatedRigPreview.Update();
+                Assert.That(restWhileSaving, Is.True, "the save gave it back first");
                 Assert.That(ArticulatedRigPreview.Showing(_rig), Is.True, "the inspector is still open: shown again");
-                Assert.That(Posed, Is.True);
+                Assert.That(Posed, Is.True, "posed again once the scene is written");
 
                 PrefabUtility.SaveAsPrefabAsset(_rig.transform.root.gameObject, Folder + "/Arm.prefab");
                 ArticulatedRigPreview.Update();
@@ -190,6 +192,7 @@ namespace M3trik.Unitytk.ArticulatedRig
             }
             finally
             {
+                EditorSceneManager.sceneSaving -= Saving;
                 Object.DestroyImmediate(editor);
             }
             ArticulatedRigPreview.Update();
@@ -270,10 +273,7 @@ namespace M3trik.Unitytk.ArticulatedRig
             {
                 Assert.That(Posed, Is.True);
                 Assert.That(EditorSceneManager.SaveScene(SceneManager.GetActiveScene(), scene), Is.True);
-                Assert.That(AtRest, Is.True, "the save gave it back first");
-
-                ArticulatedRigPreview.Show(new[] { _rig });
-                Assert.That(Posed, Is.True);
+                Assert.That(Posed, Is.True, "posed again once the scene is written (the file holds the rest: below)");
                 GameObject saved = PrefabUtility.SaveAsPrefabAsset(_rig.transform.root.gameObject, Folder + "/Arm.prefab");
                 Assert.That(AtRest, Is.True, "the prefab's write gave it back first");
                 Transform elbow = saved.GetComponentInChildren<ArticulatedRig>().joints[1].transform;

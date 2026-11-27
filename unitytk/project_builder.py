@@ -3,7 +3,7 @@
 """ProjectBuilder -- the test and demo project, built on demand the way a user's is.
 
 No Unity project lives in the repo. This builds one with Unity's own tools:
-``unity projects new`` makes it from the editor's template (URP's
+``unity projects create`` makes it from the editor's template (URP's
 ``com.unity.template.urp-blank``, or Built-in's ``com.unity.template.3d``),
 then one manifest line installs this checkout's package (``file:``), listed
 under ``testables`` so Unity's Test Framework runs its tests, beside the
@@ -175,7 +175,9 @@ class _ProjectBuilderInternal(UnityProject):
         """Have Unity's CLI make *folder*, which does not exist, saying so
         first; what a cancel or a failure left half-made is taken away (and
         out of the Hub's list), and only that: the :meth:`_pending` marker,
-        written before the CLI starts, names it this call's."""
+        written before the CLI starts, names it this call's; a drive without
+        room for it is refused first (:meth:`UnityProject.ensure_room`)."""
+        UnityProject.ensure_room(folder)
         logging.getLogger(__name__).warning("Unity: %s at %s", action, folder)
         if ctx is not None:
             ctx.progress(0.0, action)
@@ -211,11 +213,33 @@ class _ProjectBuilderInternal(UnityProject):
         return digest.hexdigest()
 
     @staticmethod
+    def _set_values(path: Path, values: Dict[str, str], what: str, ctx, mark: str = "") -> List[str]:
+        """Set each ``key: value`` line of the serialized file at *path* (a Unity asset's YAML), line endings
+        kept, asking *ctx* first (``should_write``, *what*); one already so, or (*mark* given) one that holds no
+        *mark*, is left as it is.
+
+        Returns:
+            The file, where it was written (in a plan, where it would be); else nothing.
+        """
+        raw = path.read_bytes().decode("utf-8", errors="replace")
+        if mark and mark not in raw:
+            return []
+        text = raw
+        for key, value in values.items():
+            text = re.sub(rf"(?m)^([ \t]*{re.escape(key)}:)[ \t]*[^\r\n]*", rf"\g<1> {value}", text)
+        if text == raw:
+            return []
+        if ctx is not None and not ctx.should_write(str(path), what):
+            return [str(path)] if getattr(ctx, "dry_run", False) else []
+        path.write_bytes(text.encode("utf-8"))
+        return [str(path)]
+
+    @staticmethod
     def _log_tail(log: Path, lines: int = 12) -> Tuple[str, str]:
-        """The end of the editor log *log* (``""`` when it wrote none): the
-        text :meth:`diagnose` reads, and its last *lines* lines, indented, to
-        quote in an error."""
-        tail = log.read_text(encoding="utf-8", errors="replace")[-20000:] if log.is_file() else ""
+        """The end of the editor log *log* (``UnityCli.log_tail``; ``""`` when
+        it wrote none): the text :meth:`diagnose` reads, and its last *lines*
+        lines, indented, to quote in an error."""
+        tail = UnityCli.log_tail(log)
         last = [line.rstrip() for line in tail.splitlines() if line.strip()][-lines:]
         return tail, "".join(f"\n    {line}" for line in last)
 
@@ -243,6 +267,19 @@ class ProjectBuilder(_ProjectBuilderInternal):
         "com.unity.test-framework": "1.6.0",
         "com.unity.xr.interaction.toolkit": "3.3.1",
     }
+    #: What each URP pipeline asset of a tuned project is set to (its
+    #: serialized field, the value; :meth:`tune_pipeline`, the owned project's
+    #: default): 4x MSAA, smooth edges on a desktop and in a headset, where a
+    #: post-process anti-aliasing blurs; URP's template ships it off.
+    PIPELINE_SETTINGS: Dict[str, str] = {"m_MSAA": "4"}
+    #: A line only a URP pipeline asset holds (its renderers' list).
+    PIPELINE_MARK = "m_RendererDataList:"
+    #: Unity's global volume (Project Settings > Audio > Global Volume), a line
+    #: of ``ProjectSettings/AudioManager.asset``: a project the tooling runs
+    #: unattended is muted, so its tests and sessions play nothing aloud. Muted,
+    #: not disabled: Disable Unity Audio stops every source playing, which the
+    #: audio features' tests check.
+    VOLUME_SETTING = "m_Volume"
     #: Where the Package Manager imports a sample, below ``Assets/``:
     #: ``Samples/<package display name>/<version>/<sample display name>``.
     SAMPLES = "Samples"
@@ -306,6 +343,8 @@ class ProjectBuilder(_ProjectBuilderInternal):
         ctx: Optional["ptk.OpContext"] = None,
         key: Optional[str] = None,
         replacements: Optional[Dict[str, Any]] = None,
+        muted: Optional[bool] = None,
+        tuned: Optional[bool] = None,
     ) -> str:
         """Build the owned project for *editor* (the newest when ``None``) and
         *pipeline*, or refresh it: made once by Unity's CLI from the editor's
@@ -324,6 +363,15 @@ class ProjectBuilder(_ProjectBuilderInternal):
                 not share the owned project builds its own.
             replacements: Per sample, a folder of files delivered in place of
                 its own (:meth:`import_samples`).
+            muted: Mute it (:meth:`mute`) or let it sound; ``None`` mutes the
+                owned project, which tests and agent sessions run unattended,
+                and leaves a keyed one (a person's play project) as it is.
+            tuned: Tune its pipeline assets (:meth:`tune_pipeline`) or leave
+                them as its template made them; ``None`` tunes the owned
+                project and leaves a keyed one's as they are. Its renderers
+                keep the template's settings either way: what a delivery needs
+                of them, the package's own checks name (``LightmapsActions
+                .Validate``), as they do in a person's project.
 
         Returns:
             The project's folder.
@@ -377,8 +425,89 @@ class ProjectBuilder(_ProjectBuilderInternal):
                 ctx is None or ctx.should_write(cls.manifest_path(str(folder)), "link this checkout's package")
             ):
                 cls.write_manifest(folder, wanted)
+            # A keyed project (a person's play project) keeps its rendering unless asked.
+            if (key is None) if tuned is None else tuned:
+                cls.tune_pipeline(folder, ctx)
+            if muted is not None or key is None:
+                cls.mute(folder, muted is not False, ctx)
             cls.import_samples(folder, package, ctx, replacements)
         return str(folder)
+
+    @classmethod
+    def mute(cls, project, muted: bool = True, ctx: Optional["ptk.OpContext"] = None) -> List[str]:
+        """Mute *project* (its :attr:`VOLUME_SETTING` 0), or let it sound (1),
+        line endings kept; one already so is left as it is.
+
+        Parameters:
+            project: A project's folder.
+            muted: Mute it; ``False`` lets it sound.
+            ctx: Asked before the file is written (``should_write``).
+
+        Returns:
+            The files written (in a plan, that would be): none where it already
+            is so, or the project has no audio settings yet.
+        """
+        path = Path(project, "ProjectSettings", "AudioManager.asset")
+        if not path.is_file():
+            return []
+        what = "mute its audio (global volume 0)" if muted else "let its audio sound (global volume 1)"
+        return cls._set_values(path, {cls.VOLUME_SETTING: "0" if muted else "1"}, what, ctx)
+
+    @classmethod
+    def tune_pipeline(
+        cls,
+        project,
+        ctx: Optional["ptk.OpContext"] = None,
+        pipeline_settings: Optional[Dict[str, str]] = None,
+    ) -> List[str]:
+        """Set *pipeline_settings* in each URP pipeline asset *project* draws
+        with (:meth:`pipeline_assets`: the graphics and quality settings' own,
+        a file holding :attr:`PIPELINE_MARK`), line endings kept; one already
+        set is left as it is. Its renderers are left as they are.
+
+        Parameters:
+            project: A project's folder.
+            ctx: Asked before each file is written (``should_write``).
+            pipeline_settings: Each pipeline asset's serialized fields and
+                values; ``None``: :attr:`PIPELINE_SETTINGS`.
+
+        Returns:
+            The files written (in a plan, that would be).
+        """
+        pipeline = cls.PIPELINE_SETTINGS if pipeline_settings is None else pipeline_settings
+        what = "set its render pipeline asset's " + ", ".join(f"{k} {v}" for k, v in pipeline.items())
+        return [
+            written
+            for path in cls.pipeline_assets(project)
+            for written in cls._set_values(path, pipeline, what, ctx, cls.PIPELINE_MARK)
+        ]
+
+    #: The settings that name the pipeline assets a project draws with
+    #: (``ProjectSettings/<file>``: the lines naming one by its GUID).
+    PIPELINE_REFERENCES = {
+        "GraphicsSettings.asset": "m_CustomRenderPipeline",
+        "QualitySettings.asset": "customRenderPipeline",
+    }
+
+    @classmethod
+    def pipeline_assets(cls, project) -> List[Path]:
+        """The render pipeline assets *project* draws with: those its graphics
+        settings and each quality level name (:attr:`PIPELINE_REFERENCES`), by
+        their GUIDs, found under ``Assets`` by their ``.meta``; sorted, each once."""
+        guids = set()
+        for name, key in cls.PIPELINE_REFERENCES.items():
+            path = Path(project, "ProjectSettings", name)
+            if path.is_file():
+                text = path.read_text(encoding="utf-8", errors="replace")
+                guids.update(re.findall(rf"(?m)^\s*{key}:\s*\{{[^}}]*\bguid:\s*([0-9a-f]{{32}})", text))
+        found = []
+        if guids:
+            for meta in Path(project, "Assets").rglob("*.asset.meta"):
+                head = meta.read_text(encoding="utf-8", errors="replace")[:200]
+                match = re.search(r"(?m)^guid:\s*([0-9a-f]{32})", head)
+                if match and match.group(1) in guids:
+                    found.append(meta.with_suffix(""))
+        return sorted(found)
 
     @classmethod
     def samples(cls, package: Path) -> List[Dict[str, Any]]:
@@ -411,13 +540,14 @@ class ProjectBuilder(_ProjectBuilderInternal):
         its recipe built beside it; a changed one replaces its folder whole,
         as a re-import does. Another version's samples of the package leave
         (the owned project holds this checkout's), so no sample's assembly is
-        defined twice.
+        defined twice; so does a sample this version no longer lists (renamed, or
+        taken out), where this builder copied it.
 
         Parameters:
             project: The owned project.
             package: The Unity package (this checkout's when ``None``).
             ctx: Asked before a sample is copied (``should_write``) and an old
-                one removed (``should_delete``).
+                one, or one no longer listed, removed (``should_delete``).
             replacements: ``{sample display name: folder}``: the folder's
                 files, by their path in it, are delivered in place of the
                 sample's own of the same path -- another producer's delivery
@@ -462,6 +592,13 @@ class ProjectBuilder(_ProjectBuilderInternal):
         version_dir = cls.sample_folder(project, package, samples[0]).parent
         for old in sorted(p for p in version_dir.parent.glob("*") if p.is_dir() and p != version_dir):
             if ctx is None or ctx.should_delete(str(old), "remove another version's samples"):
+                shutil.rmtree(old)
+                Path(str(old) + ".meta").unlink(missing_ok=True)
+        # A sample this version no longer lists (renamed, taken out) leaves too: one this builder copied, which
+        # its stamp says; a folder a person made beside them stays.
+        listed = {cls.sample_folder(project, package, sample) for sample in samples}
+        for old in sorted(p for p in version_dir.glob("*") if p.is_dir() and p not in listed and (p / cls.SAMPLE_STAMP).is_file()):
+            if ctx is None or ctx.should_delete(str(old), "remove a sample the package no longer lists"):
                 shutil.rmtree(old)
                 Path(str(old) + ".meta").unlink(missing_ok=True)
         deliverer = ptk.FolderDeliverer(embed=ptk.FbxMedia.embed_dependencies)

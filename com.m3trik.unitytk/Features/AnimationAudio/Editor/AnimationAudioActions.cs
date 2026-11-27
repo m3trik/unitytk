@@ -112,13 +112,101 @@ namespace M3trik.Unitytk.AnimationAudio
         {
             if (target == null) throw new ArgumentNullException(nameof(target));
             if (target.GetComponent<AnimationAudioPlayer>() != null) return false;
-            if (ctx == null || ctx.ShouldCreate($"{target.name}/AnimationAudioPlayer", "add an Animation Audio Player"))
+            if (ctx == null || ctx.ShouldCreate(OpContextEdits.Key(target, typeof(AnimationAudioPlayer)), "add an Animation Audio Player"))
             {
                 bool hadSource = target.GetComponent<AudioSource>() != null;
                 ctx.AddComponent<AnimationAudioPlayer>(target);
                 if (!hadSource) AnimationAudioPlayer.Defaults(target.GetComponent<AudioSource>());
             }
             return true;
+        }
+
+        /// <summary>
+        /// Leave the cues of <paramref name="sounds"/> (by name) out of what the player on <paramref name="target"/>
+        /// plays (<see cref="AnimationAudioPlayer.leave"/>): something else plays them (a task's voice line, as its
+        /// step starts), so a delivered cue of the same sound never plays twice. The list becomes exactly these, sorted;
+        /// an object with no player cues no sound, and is left alone.
+        /// </summary>
+        /// <param name="target">The object a delivery's player sits on (its model's root).</param>
+        /// <param name="sounds">The sounds played elsewhere, by name.</param>
+        /// <param name="ctx">The run's context: a dry run lists the change; null just makes it.</param>
+        /// <returns>Whether it changed the list (or would, in a dry run).</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="target"/> or <paramref name="sounds"/> is null.</exception>
+        public static bool Leave(GameObject target, IEnumerable<string> sounds, OpContext ctx = null)
+        {
+            if (target == null) throw new ArgumentNullException(nameof(target));
+            if (sounds == null) throw new ArgumentNullException(nameof(sounds));
+            var player = target.GetComponent<AnimationAudioPlayer>();
+            if (player == null) return false;
+            List<string> wanted = sounds.Where(s => !string.IsNullOrEmpty(s)).Distinct().OrderBy(s => s, StringComparer.Ordinal).ToList();
+            if (player.leave.SequenceEqual(wanted)) return false;
+            if (ctx != null && !ctx.ShouldChange(player, $"leave {wanted.Count} sound(s) to what plays them elsewhere")) return true;
+            player.leave = wanted;
+            ctx.Edited(player);
+            return true;
+        }
+
+        /// <summary>
+        /// Give the object <paramref name="cue"/> under the active scene's top-level object <paramref name="owner"/>
+        /// (both made where missing) a <see cref="SoundCue"/> playing <paramref name="sound"/>, made switched off
+        /// unless <paramref name="startEnabled"/>: whatever switches it on plays it, for as long as it stays on.
+        /// One there is brought up to date where it plays another sound, or another way. A dry run plans what it
+        /// would make, so a later action may name it.
+        /// </summary>
+        /// <param name="owner">The name of the top-level object that holds the scene's cues.</param>
+        /// <param name="cue">The cue's object's name under it.</param>
+        /// <param name="sound">The sound.</param>
+        /// <param name="startEnabled">Make it playing from the start; false: off until something switches it on.</param>
+        /// <param name="spatialBlend">How far the sound is placed at its object: 0 flat (a voice in the listener's ears), 1 fully 3D.</param>
+        /// <param name="loop">Play it over and over while switched on; false: once.</param>
+        /// <param name="ctx">The run's context: a dry run lists the changes; null just makes them.</param>
+        /// <returns>The cue; null in a dry run that would make one.</returns>
+        /// <exception cref="ArgumentException"><paramref name="owner"/> or <paramref name="cue"/> is empty.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="sound"/> is null.</exception>
+        public static SoundCue AddSoundCue(string owner, string cue, AudioClip sound, bool startEnabled = false, float spatialBlend = 0f,
+                                           bool loop = false, OpContext ctx = null)
+        {
+            if (string.IsNullOrEmpty(owner)) throw new ArgumentException("name the top-level object", nameof(owner));
+            if (string.IsNullOrEmpty(cue)) throw new ArgumentException("name the cue", nameof(cue));
+            if (sound == null) throw new ArgumentNullException(nameof(sound), "name the sound it plays");
+            spatialBlend = Mathf.Clamp01(spatialBlend);
+            GameObject root = SceneRoots.Find(owner);
+            Transform child = root == null ? null : root.transform.Find(cue);
+            SoundCue found = child == null ? null : child.GetComponent<SoundCue>();
+            if (found != null)
+            {
+                if (found.clip == sound && found.setSource && found.spatialBlend == spatialBlend && found.loop == loop) return found;
+                if (ctx != null && !ctx.ShouldChange(found, $"play '{sound.name}'")) return found;
+                found.clip = sound;
+                found.setSource = true;
+                found.spatialBlend = spatialBlend;
+                found.loop = loop;
+                ctx.Edited(found);
+                return found;
+            }
+            var holder = new PlannedObject(owner);
+            string key = OpContextEdits.Key(new PlannedObject(cue, holder), typeof(SoundCue));
+            if (ctx.Planned("create", key)) return null;
+            if (root == null && !ctx.Planned("create", holder.Path)
+                && (ctx == null || ctx.ShouldCreate(holder.Path, "hold the scene's sound cues")))  // a dry run goes on to plan the cue
+            {
+                root = new GameObject(owner);
+                ctx.Created(root);
+            }
+            if (ctx != null && !ctx.ShouldCreate(key, $"play '{sound.name}' while it is switched on")) return null;
+            if (child == null)
+            {
+                child = new GameObject(cue).transform;
+                child.SetParent(root.transform, false);
+                ctx.Created(child.gameObject);
+            }
+            SoundCue made = ctx.AddComponent<SoundCue>(child.gameObject);  // it sets up its source itself, as it plays
+            made.clip = sound;
+            made.spatialBlend = spatialBlend;
+            made.loop = loop;
+            made.enabled = startEnabled;
+            ctx.Edited(made);
+            return made;
         }
 
         // Whether the clip cues the sound at the time already (delivered, or authored).

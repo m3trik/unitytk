@@ -2,19 +2,26 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using M3trik.Unitytk.Core;
 using M3trik.Unitytk.Kernel;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+
+[assembly: InternalsVisibleTo("M3trik.Unitytk.Lightmaps.URP.Editor")]
 
 namespace M3trik.Unitytk.Lightmaps
 {
     /// <summary>
     /// The Lightmaps feature's actions, in Unity's terms: make the open scenes' lightmap
     /// sets their owner (<see cref="Apply"/>, which clears Unity's bake), fill a set from
-    /// what the scene shows (<see cref="Capture"/>) or by hand (<see cref="Assign"/>), and
-    /// check the scenes' sets against the one-owner rule (<see cref="Validate"/>). Each
+    /// what the scene shows (<see cref="Capture"/>) or by hand (<see cref="Assign"/>),
+    /// check the scenes' sets against the one-owner rule and what the render pipeline does
+    /// to them (<see cref="Validate"/>), and fix the pipeline's two
+    /// (<see cref="ReadProbesWhole"/>, <see cref="SwitchOcclusionOff"/>). Each
     /// takes an optional <see cref="OpContext"/>: a dry run plans, a menu's run is one undo
     /// step for its scene edits, and none just runs. A second run of each changes nothing.
     /// </summary>
@@ -39,6 +46,12 @@ namespace M3trik.Unitytk.Lightmaps
         public const string BakeMapsHeldCode = "unity.lightmaps.bake_maps_held";
         /// <summary>A set's box-projected probe sits under a rotated root, which Unity's axis-aligned box cannot follow.</summary>
         public const string ProbeRotatedCode = "unity.lightmaps.probe_rotated";
+        /// <summary>A realtime light lights renderers a set's maps already light: they are lit twice.</summary>
+        public const string LitTwiceCode = "unity.lightmaps.lit_twice";
+        /// <summary>A renderer reads reflection probes through an atlas, which breaks a set's box-projected probe.</summary>
+        public const string ProbeAtlasCode = "unity.lightmaps.probe_atlas";
+        /// <summary>A renderer draws screen-space ambient occlusion over what a set's maps already shade.</summary>
+        public const string OcclusionCode = "unity.lightmaps.occlusion";
 
         /// <summary>
         /// Make the open scenes' lightmap sets their owner: Unity's bake cleared first
@@ -139,14 +152,19 @@ namespace M3trik.Unitytk.Lightmaps
 
             int bound = 0;
             bool live = ctx == null || !ctx.DryRun;
+            var switchedOff = new List<string>();
             // A reimported map reimports its model: its instances' sets are new ones.
             foreach (LightmapSet set in live ? OpenSets() : sets)
             {
                 if (live && set.isActiveAndEnabled) set.Refresh();
                 if (live ? set.Bound : set.isActiveAndEnabled && (clear || !set.StandsDown)) bound += Bindable(set);
+                if (live) switchedOff.AddRange(set.SwitchedOff.Where(light => light != null).Select(light => light.name));
             }
             if (live) ctx.Log($"Apply Scene Lightmaps: {sets.Count} lightmap set(s) own the open scene(s), binding {bound} renderer(s)" +
-                              (clear ? "; Unity's bake cleared." : "."));
+                              (clear ? "; Unity's bake cleared" : "") +
+                              (switchedOff.Count > 0 ? $"; their maps hold the light, so the realtime light(s) that lit only their " +
+                                                       $"renderers are off while they bind: {string.Join(", ", switchedOff)} (clear a set's " +
+                                                       "Lights Off to keep them)." : "."));
             return bound;
         }
 
@@ -235,7 +253,7 @@ namespace M3trik.Unitytk.Lightmaps
             string action = $"capture the {receivers.Count} renderer(s) the scene shows lightmapped";
             if (!Ensure(root, ref set, ctx))
             {
-                ctx.ShouldChange(root.name, action);  // a dry run: the set it would add, by its name
+                ctx.ShouldChange(root, action);  // a dry run: the set it would add, by its object's path as the run names it
                 return receivers.Count;
             }
             if (ctx == null || ctx.ShouldChange(set, action)) Fill(set, mode, maps, receivers, ctx);
@@ -273,7 +291,7 @@ namespace M3trik.Unitytk.Lightmaps
             string action = $"light '{renderer.name}' with '{map.name}' at {scaleOffset}";
             if (!Ensure(root, ref set, ctx))
             {
-                ctx.ShouldChange(root.name, action);  // a dry run: the set it would add, by its name
+                ctx.ShouldChange(root, action);  // a dry run: the set it would add, by its object's path as the run names it
                 return true;
             }
             if (ctx != null && !ctx.ShouldChange(set, action)) return true;
@@ -296,11 +314,24 @@ namespace M3trik.Unitytk.Lightmaps
         /// error), and a scene Unity's bake owns that holds sets is named (its sets stand
         /// down, a warning: <see cref="Apply"/> makes them its owner). A set whose
         /// box-projected probe sits rotated is named too (a warning): Unity's box
-        /// projection and the probe's cubemap stay aligned to the world axes.
+        /// projection and the probe's cubemap stay aligned to the world axes. So are the
+        /// realtime lights that reach a set's renderers (a warning): the maps already hold
+        /// the light, so each such light lights them a second time. A set told to
+        /// (<see cref="LightmapSet.lightsOff"/>) switches off as it binds those that light its
+        /// renderers alone, so this names one that also lights something else, one switched on
+        /// since, or one a set was told to keep. And it names what the render pipeline drawing
+        /// now does to the sets (a warning each, its fix the action that makes it): a renderer
+        /// that reads reflection probes through an atlas (URP's Forward+), which breaks a
+        /// box-projected probe into scattered dark texels on the room it reflects
+        /// (<see cref="ReadProbesWhole"/>), and screen-space ambient occlusion switched on,
+        /// which darkens and speckles what the maps already shade (<see cref="SwitchOcclusionOff"/>).
         /// </summary>
         /// <param name="ctx">The run's context, where each problem is raised; null: the Console.</param>
         /// <returns>How many problems it found.</returns>
-        public static int Validate(OpContext ctx = null)
+        public static int Validate(OpContext ctx = null) => Validate(GraphicsSettings.currentRenderPipeline, ctx);
+
+        /// <summary><see cref="Validate(OpContext)"/>, the render pipeline <paramref name="pipeline"/>'s renderers asked (null: none's).</summary>
+        internal static int Validate(RenderPipelineAsset pipeline, OpContext ctx)
         {
             int problems = 0;
             foreach (Scene scene in OpenScenesList())
@@ -336,11 +367,117 @@ namespace M3trik.Unitytk.Lightmaps
                                                 "reflections no longer line up with the room: keep a probed model unrotated " +
                                                 "(moving and scaling it are fine).", "warning", Location(scene));
                 }
+                List<string> twice = LightmapSet.LightsOver(scene, sets).Select(light => light.name).ToList();
+                if (twice.Count > 0)
+                {
+                    problems++;
+                    ctx.Raise(LitTwiceCode, $"'{scene.name}' lights its lightmapped renderers twice: their maps hold the light, " +
+                                            $"and realtime light(s) {string.Join(", ", twice)} add theirs on top. Switch them off " +
+                                            "(a Lightmap Set with Lights Off set does so as it binds for one that lights its " +
+                                            "renderers alone), or keep them off the mapped renderers' layers (its Culling Mask).",
+                              "warning", Location(scene));
+                }
+            }
+            List<LightmapSet> open = OpenSets();
+            bool boxed = open.Any(s => s.probe != null && s.probe.boxProjection), mapped = open.Any(s => s.receivers.Count > 0);
+            foreach (ILightmapRenderers renderers in Provided.All<ILightmapRenderers>())
+            {
+                if (boxed)
+                    foreach (ScriptableObject renderer in renderers.ProbeAtlas(pipeline))
+                    {
+                        problems++;
+                        ctx.Raise(ProbeAtlasCode, $"The renderer '{renderer.name}' reads reflection probes through an atlas, which " +
+                                                  "breaks a lightmap set's box-projected probe into scattered dark texels on the room " +
+                                                  $"it reflects: give it a path that reads each probe whole ({nameof(LightmapsActions)}.{nameof(ReadProbesWhole)}, the fix).",
+                                  "warning", AssetDatabase.GetAssetPath(renderer), Fix(nameof(ReadProbesWhole)));
+                    }
+                if (mapped)
+                    foreach (ScriptableObject occlusion in renderers.Occlusion(pipeline))
+                    {
+                        problems++;
+                        string at = AssetDatabase.GetAssetPath(occlusion);
+                        ctx.Raise(OcclusionCode, $"The renderer at '{at}' draws screen-space ambient occlusion ('{occlusion.name}'), which " +
+                                                 "darkens and speckles what a lightmap set's maps already shade (they hold its " +
+                                                 $"occlusion): switch it off ({nameof(LightmapsActions)}.{nameof(SwitchOcclusionOff)}, the fix).",
+                                  "warning", at, Fix(nameof(SwitchOcclusionOff)));
+                    }
             }
             return problems;
         }
 
+        /// <summary>
+        /// Give each renderer of the render pipeline drawing now that reads reflection probes through an atlas (URP's
+        /// Forward+), which breaks a lightmap set's box-projected probe, a path that reads each probe whole (URP's
+        /// Forward): the fix <see cref="Validate(OpContext)"/> names (<see cref="ReadProbesWhole(RenderPipelineAsset, OpContext)"/>
+        /// of <c>GraphicsSettings.currentRenderPipeline</c>).
+        /// </summary>
+        /// <param name="ctx">The run's context: a dry run lists the changes; null just makes them.</param>
+        /// <returns>How many renderers it changed (in a dry run, would).</returns>
+        public static int ReadProbesWhole(OpContext ctx = null) => ReadProbesWhole(GraphicsSettings.currentRenderPipeline, ctx);
+
+        /// <summary>
+        /// Give each renderer of <paramref name="pipeline"/> that reads reflection probes through an atlas (URP's
+        /// Forward+), which breaks a lightmap set's box-projected probe, a path that reads each probe whole (URP's
+        /// Forward). Each is asked of <paramref name="ctx"/> first, and is one undo step with the rest of a menu's run. A
+        /// pipeline with none, or no door to ask (Built-in), changes nothing.
+        /// </summary>
+        /// <param name="pipeline">The render pipeline asset; null: none (the Built-in pipeline), which has nothing to change.</param>
+        /// <param name="ctx">The run's context: a dry run lists the changes; null just makes them.</param>
+        /// <returns>How many renderers it changed (in a dry run, would).</returns>
+        public static int ReadProbesWhole(RenderPipelineAsset pipeline, OpContext ctx = null)
+        {
+            int changed = 0;
+            foreach (ILightmapRenderers renderers in Provided.All<ILightmapRenderers>())
+                foreach (ScriptableObject renderer in renderers.ProbeAtlas(pipeline))
+                {
+                    changed++;
+                    if (ctx != null && !ctx.ShouldChange(renderer, "read each reflection probe whole, not through an atlas (the Forward path)"))
+                        continue;
+                    renderers.ReadProbesWhole(renderer);
+                    ctx.Edited(renderer);
+                }
+            return changed;
+        }
+
+        /// <summary>
+        /// Switch off each screen-space ambient occlusion the renderers of the render pipeline drawing now draw, which
+        /// darkens and speckles what a lightmap set's maps already shade: the fix <see cref="Validate(OpContext)"/> names
+        /// (<see cref="SwitchOcclusionOff(RenderPipelineAsset, OpContext)"/> of <c>GraphicsSettings.currentRenderPipeline</c>).
+        /// </summary>
+        /// <param name="ctx">The run's context: a dry run lists the changes; null just makes them.</param>
+        /// <returns>How many it switched off (in a dry run, would).</returns>
+        public static int SwitchOcclusionOff(OpContext ctx = null) => SwitchOcclusionOff(GraphicsSettings.currentRenderPipeline, ctx);
+
+        /// <summary>
+        /// Switch off each screen-space ambient occlusion the renderers of <paramref name="pipeline"/> draw. Each is asked
+        /// of <paramref name="ctx"/> first. A pipeline with none, or no door to ask (Built-in), changes nothing.
+        /// </summary>
+        /// <param name="pipeline">The render pipeline asset; null: none (the Built-in pipeline), which has nothing to change.</param>
+        /// <param name="ctx">The run's context: a dry run lists the changes; null just makes them.</param>
+        /// <returns>How many it switched off (in a dry run, would).</returns>
+        public static int SwitchOcclusionOff(RenderPipelineAsset pipeline, OpContext ctx = null)
+        {
+            int changed = 0;
+            foreach (ILightmapRenderers renderers in Provided.All<ILightmapRenderers>())
+                foreach (ScriptableObject occlusion in renderers.Occlusion(pipeline))
+                {
+                    changed++;
+                    if (ctx != null && !ctx.ShouldChange(occlusion, "switch its screen-space ambient occlusion off: the maps hold their occlusion"))
+                        continue;
+                    renderers.SwitchOff(occlusion);
+                    ctx.Edited(occlusion);
+                }
+            return changed;
+        }
+
         // -- helpers ------------------------------------------------------------------
+
+        /// <summary>The fix of an issue: <paramref name="action"/> run, on the pipeline drawing now, by the editor's own code call.</summary>
+        static OpCall Fix(string action) => new OpCall
+        {
+            op = "unity.csharp.exec",
+            args = new Dictionary<string, object> { ["code"] = $"return M3trik.Unitytk.Lightmaps.LightmapsActions.{action}();" },
+        };
 
         /// <summary>
         /// Every lightmap set in the open scenes, inactive ones included; none of a preview
@@ -470,7 +607,7 @@ namespace M3trik.Unitytk.Lightmaps
         static bool Ensure(GameObject root, ref LightmapSet set, OpContext ctx)
         {
             if (set != null) return true;
-            if (ctx != null && !ctx.ShouldCreate($"{root.name}/{nameof(LightmapSet)}", "add a Lightmap Set")) return false;
+            if (ctx != null && !ctx.ShouldCreate(OpContextEdits.Key(root, typeof(LightmapSet)), "add a Lightmap Set")) return false;
             set = ctx.AddComponent<LightmapSet>(root);
             return true;
         }

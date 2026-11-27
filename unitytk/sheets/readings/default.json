@@ -1,0 +1,402 @@
+{
+  "strict": false,
+  "step_id": "[A-Z]+_?\\d+(?:[._]\\d+)?",
+  "names": {
+    "arrow": "^(?P<part>.+)_ARROW$"
+  },
+  "step_fields": {
+    "voice": "audio",
+    "placard": "placard_text",
+    "hint": "hint",
+    "sound": "sound",
+    "to": "to"
+  },
+  "staged": [
+    "sound"
+  ],
+  "page": "placard",
+  "hand": "tool",
+  "arrows": "arrows",
+  "action_words": {
+    "press and hold": "press_hold"
+  },
+  "question": {
+    "mark": "*",
+    "behavior": "option",
+    "label": "label",
+    "value": "value",
+    "correct": "correct"
+  },
+  "vocabulary": {},
+  "columns": [],
+  "words": {
+    "highlight": [
+      {
+        "behavior": "highlight",
+        "pass": {
+          "highlightStyle": "style",
+          "highlightColor": "color"
+        }
+      }
+    ],
+    "indicate": [
+      {
+        "behavior": "indicate",
+        "lists": {
+          "arrows": "where"
+        },
+        "pass": {
+          "arrowSize": "size",
+          "arrowColor": "color"
+        }
+      }
+    ],
+    "fade_in": [
+      {
+        "behavior": "fade_in",
+        "pass": {
+          "fadeSeconds": "fade"
+        }
+      }
+    ],
+    "fade_out": [
+      {
+        "behavior": "fade_out",
+        "pass": {
+          "fadeSeconds": "fade"
+        }
+      }
+    ],
+    "set": [
+      {
+        "behavior": "set_state",
+        "fields": {
+          "state": "{state}"
+        }
+      }
+    ],
+    "take": [
+      {
+        "behavior": "take"
+      }
+    ],
+    "return": [
+      {
+        "behavior": "return"
+      }
+    ],
+    "use": [
+      {
+        "if": {
+          "trigger": "near"
+        },
+        "behavior": "place",
+        "nodes": {
+          "tool": "with"
+        },
+        "clip": true
+      },
+      {
+        "if": {
+          "trigger": "hold",
+          "hold": "?"
+        },
+        "behavior": "use",
+        "nodes": {
+          "tool": "with"
+        },
+        "clip": true,
+        "settings": {
+          "useTrigger": "TimedPress"
+        },
+        "pass": {
+          "pressSeconds": "hold"
+        }
+      },
+      {
+        "if": {
+          "trigger": "hold"
+        },
+        "behavior": "use",
+        "nodes": {
+          "tool": "with"
+        },
+        "clip": true,
+        "settings": {
+          "useTrigger": "HoldToPlay"
+        }
+      },
+      {
+        "if": {
+          "hold": "?"
+        },
+        "behavior": "use",
+        "nodes": {
+          "tool": "with"
+        },
+        "clip": true,
+        "settings": {
+          "useTrigger": "TimedPress"
+        },
+        "pass": {
+          "pressSeconds": "hold"
+        }
+      },
+      {
+        "behavior": "use",
+        "nodes": {
+          "tool": "with"
+        },
+        "clip": true
+      }
+    ],
+    "play": [
+      {
+        "behavior": "play",
+        "targets": "none",
+        "clip": true,
+        "pass": {
+          "playSpeed": "speed"
+        }
+      }
+    ],
+    "button": [
+      {
+        "if": {
+          "to": "retry"
+        },
+        "behavior": "option",
+        "fields": {
+          "label": "{label}"
+        },
+        "pass": {
+          "wrongChoiceReply": "reply"
+        }
+      },
+      {
+        "if": {
+          "to": "next",
+          "any": {
+            "to": "retry"
+          }
+        },
+        "behavior": "option",
+        "fields": {
+          "label": "{label}",
+          "value": "correct"
+        }
+      },
+      {
+        "if": {
+          "to": "next",
+          "when": "start"
+        },
+        "behavior": "pause",
+        "fields": {
+          "label": "{label}"
+        },
+        "settings": {
+          "pauseWhen": "Start"
+        }
+      },
+      {
+        "if": {
+          "to": "next"
+        },
+        "behavior": "pause",
+        "fields": {
+          "label": "{label}"
+        }
+      },
+      {
+        "if": {
+          "to": "exit"
+        },
+        "behavior": "exit",
+        "fields": {
+          "label": "{label}"
+        }
+      },
+      {
+        "if": {
+          "to": "restart"
+        },
+        "behavior": "goto",
+        "fields": {
+          "label": "{label}"
+        },
+        "to": "first"
+      },
+      {
+        "behavior": "goto",
+        "fields": {
+          "label": "{label}"
+        },
+        "to": "{to}"
+      }
+    ],
+    "select": [
+      {
+        "behavior": "select"
+      }
+    ],
+    "answer": [
+      {
+        "if": {
+          "label": "*"
+        },
+        "behavior": "answer",
+        "to": "{to}",
+        "settings": {
+          "answerKind": "Otherwise"
+        },
+        "brings": "number_pad"
+      },
+      {
+        "behavior": "answer",
+        "fields": {
+          "value": "{label}"
+        },
+        "to": "{to}",
+        "brings": "number_pad"
+      }
+    ],
+    "teleport": [
+      {
+        "if": {
+          "where": "",
+          "when": "end"
+        },
+        "behavior": "teleport",
+        "targets": "none",
+        "nodes": {
+          "facing": "target"
+        },
+        "order": "end",
+        "until": {
+          "by": "ring",
+          "shows": {
+            "behavior": "marker"
+          },
+          "behavior": "marker",
+          "settings": {
+            "markerShow": "Hide"
+          },
+          "targets": "where"
+        }
+      },
+      {
+        "if": {
+          "where": ""
+        },
+        "behavior": "teleport",
+        "targets": "none",
+        "nodes": {
+          "facing": "target"
+        },
+        "order": "start",
+        "until": {
+          "by": "ring",
+          "shows": {
+            "behavior": "marker"
+          },
+          "behavior": "marker",
+          "settings": {
+            "markerShow": "Hide"
+          },
+          "targets": "where"
+        }
+      },
+      {
+        "if": {
+          "when": "end"
+        },
+        "behavior": "teleport",
+        "targets": "where",
+        "order": "end",
+        "until": {
+          "by": "ring",
+          "shows": {
+            "behavior": "marker"
+          },
+          "behavior": "marker",
+          "settings": {
+            "markerShow": "Hide"
+          },
+          "targets": "where"
+        },
+        "nodes": {
+          "faces": "target"
+        }
+      },
+      {
+        "behavior": "teleport",
+        "targets": "where",
+        "order": "start",
+        "until": {
+          "by": "ring",
+          "shows": {
+            "behavior": "marker"
+          },
+          "behavior": "marker",
+          "settings": {
+            "markerShow": "Hide"
+          },
+          "targets": "where"
+        },
+        "nodes": {
+          "faces": "target"
+        }
+      }
+    ],
+    "pip": [
+      {
+        "behavior": "pip",
+        "until": {
+          "behavior": "pip",
+          "targets": "none",
+          "settings": {
+            "pipShow": "Hide"
+          }
+        },
+        "fields": {
+          "label": "{label}"
+        },
+        "settings": {
+          "captionFrom": "Label"
+        },
+        "nodes": {
+          "from": "where"
+        }
+      }
+    ],
+    "checklist": [
+      {
+        "behavior": "checklist",
+        "until": {
+          "behavior": "checklist",
+          "targets": "none",
+          "settings": {
+            "checklistShow": "Hide"
+          }
+        },
+        "fields": {
+          "label": "{label}"
+        }
+      }
+    ],
+    "check": [
+      {
+        "behavior": "check",
+        "fields": {
+          "label": "{label}"
+        }
+      }
+    ],
+    "note": [
+      {
+        "behavior": "note"
+      }
+    ]
+  }
+}

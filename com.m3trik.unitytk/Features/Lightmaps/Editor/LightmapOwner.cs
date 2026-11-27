@@ -12,9 +12,10 @@ namespace M3trik.Unitytk.Lightmaps
     /// with the runtime part whenever the editor's domain loads; a bake about to start
     /// takes every set's bindings down first (it bakes the scene as it is), and once a
     /// bake ends -- completed or cancelled -- or a clear changes a scene's owner, every
-    /// set binds or stands down again. A player build marks each scene a bake owns
-    /// (<see cref="OnProcessScene"/>, <see cref="LightmapBakeMark"/>), since a player has
-    /// no Lighting Data Asset to ask.
+    /// set binds or stands down again. Around every save of a scene each bound set gives its
+    /// binding back itself, through the kernel's one save hook (<see cref="Kernel.ISaveSuspended"/>).
+    /// A player build marks each scene a bake owns (<see cref="OnProcessScene"/>,
+    /// <see cref="LightmapBakeMark"/>), since a player has no Lighting Data Asset to ask.
     /// </summary>
     /// <remarks>
     /// <para>Every bake raises <c>bakeStarted</c>, then <c>bakeCompleted</c> or

@@ -1,0 +1,12 @@
+{
+  "behavior": "placard",
+  "order": 96,
+  "column": "hint",
+  "description": "The placard reads the quoted text.",
+  "detect": [
+    "^placard\\s+text\\s+reads\\s+[\\\"'](?P<label>.+)[\\\"']$"
+  ],
+  "roles": [
+    "page"
+  ]
+}

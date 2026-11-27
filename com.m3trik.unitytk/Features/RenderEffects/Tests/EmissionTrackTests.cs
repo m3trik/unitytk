@@ -59,6 +59,34 @@ namespace M3trik.Unitytk.RenderEffects.Tests
         }
 
         [Test]
+        public void A_tint_multiplies_the_emission_and_a_state_switches_it_by_name()
+        {
+            var material = _stage.Lit("lens_led", new LitSurface { emission = Color.white });
+            var model = _stage.Node("Board");
+            model.AddComponent<Animator>();
+            var lens = _stage.Renderer("Lens", model.transform, material);
+            var track = Track(model.transform, material, 1f);
+            track.color = MaterialColor.Encode(Color.white);
+            track.strength = 3f;
+            track.states.Add(new EmissionState { name = "off", tint = Color.white, weight = 0f });
+            track.states.Add(new EmissionState { name = "amber", tint = new Color(1f, 0.5f, 0f), weight = 1f });
+
+            track.tint = new Color(0f, 1f, 0f);
+            track.Apply();
+            Stage.AssertRgb(_stage.Emission(lens.sharedMaterial), new Color(0f, 3f, 0f), "white x green x strength 3");
+
+            Assert.That(track.SetState("amber"), Is.True);
+            track.Apply();
+            Stage.AssertRgb(_stage.Emission(lens.sharedMaterial), new Color(3f, 1.5f, 0f), "the state's tint and weight");
+            Assert.That(track.SetState("off"), Is.True);
+            Assert.That(track.weight, Is.EqualTo(0f));
+
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("no emission state 'blue'"));
+            Assert.That(track.SetState("blue"), Is.False, "a state it has not");
+            Assert.That(track.weight, Is.EqualTo(0f), "left as it was");
+        }
+
+        [Test]
         public void A_fade_over_a_renderer_takes_the_tracks_emission_into_its_twin()
         {
             var material = _stage.Lit("panel_signal");

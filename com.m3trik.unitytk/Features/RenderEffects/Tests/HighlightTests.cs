@@ -79,28 +79,55 @@ namespace M3trik.Unitytk.RenderEffects.Tests
             Assert.That(a.sharedMaterial, Is.SameAs(b.sharedMaterial), "one twin for both renderers");
             Assert.That(a.sharedMaterial.name, Does.EndWith("(Blended+Glowing)"));
             Assert.That(_stage.BaseColor(a.sharedMaterial).a, Is.EqualTo(0.5f).Within(1e-5f));
-            Stage.AssertRgb(_stage.Emission(a.sharedMaterial), Color.white, "the default glow, white");
+            Stage.AssertRgb(_stage.Emission(a.sharedMaterial), EffectRecipeDefaults.PulseBright, "the default glow, the effect recipe's");
             Assert.That(fade.writer, Is.Not.Null, "on one node the Fade writes");
             Assert.That(highlight.writer, Is.Null);
         }
 
         [Test]
-        public void A_pulse_swings_from_zero_to_the_keyed_intensity_and_back()
+        public void A_pulse_rises_holds_bright_falls_and_holds_dim_within_the_keyed_intensity()
         {
             var root = _stage.Node("Beacon");
             var highlight = root.AddComponent<Highlight>();
             highlight.intensity = 0.8f;
-            highlight.pulseRate = 2f;  // a swing every half second
+            // A one-second swing: a quarter up, a quarter bright, a quarter down, a quarter dim.
+            highlight.pulsePeriod = 1f;
+            highlight.pulseDuty = 0.5f;
+            highlight.pulseRamp = 0.25f;
             Assert.That(highlight.CurrentAt(0.125f), Is.EqualTo(0.8f), "no pulse: the intensity itself, at any time");
             highlight.pulse = true;
-            Assert.That(highlight.CurrentAt(0f), Is.EqualTo(0f).Within(1e-5f), "it starts dark");
-            Assert.That(highlight.CurrentAt(0.125f), Is.EqualTo(0.4f).Within(1e-5f), "a quarter swing in: half way");
-            Assert.That(highlight.CurrentAt(0.25f), Is.EqualTo(0.8f).Within(1e-5f), "half a swing in: the keyed intensity");
-            Assert.That(highlight.CurrentAt(0.5f), Is.EqualTo(0f).Within(1e-5f), "a whole swing: dark again");
-            Assert.That(highlight.CurrentAt(10.25f), Is.EqualTo(0.8f).Within(1e-4f), "and so on, never past it");
+            Assert.That(highlight.CurrentAt(0f), Is.EqualTo(0f).Within(1e-5f), "it starts dark, as it is switched on");
+            Assert.That(highlight.CurrentAt(0.125f), Is.EqualTo(0.4f).Within(1e-5f), "half way up");
+            Assert.That(highlight.CurrentAt(0.3f), Is.EqualTo(0.8f).Within(1e-5f), "held at the keyed intensity");
+            Assert.That(highlight.CurrentAt(0.625f), Is.EqualTo(0.4f).Within(1e-5f), "half way down");
+            Assert.That(highlight.CurrentAt(0.875f), Is.EqualTo(0f).Within(1e-5f), "held dark");
+            Assert.That(highlight.CurrentAt(10.3f), Is.EqualTo(0.8f).Within(1e-4f), "and so on, never past it");
             highlight.intensity = 0.5f;
-            Assert.That(highlight.CurrentAt(0.25f), Is.EqualTo(0.5f).Within(1e-5f), "within the intensity keyed now");
+            Assert.That(highlight.CurrentAt(0.3f), Is.EqualTo(0.5f).Within(1e-5f), "within the intensity keyed now");
             Assert.That(highlight.On, Is.True, "a pulsing highlight stays on: the map stays aside the whole time");
+        }
+
+        [Test]
+        public void A_duty_and_ramp_past_the_swing_still_fall_to_dim_before_the_next_rise()
+        {
+            var highlight = _stage.Node("Beacon").AddComponent<Highlight>();
+            highlight.intensity = 1f;
+            highlight.pulse = true;
+            highlight.pulsePeriod = 1f;
+            highlight.pulseDuty = 0.99f;
+            highlight.pulseRamp = 0.5f;
+            // Up over half the swing, down over the other: no hold, and dim again just as the next rise starts.
+            Assert.That(highlight.CurrentAt(0.5f), Is.EqualTo(1f).Within(1e-4f));
+            Assert.That(highlight.CurrentAt(0.999f), Is.EqualTo(highlight.CurrentAt(0f)).Within(0.01f), "no jump at the wrap");
+        }
+
+        [Test]
+        public void A_highlight_starts_from_the_effect_recipe_the_dcc_keys_with()
+        {
+            var highlight = _stage.Node("Beacon").AddComponent<Highlight>();
+            Stage.AssertRgb(MaterialColor.Decode(highlight.color), EffectRecipeDefaults.PulseBright, "the recipe's bright colour, linear");
+            Assert.That((highlight.pulsePeriod, highlight.pulseDuty, highlight.pulseRamp),
+                        Is.EqualTo((EffectRecipeDefaults.PulsePeriod, EffectRecipeDefaults.PulseDuty, EffectRecipeDefaults.PulseRamp)));
         }
     }
 }

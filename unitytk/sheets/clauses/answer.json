@@ -1,0 +1,13 @@
+{
+  "behavior": "answer",
+  "order": 79,
+  "description": "Entering the value goes to a step.",
+  "detect": [
+    "^(?:auto\\s+)?advance\\s+to\\s+step\\s+(?P<to>{step})\\s+when\\s+the\\s+(?:number\\s+)?(?P<value>\\S+)\\s+is\\s+entered$",
+    "^entering\\s+['\\\"]?(?P<value>[^'\\\"\\s]+)['\\\"]?\\s+triggers\\s+(?:advancement\\s+to\\s+)?step\\s+(?P<to>{step})$"
+  ],
+  "roles": [
+    "advances",
+    "entered"
+  ]
+}

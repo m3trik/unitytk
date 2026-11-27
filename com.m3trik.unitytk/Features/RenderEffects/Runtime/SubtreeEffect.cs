@@ -15,7 +15,7 @@ namespace M3trik.Unitytk.RenderEffects
         /// <summary>
         /// The root writing the renderers under <paramref name="node"/>: on the topmost node
         /// at or above it holding an enabled Fade or Highlight, its Fade, else its Highlight;
-        /// null when there is none.
+        /// null when there is none. None above an <see cref="EffectExempt"/> reaches past it.
         /// </summary>
         internal static SubtreeEffect RootAbove(Transform node)
         {
@@ -24,6 +24,7 @@ namespace M3trik.Unitytk.RenderEffects
             {
                 SubtreeEffect here = OnNode(t);
                 if (here != null) root = here;
+                if (EffectExempt.On(t)) break;
             }
             return root;
         }
@@ -64,7 +65,7 @@ namespace M3trik.Unitytk.RenderEffects
             }
             // Its own renderers first held by an effect it now covers, or by a track: given back.
             foreach (SubtreeEffect nested in GetComponentsInChildren<SubtreeEffect>(true))
-                if (nested != this && nested.writer != null) nested.Release();
+                if (nested != this && nested.writer != null && RootAbove(nested.transform) == this) nested.Release();
             // Every leading track whose scope meets this subtree: each slot takes the one whose
             // scope holds its renderer.
             var tracks = new List<EmissionTrack>();

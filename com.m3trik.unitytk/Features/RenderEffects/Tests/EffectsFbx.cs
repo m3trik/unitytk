@@ -98,6 +98,62 @@ namespace M3trik.Unitytk.RenderEffects.Tests
             return Document(w, ("TakeA", 0f, 1f), ("TakeB", 1f, 2f));
         }
 
+        /// <summary>
+        /// The record <see cref="WriteStates"/>'s carrier holds: <c>lensMat_led</c>'s weight
+        /// and tint, white at strength 3, and its two named states.
+        /// </summary>
+        public const string StatesRecord =
+            "{\"version\": 2, \"tracks\": [], \"materials\": [{\"material\": \"lensMat_led\", " +
+            "\"channels\": [\"emission\", \"tint_r\", \"tint_g\", \"tint_b\"], \"emission_color\": [1.0, 1.0, 1.0], " +
+            "\"emission_strength\": 3.0, \"states\": [{\"name\": \"off\", \"tint\": [1.0, 1.0, 1.0], \"weight\": 0.0}, " +
+            "{\"name\": \"green\", \"tint\": [0.0, 1.0, 0.0], \"weight\": 1.0}]}]}";
+
+        /// <summary>
+        /// An indicator light: <c>lens</c> (<c>lensMat_led</c>), the carrier beside it, and
+        /// the material's four curve proxies under the carrier, in one take (TakeA, 0-1 s):
+        /// off (weight 0, tint white) until 0.5 s, then green (weight 1, tint 0 1 0), each
+        /// key held to the next.
+        /// </summary>
+        public static string WriteStates(string record = StatesRecord)
+        {
+            var w = new Writer();
+            Mesh(w, 1000, "lens", 0, "lensMat_led");
+            Null(w, 9000, "data_export", 0, extra:
+                $"\t\t\tP: \"render_effects\", \"KString\", \"\", \"U\", \"{record.Replace("\"", "&quot;")}\"\n");
+            Proxy(w, 9300, "lensMat_led__emission", 9000);
+            Proxy(w, 9301, "lensMat_led__tint_r", 9000);
+            Proxy(w, 9302, "lensMat_led__tint_g", 9000);
+            Proxy(w, 9303, "lensMat_led__tint_b", 9000);
+            Take(w, 0, "TakeA", 0f, 1f, new[]
+            {
+                (9300L, "Lcl Scaling", "S", "X", Constant, new[] { (0f, 0f), (0.5f, 1f), (1f, 1f) }),
+                (9301L, "Lcl Scaling", "S", "X", Constant, new[] { (0f, 1f), (0.5f, 0f), (1f, 0f) }),
+                (9302L, "Lcl Scaling", "S", "X", Constant, new[] { (0f, 1f), (0.5f, 1f), (1f, 1f) }),
+                (9303L, "Lcl Scaling", "S", "X", Constant, new[] { (0f, 1f), (0.5f, 0f), (1f, 0f) }),
+            });
+            return Document(w, ("TakeA", 0f, 1f));
+        }
+
+        /// <summary>
+        /// The record <see cref="WriteStatesAlone"/>'s carrier holds: <c>lensMat_led</c>'s two
+        /// named states and no channel -- an indicator a game switches, keyed nowhere.
+        /// </summary>
+        public const string StatesAloneRecord =
+            "{\"version\": 2, \"tracks\": [], \"materials\": [{\"material\": \"lensMat_led\", \"channels\": [], " +
+            "\"emission_color\": [1.0, 1.0, 1.0], \"emission_strength\": 3.0, \"tint\": [1.0, 1.0, 1.0], " +
+            "\"states\": [{\"name\": \"off\", \"tint\": [1.0, 1.0, 1.0], \"weight\": 0.0}, " +
+            "{\"name\": \"green\", \"tint\": [0.0, 1.0, 0.0], \"weight\": 1.0}]}]}";
+
+        /// <summary>An indicator light with no curve: <c>lens</c> (<c>lensMat_led</c>) and the carrier beside it.</summary>
+        public static string WriteStatesAlone()
+        {
+            var w = new Writer();
+            Mesh(w, 1000, "lens", 0, "lensMat_led");
+            Null(w, 9000, "data_export", 0, extra:
+                $"\t\t\tP: \"render_effects\", \"KString\", \"\", \"U\", \"{StatesAloneRecord.Replace("\"", "&quot;")}\"\n");
+            return Document(w, ("TakeA", 0f, 1f));  // a take with no curve: every FBX has one
+        }
+
         /// <summary>The record <see cref="WriteSingle"/>'s carrier holds: the one node's opacity and visibility.</summary>
         public const string SingleRecord =
             "{\"version\": 2, \"tracks\": [{\"node\": \"lamp\", \"channels\": [\"opacity\", \"visibility\"]}], \"materials\": []}";

@@ -1,0 +1,28 @@
+{
+    "name": "M3trik.Unitytk.Samples.Tasks.Editor",
+    "rootNamespace": "M3trik.Unitytk.Samples.Tasks",
+    "references": [
+        "M3trik.Unitytk.Kernel",
+        "M3trik.Unitytk.Kits.Tasks.Editor",
+        "M3trik.Unitytk.Manifests.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITYTK_UGUI"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.ugui",
+            "expression": "2.0.0",
+            "define": "UNITYTK_UGUI"
+        }
+    ],
+    "noEngineReferences": false
+}

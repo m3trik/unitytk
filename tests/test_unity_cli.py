@@ -3,8 +3,9 @@
 """Tests for ``unitytk.UnityCli``: Unity's own command line, read through its JSON.
 
 The stand-in answers as the real CLI does (``unity editors -i --json``,
-``unity projects new ... --json``, ``unity projects remove ... --json``,
-measured 2026-11-04 on CLI 1.0.0-beta.13 with Unity 6000.3.10f1);
+``unity projects create ... --json``, ``unity projects --all --json``,
+``unity projects remove ... --json``; measured 2026-11-04 on CLI 1.0.0-beta.13,
+the listings' pages and the renamed commands 2026-11-25 on CLI 1.0.1, with Unity 6000.3.10f1);
 :class:`RealCliTest` reads the real one where it is installed (read-only).
 """
 
@@ -13,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -77,10 +79,13 @@ class UnityCliTest(unittest.TestCase):
         self.addCleanup(setattr, UnityCli, "_editors", UnityCli._editors)
 
     def test_editors_are_the_installed_versions_and_their_executables(self):
-        data = [
-            {"version": "6000.3.10f1", "location": r"C:\U\6000.3.10f1\Editor\Unity.exe"},
-            {"version": "2022.3.4f1", "location": r"C:\U\2022.3.4f1\Editor\Unity.exe"},
-        ]
+        data = {
+            "items": [
+                {"version": "6000.3.10f1", "location": r"C:\U\6000.3.10f1\Editor\Unity.exe"},
+                {"version": "2022.3.4f1", "location": r"C:\U\2022.3.4f1\Editor\Unity.exe"},
+            ],
+            "total": 2, "nextPage": None, "partial": False,
+        }
         with _spawn(_Child(_answer(data))) as spawned:
             editors = UnityCli.editors(refresh=True)
         self.assertEqual(editors["6000.3.10f1"], r"C:\U\6000.3.10f1\Editor\Unity.exe")
@@ -179,6 +184,70 @@ class UnityCliTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "Unknown template"):
                 UnityCli.run("projects", "new", "P")
 
+    def test_a_failure_that_points_at_its_log_says_the_logs_cause(self):
+        """Measured 2026-11-24: "Unity exited with code 1. See log: <path>", the log
+        in the test sandbox's temp folder, gone when the run ended; its cause was a
+        full disk (ENOSPC) that no message said."""
+        with tempfile.TemporaryDirectory() as folder:
+            log = os.path.join(folder, "unity-hub-cli-new.log")
+            with open(log, "w", encoding="utf-8") as fh:
+                fh.write("[Subsystems] Discovering subsystems\n")
+                fh.write("[Licensing::Module] LicensingClient has failed validation; ignoring\n")
+                fh.write("An error occurred while resolving packages:\n")
+                fh.write("    com.unity.burst: TAR_ENTRY_ERROR: ENOSPC: no space left on device, write\n")
+                fh.write("Exiting without the bug reporter. Application will terminate with return code 1\n")
+            failed = _answer(success=False, errors=[{"message": f"Unity exited with code 1. See log: {log}"}])
+            with _spawn(_Child(failed, 1)):
+                with self.assertRaisesRegex(RuntimeError, "ENOSPC: no space left on device") as caught:
+                    UnityCli.run("projects", "new", "P")
+        self.assertNotIn("Licensing", str(caught.exception), "the licence client's routine check is no cause")
+
+    def test_a_logs_end_is_read_by_one_reader(self):
+        """The CLI's cause and the builder's quote of an editor log read its end
+        through ``log_tail``. Added: 2026-11-24"""
+        with tempfile.TemporaryDirectory() as folder:
+            log = os.path.join(folder, "editor.log")
+            with open(log, "w", encoding="utf-8") as fh:
+                fh.write("x" * (UnityCli.LOG_TAIL_CHARS + 10) + "\nthe end\n")
+            tail = UnityCli.log_tail(log)
+            self.assertEqual(len(tail), UnityCli.LOG_TAIL_CHARS)
+            self.assertTrue(tail.endswith("the end\n"))
+            self.assertEqual(UnityCli.log_tail(os.path.join(folder, "none.log")), "", "no log: nothing")
+
+    def test_a_long_logs_end_is_read_without_reading_the_whole_log(self):
+        """``log_tail`` read the whole log to keep its last characters; an editor's log runs to megabytes.
+        Added: 2026-11-26"""
+        read = []
+        real = open
+
+        class Counted:
+            def __init__(self, handle):
+                self.handle = handle
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                self.handle.close()
+
+            def __getattr__(self, name):
+                return getattr(self.handle, name)
+
+            def read(self, *args):
+                data = self.handle.read(*args)
+                read.append(len(data))
+                return data
+
+        with tempfile.TemporaryDirectory() as folder:
+            log = os.path.join(folder, "editor.log")
+            with open(log, "w", encoding="utf-8", newline="\r\n") as fh:
+                fh.write("x" * 2_000_000 + "\nthe end \N{RIGHTWARDS ARROW} done\n")
+            with mock.patch("builtins.open", side_effect=lambda *a, **k: Counted(real(*a, **k))):
+                tail = UnityCli.log_tail(log)
+        self.assertEqual((len(tail), tail[-15:]), (UnityCli.LOG_TAIL_CHARS, "the end \N{RIGHTWARDS ARROW} done\n"),
+                         "line ends as text reads them")
+        self.assertLessEqual(sum(read), 4 * UnityCli.LOG_TAIL_CHARS)
+
     def test_output_that_is_not_json_raises_naming_the_command(self):
         with _spawn(_Child(b"Usage: unity", 1)):
             with self.assertRaisesRegex(RuntimeError, "editors"):
@@ -196,6 +265,16 @@ class UnityCliTest(unittest.TestCase):
         with mock.patch.dict(os.environ, {"LOCALAPPDATA": "C:/Local"}):
             self.assertEqual(UnityCli.locations()[0], os.path.join("C:/Local", "Unity", "bin", "unity.exe"))
 
+    def test_a_listing_is_read_from_a_page_or_a_list_and_a_partial_page_is_refused(self):
+        """Bug: CLI 1.0.1 (a Hub update) answers a listing as a page, which was read as no
+        entries: "no Unity editor is installed" with one installed. Fixed: 2026-11-25"""
+        entry = {"version": "6000.3.10f1", "location": "C:/U/Unity.exe"}
+        self.assertEqual(UnityCli.items({"items": [entry], "total": 1, "nextPage": None, "partial": False}), [entry])
+        self.assertEqual(UnityCli.items([entry]), [entry], "an earlier CLI's list")
+        self.assertEqual(UnityCli.items(None), [])
+        with self.assertRaisesRegex(RuntimeError, "one page of 30"):
+            UnityCli.items({"items": [entry], "total": 30, "nextPage": 2, "partial": True})
+
     def test_versions_sort_by_number_not_text(self):
         versions = ["2022.3.9f1", "2022.3.10f1", "6000.3.10f1", "6000.0.26f1"]
         self.assertEqual(
@@ -212,16 +291,17 @@ class UnityCliTest(unittest.TestCase):
             path = UnityCli.create_project(demo, version="6000.3.10f1", template="com.unity.template.urp-blank")
         self.assertEqual(path, demo)
         args = spawned.call_args[0][0]
-        self.assertEqual(args[1:4], ["projects", "new", "Demo"])
-        self.assertEqual(args[args.index("--path") + 1], os.path.dirname(demo))
+        self.assertEqual(args[1:4], ["projects", "create", "Demo"])
+        self.assertEqual(args[args.index("--output-dir") + 1], os.path.dirname(demo))
+        self.assertIn("--no-cloud", args, "never linked to Unity Cloud")
         self.assertEqual(args[args.index("--editor-version") + 1], "6000.3.10f1")
         self.assertEqual(args[args.index("--template") + 1], "com.unity.template.urp-blank")
 
     def test_the_hub_list_is_read_and_a_project_taken_out_of_it_keeps_its_files(self):
-        listed = [{"title": "P", "path": r"C:\work\P", "version": "6000.3.10f1"}, {"title": "no path"}]
+        listed = {"items": [{"title": "P", "path": r"C:\work\P"}, {"title": "no path"}], "total": 2, "nextPage": None, "partial": False}
         with _spawn(_Child(_answer(listed))) as spawned:
             self.assertEqual(UnityCli.projects(), [r"C:\work\P"])
-        self.assertEqual(spawned.call_args[0][0][1:4], ["projects", "list", "-a"])
+        self.assertEqual(spawned.call_args[0][0][1:3], ["projects", "--all"])
         removed = _answer([{"path": r"C:\work\P", "ok": True}])
         with _spawn(_Child(removed)) as spawned:
             self.assertTrue(UnityCli.unregister(r"C:\work\P"))
@@ -244,8 +324,8 @@ class RealCliTest(unittest.TestCase):
 
     @EnvSkip.unless(UnityCli.exe() is not None, "Unity's CLI (unity) is not installed")
     def test_the_real_cli_lists_its_editors_in_the_shape_editors_reads(self):
-        data = UnityCli.run("editors", "-i")
-        self.assertIsInstance(data, list)
+        data = UnityCli.items(UnityCli.run("editors", "-i"))
+        self.assertTrue(data, "no editor listed (the CLI changed its answer's shape?)")
         for entry in data:
             self.assertIsInstance(entry.get("version"), str, entry)
             self.assertIsInstance(entry.get("location"), str, entry)

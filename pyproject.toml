@@ -17,12 +17,14 @@ classifiers = [
 ]
 # The floor is HAND-RATCHETED: unitytk is off-chain from m3trik/push.ps1, so no
 # release cascade bumps it; m3trik's `check_api_surface.py unitytk --floors`
-# holds it to every pythontk name the automation calls. 0.21.0: the project
-# builder delivers each sample through `ptk.FolderDeliverer` and
-# `ptk.FileDeliveryBridge`, new in it. Unity's CLI is unitytk's own
-# (`unitytk.UnityCli`, standard library only). The Unity package itself needs
-# no Python at all.
-dependencies = ["pythontk>=0.21.0"]
+# holds it to every pythontk name the automation calls. 0.26.0: the sheet
+# reader (`unitytk.sheets`) reads through the Shot Manifest parser's
+# `Mapping.resolve(base=)`, `Mapping.unmapped_columns`, `BuilderStep.rows` and
+# `lines`, the templates' `row_pass` and the `narrate` audio method, and
+# `FbxFile.take_setup_jumps`, none of them in 0.25.1 (pythontk releases first).
+# Unity's CLI is unitytk's own (`unitytk.UnityCli`, standard library only).
+# The Unity package itself needs no Python at all.
+dependencies = ["pythontk>=0.26.0"]
 
 # Operations (``python -m pythontk ops``): unitytk's declarations, and the
 # editor's C# operations as the kernel's catalog run wrote them.
@@ -45,10 +47,11 @@ readme = {file = "docs/README.md", content-type = "text/markdown"}
 [tool.setuptools]
 # The Python toolkit alone: the Unity package (com.m3trik.unitytk/, beside it)
 # is installed into a project by Unity's Package Manager, never by pip.
-packages = ["unitytk"]
+packages = ["unitytk", "unitytk.sheets"]
 
 [tool.setuptools.package-data]
 "unitytk" = ["*.json"]
+"unitytk.sheets" = ["clauses/*.json", "readings/*.json", "*.md"]  # *.md: the reader's rules, read where the code is
 
 [tool.m3trik.layers.csharp]
 # CODE_STANDARD section 0 (Parts): the Unity package's assemblies, top first. An
@@ -60,6 +63,11 @@ packages = ["unitytk"]
 # the generated *.g.cs) against frozen baselines of today's exceptions.
 root = "com.m3trik.unitytk"
 order = [
+    # Kits: recipes over several features' actions, the one part that composes
+    # features (through their public API alone); its tests over it. A kit is
+    # editor composition alone: no runtime part, so a component is a feature's.
+    "Kits/*/Tests",
+    "Kits/*/Editor",
     # Tools: menus and windows over the features' actions.
     "Tools/*",
     # Each feature's assemblies, peers of every other feature's: its tests,

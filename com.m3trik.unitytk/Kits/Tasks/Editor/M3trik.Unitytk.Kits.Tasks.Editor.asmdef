@@ -1,0 +1,37 @@
+{
+    "name": "M3trik.Unitytk.Kits.Tasks.Editor",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Core",
+        "M3trik.Unitytk.Kernel",
+        "M3trik.Unitytk.Kernel.Runtime",
+        "M3trik.Unitytk.Interaction",
+        "M3trik.Unitytk.Interaction.Editor",
+        "M3trik.Unitytk.Steps",
+        "M3trik.Unitytk.Steps.Editor",
+        "M3trik.Unitytk.RenderEffects",
+        "M3trik.Unitytk.RenderEffects.Editor",
+        "M3trik.Unitytk.Indicators",
+        "M3trik.Unitytk.Indicators.Editor",
+        "M3trik.Unitytk.Viewpoints",
+        "M3trik.Unitytk.Viewpoints.Editor",
+        "M3trik.Unitytk.Panels",
+        "M3trik.Unitytk.Panels.Editor",
+        "M3trik.Unitytk.AnimationAudio",
+        "M3trik.Unitytk.AnimationAudio.Editor",
+        "M3trik.Unitytk.Placement",
+        "M3trik.Unitytk.Placement.Editor",
+        "M3trik.Unitytk.Manifests.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

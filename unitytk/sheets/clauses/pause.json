@@ -1,0 +1,11 @@
+{
+  "behavior": "pause",
+  "order": 10,
+  "description": "A quoted placard button advances the step ('Selecting \"Next\" triggers step advancement').",
+  "detect": [
+    "^selecting\\s+['\\\"](?P<label>[^'\\\"]+)['\\\"]\\s+triggers\\s+(?:step\\s+)?advancement$"
+  ],
+  "roles": [
+    "advances"
+  ]
+}

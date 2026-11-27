@@ -48,7 +48,8 @@ _SELF = os.path.basename(__file__)
 
 
 def _source_files(*suffixes, exclude=()):
-    """Yield tracked source paths under the repo, skipping generated trees.
+    """Yield the repo's source paths a commit would hold (tracked, or new and
+    not ignored: never a test project's ``Library``), skipping generated trees.
 
     Args:
         suffixes (str): File extensions to yield.
@@ -57,11 +58,34 @@ def _source_files(*suffixes, exclude=()):
             its own docstring.
     """
     skip = {_SELF, *exclude}
+    for path in _committable_paths():
+        name = os.path.basename(path)
+        if name.endswith(suffixes) and name not in skip:
+            yield path
+
+
+def _committable_paths():
+    """Every file a commit would hold, from git; outside a repository (an
+    unpacked sdist) every file, :data:`_SKIP_DIRS` left out."""
+    import subprocess
+
+    try:
+        listed = subprocess.run(
+            ["git", "-C", REPO_ROOT, "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            capture_output=True, text=True, encoding="utf-8", check=True,
+        ).stdout.split("\0")
+    except (OSError, subprocess.CalledProcessError):
+        listed = None
+    if listed is not None:
+        for rel in listed:
+            path = os.path.normpath(os.path.join(REPO_ROOT, rel))
+            if rel and not _SKIP_DIRS.intersection(rel.split("/")) and os.path.isfile(path):
+                yield path
+        return
     for dirpath, dirnames, filenames in os.walk(REPO_ROOT):
         dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
         for name in filenames:
-            if name.endswith(suffixes) and name not in skip:
-                yield os.path.join(dirpath, name)
+            yield os.path.join(dirpath, name)
 
 
 def _run_case(case_cls):
@@ -338,6 +362,38 @@ class UnityEnvTest(unittest.TestCase):
         none, _ = case(make)
         self.assertEqual(EnvSkip.tally(none), {EnvSkip.reason(UnityEnv.NO_EDITOR): 1})
 
+    def test_a_full_drive_skips_saying_so_not_as_a_licence_or_template_fault(self):
+        """Measured 2026-11-24: the repo's drive at 327 MB free, Unity's package
+        import died on ENOSPC, and the run blamed "typically no batch-mode
+        license". A drive without room for a project is said as that, before
+        Unity starts, on the one check's type (``UnityProject.NoRoom``); a
+        failure Unity itself reports is its own, never read off its words."""
+        from unitytk.unity_cli import UnityCli
+
+        import pythontk as ptk
+
+        store = ptk.TempArtifacts("unitytk_create_project", policy="scoped")
+        self.addCleanup(store.cleanup)
+        project = os.path.join(store.dir_path(), "p")
+
+        class Case(unittest.TestCase):
+            def test_create(self):
+                UnityEnv.create_project(self, project)
+
+        self._editors({"6000.3.10f1": "C:/U/6000/Unity.exe"})
+        full = mock.Mock(free=UnityProject.ROOM_BYTES - 1)
+        roomy = mock.Mock(free=UnityProject.ROOM_BYTES * 4)
+        with mock.patch.dict(os.environ, {UnityEnv.EDITOR_VAR: ""}):
+            with mock.patch.object(UnityCli, "create_project") as made, mock.patch("shutil.disk_usage", return_value=full):
+                before = _run_case(Case)
+            self.assertFalse(made.called, "no Unity started on a drive without room")
+            self.assertEqual(EnvSkip.tally(before), {UnityEnv.no_room_reason(): 1})
+            enospc = RuntimeError("unity projects new failed: ... -- the log says: com.unity.burst: ENOSPC: no space left on device")
+            with mock.patch.object(UnityCli, "create_project", side_effect=enospc), mock.patch("shutil.disk_usage", return_value=roomy):
+                after = _run_case(Case)
+            self.assertEqual(EnvSkip.tally(after), {UnityEnv.project_creation_reason(): 1},
+                             "room checked first: what Unity says after is its own failure")
+
     def test_a_named_editor_the_cli_does_not_list_makes_no_project(self):
         """An executable the CLI does not list has no version to make with, so
         the CLI made the project with its default editor while :meth:`run`
@@ -529,6 +585,14 @@ class UnityEnvTest(unittest.TestCase):
                 with self.subTest(project=project):
                     self.assertLessEqual(len(project), budget, project)
 
+    def test_the_base_is_the_named_one_else_the_repos_and_probes_no_drive(self):
+        """``UNITYTK_TEMP_PROJECTS`` names the base, else the repo's own; no drive
+        is probed to choose (a drive without room is said where a project is
+        made: ``UnityProject.NoRoom``). Added: 2026-11-24"""
+        with mock.patch.object(UnityProject, "free_bytes", side_effect=AssertionError("probed")):
+            self.assertEqual(TempProjects.base_for({}), TempProjects.DEFAULT_BASE)
+            self.assertEqual(TempProjects.base_for({"UNITYTK_TEMP_PROJECTS": "D:/mine"}), "D:/mine")
+
 
 class SuiteOptionsTest(unittest.TestCase):
     """The opt-in switches are named once, neutrally."""
@@ -638,6 +702,27 @@ def _client_denylist():
         return None
     finally:
         sys.path.remove(scripts)
+
+
+class SourceFilesTest(unittest.TestCase):
+    """The scans read the source a commit would hold: never a test project's
+    copy of a package (an integration suite's ``Library``, git-ignored), which
+    is someone else's code."""
+
+    def test_a_file_git_ignores_is_no_source_and_the_packages_own_is(self):
+        import pythontk as ptk
+
+        store = ptk.TempArtifacts(
+            "unitytk_source_probe", policy="scoped", dir=os.path.join(REPO_ROOT, "tests", "temp_unity")
+        )
+        self.addCleanup(store.cleanup)
+        probe = os.path.join(store.dir_path(), "Library", "PackageCache", "Probe.cs")
+        os.makedirs(os.path.dirname(probe))
+        open(probe, "w").close()
+        found = {os.path.normcase(os.path.normpath(p)) for p in _source_files(".cs")}
+        self.assertNotIn(os.path.normcase(os.path.normpath(probe)), found)
+        own = os.path.join(REPO_ROOT, "com.m3trik.unitytk", "Kernel", "Runtime", "CameraDrawing.cs")
+        self.assertIn(os.path.normcase(os.path.normpath(own)), found)
 
 
 class PublicHygieneTest(unittest.TestCase):

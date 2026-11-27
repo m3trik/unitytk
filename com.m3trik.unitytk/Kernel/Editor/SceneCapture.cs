@@ -71,6 +71,10 @@ namespace M3trik.Unitytk.Kernel
                 if (missing.Length > 0)
                     throw new ArgumentException($"No object named {string.Join(", ", missing.Select(n => $"'{n}'"))}.");
             }
+            // What a write earlier in this same call gave back and no hook took again (a prefab's, a scene's that failed:
+            // theirs waits for the editor to be back from the call), taken again first: the image is the scene as a
+            // person sees it.
+            SaveSuspension.Resume();
             string path = CapturePath();
             GameObject temp = null;
             RenderTexture target = null, active = RenderTexture.active;
@@ -121,17 +125,16 @@ namespace M3trik.Unitytk.Kernel
         /// <summary>The bounds of every renderer under <paramref name="targets"/> (all renderers when null); null when none.</summary>
         static Bounds? Extent(List<GameObject> targets)
         {
-            IEnumerable<Renderer> renderers = targets == null
-                ? Roots().SelectMany(r => r.GetComponentsInChildren<Renderer>(false))
-                : targets.SelectMany(t => t.GetComponentsInChildren<Renderer>(false));
+            IEnumerable<GameObject> parts = targets ?? Roots();
             Bounds? all = null;
-            foreach (Renderer renderer in renderers.Where(r => r.enabled))
+            foreach (GameObject part in parts)
             {
-                if (all == null) all = renderer.bounds;
+                if (part == null || !SceneBounds.TryOf(part.transform, out Bounds seen)) continue;
+                if (all == null) all = seen;
                 else
                 {
                     Bounds grown = all.Value;
-                    grown.Encapsulate(renderer.bounds);
+                    grown.Encapsulate(seen);
                     all = grown;
                 }
             }
