@@ -1,0 +1,13 @@
+{
+  "behavior": "indicate",
+  "order": 95,
+  "column": "any",
+  "description": "An arrow points at targets while its step runs, placed where the user sees it: a Step Contents row \"Arrow points at the latch\" with the part in Asset Names (or a hint's \"Bouncing arrow pointing at ...\").",
+  "detect": [
+    "^-?\\s*(?:bouncing\\s+)?arrows?\\s+(?:points?|pointing)\\s+at\\s+(?P<targets>.+?)\\.?$"
+  ],
+  "roles": [
+    "points",
+    "plural"
+  ]
+}

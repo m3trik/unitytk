@@ -16,6 +16,10 @@ Searched live (`api.search`; MCP `api_search`), never a committed file — rules
 
 Its map is [com.m3trik.unitytk/AGENTS.md](com.m3trik.unitytk/AGENTS.md), in the folder that ships (`com.m3trik.unitytk/`): the parts, where code goes, the never list and the working loop. Read it before touching any C#.
 
+## The sheet reader
+
+A build sheet read into the plan Unity builds from: [unitytk/sheets/AGENTS.md](unitytk/sheets/AGENTS.md) holds its rules (the format is pythontk's, names are exact, the plan is the contract). Read it before touching `unitytk/sheets/`.
+
 ## Run tests
 
 ```powershell

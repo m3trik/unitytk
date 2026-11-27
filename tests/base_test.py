@@ -242,6 +242,17 @@ class UnityEnv:
         "license on this machine (the test log says what Unity's CLI answered)."
     )
 
+    #: The project's drive has no room for it (``UnityProject.NoRoom``, before Unity starts).
+    NO_ROOM = (
+        "no room for a Unity project on the drive of its folder -- free some, or "
+        "set UNITYTK_TEMP_PROJECTS to a folder on a drive that has it"
+    )
+
+    @classmethod
+    def no_room_reason(cls) -> str:
+        """Env-marked reason for a drive without room for a project."""
+        return EnvSkip.reason(cls.NO_ROOM)
+
     #: The editor ran but exited unlicensed (:meth:`is_licence_failure`).
     BATCH_LICENSE = (
         "Unity exited without a valid batch license -- see the run's unity_log.txt"
@@ -333,6 +344,11 @@ class UnityEnv:
             test.skipTest(EnvSkip.reason(cls.UNLISTED_EDITOR))
         log = logging.getLogger(type(test).__module__)
         try:
+            UnityProject.ensure_room(project)
+        except UnityProject.NoRoom as exc:
+            log.info("%s", exc)
+            test.skipTest(cls.no_room_reason())
+        try:
             UnityCli.create_project(
                 project, version=version, template=ProjectBuilder.TEMPLATES[cls.PIPELINE]
             )
@@ -344,6 +360,7 @@ class UnityEnv:
         if not (os.path.isdir(os.path.join(project, "Assets")) and os.path.isdir(os.path.join(project, "ProjectSettings"))):
             log.info("Unity reported %s made, but it holds no Assets and ProjectSettings", project)
             test.skipTest(cls.project_creation_reason())
+        ProjectBuilder.mute(project)  # a run plays nothing aloud
 
     @classmethod
     def run(
@@ -466,7 +483,7 @@ class SuiteOptions:
 
 
 class TempProjects:
-    """Per-run scratch dirs under ``tests/temp_tests/``, removed with their suite.
+    """Per-run dirs under ``tests/temp_unity/``, removed with their suite.
 
     The integration suites generate a whole Unity project per run -- 1.65 GB for
     a URP one. They used to keep it on purpose (a failed import is diagnosable
@@ -498,21 +515,26 @@ class TempProjects:
     the run's own (:meth:`owned`) is a run like any other.
 
     Not the system temp dir: these artifacts are deliberately durable and large,
-    the repo lives on a roomy drive where C: is routinely full, and
-    ``.gitignore`` already covers ``tests/temp_tests/``.
+    and the repo lives on a roomy drive where C: is routinely full. Not
+    ``tests/temp_tests/`` either: that is the repo's hand-kept scratch, which
+    the runner's scratch sweep ages out blind (``TestSandbox.sweep_scratch``),
+    and a Unity project leaves the Hub's list only through :meth:`forget`; so
+    each folder has one reaper. ``.gitignore`` covers both.
     """
 
-    #: In-repo scratch base shared by every integration suite: the default.
-    DEFAULT_BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_tests")
+    #: In-repo base shared by every integration suite: the default. Short on
+    #: purpose: a URP project's root below it stays inside ``URP_ROOT_MAX``.
+    DEFAULT_BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_unity")
 
     @classmethod
     def base_for(cls, environ) -> str:
-        """The base *environ* names: ``UNITYTK_TEMP_PROJECTS``, else :attr:`DEFAULT_BASE`
-        (a roomier drive: a URP project is ~2 GB, and the repo's drive can be the full one)."""
+        """The base *environ* names (``UNITYTK_TEMP_PROJECTS``), else :attr:`DEFAULT_BASE`.
+        A drive without room is said where a project is made (``UnityProject.NoRoom``,
+        an env skip), not probed here."""
         return environ.get("UNITYTK_TEMP_PROJECTS") or cls.DEFAULT_BASE
 
     #: Where this run allocates (:meth:`base_for` of the environment).
-    BASE = os.environ.get("UNITYTK_TEMP_PROJECTS") or DEFAULT_BASE
+    BASE: str = ""
 
     #: Days a run its suite did not remove (preserved, killed, or held by a
     #: process) stays before a later allocation reclaims it. Deliberately short:
@@ -554,7 +576,7 @@ class TempProjects:
 
     @classmethod
     def allocate(cls, prefix: str, owner: "Optional[type]" = None) -> str:
-        """Return a fresh ``temp_tests/<prefix>_<tag>/`` for this run.
+        """Return a fresh ``temp_unity/<prefix>_<tag>/`` for this run.
 
         With *owner* -- the suite's ``TestCase`` class, ``cls`` in its
         ``setUpClass`` -- the folder is the suite's: :meth:`release` removes it
@@ -660,7 +682,8 @@ class TempProjects:
 
     @classmethod
     def sweep_all(cls) -> "List[str]":
-        """Reclaim stale runs of EVERY prefix present under :attr:`BASE`.
+        """Reclaim stale runs of EVERY prefix present under :attr:`BASE`, and
+        take the projects they held out of the Hub's list (:meth:`forget`).
 
         Reclamation is otherwise a side effect of :meth:`allocate`, which is
         prefix-scoped -- so a prefix that is never allocated again is never
@@ -676,10 +699,10 @@ class TempProjects:
 
         Prefixes are read back off the directory, since nothing records the
         set: an entry is an allocation when it matches TempArtifacts' own
-        ``<prefix>_<tag>`` grammar with a lowercase-hex tag. A hand-made
-        reproduction directory (``temp_tests/vis_probe/``) does not, and is
-        left alone regardless of age -- it is somebody's working file, not an
-        abandoned allocation.
+        ``<prefix>_<tag>`` grammar with a lowercase-hex tag. Anything else in
+        :attr:`BASE` -- a folder a person put there -- is no allocation and is
+        left as it is, whatever its age: scratch belongs in ``tests/temp_tests/``,
+        which this never reads.
 
         Returns:
             list[str]: Absolute paths removed (sorted); empty when nothing was
@@ -762,26 +785,29 @@ class TempProjects:
         return False
 
     @classmethod
-    def _store(cls, prefix: str) -> "Any":
-        """The :class:`pythontk.TempArtifacts` store for *prefix* under BASE."""
+    def _store(cls, prefix: str, base: Optional[str] = None) -> "Any":
+        """The :class:`pythontk.TempArtifacts` store for *prefix* under *base* (:attr:`BASE`)."""
         import pythontk as ptk
 
         return ptk.TempArtifacts(
             prefix,
             policy="detached",
-            dir=cls.BASE,
+            dir=base or cls.BASE,
             max_age_days=cls.MAX_AGE_DAYS,
         )
 
     @classmethod
-    def _allocated_prefixes(cls) -> "Set[str]":
-        """Prefixes of the allocation-shaped entries currently under BASE."""
+    def _allocated_prefixes(cls, base: Optional[str] = None) -> "Set[str]":
+        """Prefixes of the allocation-shaped entries currently under *base* (:attr:`BASE`)."""
         try:
-            names = os.listdir(cls.BASE)
+            names = os.listdir(base or cls.BASE)
         except OSError:
             return set()
         matches = (cls._ALLOCATED.match(n) for n in names)
         return {m.group("prefix") for m in matches if m}
+
+
+TempProjects.BASE = TempProjects.base_for(os.environ)
 
 
 class UnityTkTestCase(unittest.TestCase):

@@ -52,17 +52,17 @@ namespace M3trik.Unitytk.ArticulatedRig
         public enum RotateOrder
         {
             /// <summary>x, then y, then z.</summary>
-            XYZ,
+            XYZ = 0,
             /// <summary>y, then z, then x.</summary>
-            YZX,
+            YZX = 1,
             /// <summary>z, then x, then y.</summary>
-            ZXY,
+            ZXY = 2,
             /// <summary>x, then z, then y.</summary>
-            XZY,
+            XZY = 3,
             /// <summary>y, then x, then z.</summary>
-            YXZ,
+            YXZ = 4,
             /// <summary>z, then y, then x.</summary>
-            ZYX,
+            ZYX = 5,
         }
 
         /// <summary>One channel the joint turns or slides on, with its limits.</summary>

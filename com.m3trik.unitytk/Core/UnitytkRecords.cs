@@ -26,6 +26,9 @@ public static class UnitytkRecords
     public const string Lods = "lods";                       // channel → LodsImporter
     public const string RenderEffects = "render_effects";    // channel → RenderEffectsImporter
     public const string Articulation = "articulation";       // channel → ArticulationRecord
+    /// <summary>The handoff record: two features read it (LooksImporter, LightmapsImporter),
+    /// so its reader sits in the contracts.</summary>
+    public const string Handoff = "handoff";                 // channel → HandoffBlock
     /// <summary>The materials record: two features read it (MaterialsImporter,
     /// RenderEffectsImporter), so its reader sits in the contracts.</summary>
     public const string Materials = "materials";             // channel → MaterialRecord

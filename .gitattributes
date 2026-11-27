@@ -4,3 +4,9 @@
 # (core.autocrlf=true, as on GitHub's runners) keeps them LF too.
 unitytk/operations.json text eol=lf
 unitytk/editor_operations.json text eol=lf
+
+# A sample's delivery (the files at the top of each Samples~ folder) is held to
+# its recipe's output (m3trik's sync_unity_samples.py): a file no FBX by its
+# bytes (the Tasks sheet and plan), which the recipes write LF. Pinned the same
+# way; a binary file (an FBX, an image) is detected and left as it is.
+com.m3trik.unitytk/Samples~/*/* text=auto eol=lf

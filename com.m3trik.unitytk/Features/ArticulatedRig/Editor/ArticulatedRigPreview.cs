@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using M3trik.Unitytk.Kernel;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -19,9 +20,10 @@ namespace M3trik.Unitytk.ArticulatedRig
     /// A rig that follows its animation is left to it (the Animation window and Timeline pose
     /// its parts), as is any part the Animation window animates. Every held part is given back
     /// as it was when the last inspector closes, the rig is removed, disabled or deactivated,
-    /// before scripts reload and as play mode starts, and before a scene is saved or a prefab
-    /// written -- after which the rig shows again while an inspector is still open. So nothing a
-    /// preview posed reaches a saved scene or prefab; the values stay, and pose the rig in play.
+    /// before scripts reload and as play mode starts, and before a scene or a prefab is written
+    /// (the kernel's save hook, <see cref="ISaveSuspended"/>: posed again once it is written, while
+    /// an inspector is still open). So nothing a preview posed reaches a saved scene or prefab; the
+    /// values stay, and pose the rig in play.
     /// A rig in a prefab or model asset shows nothing (open the prefab, or place it in a scene).
     /// </summary>
     /// <remarks>
@@ -35,9 +37,9 @@ namespace M3trik.Unitytk.ArticulatedRig
     /// window and Timeline drive: an inspector starting or stopping it would end their preview,
     /// or have their recording key the preview's pose. So this keeper gives the parts back itself
     /// and stands aside where that mode animates a part. The skeleton (a registry, the release
-    /// hooks, the prefab-save processor) is the one <c>ShadowPlanePreview</c> and
-    /// <c>RenderEffectsPreview</c> follow; its only shared home would be the foundation, so each
-    /// feature keeps its own.
+    /// hooks) is the one <c>ShadowPlanePreview</c> and <c>RenderEffectsPreview</c> follow; a write
+    /// of a scene or a prefab is the kernel's one hook (<see cref="SaveSuspension"/>), which each
+    /// keeper joins.
     /// </remarks>
     [InitializeOnLoad]
     internal static class ArticulatedRigPreview
@@ -70,28 +72,20 @@ namespace M3trik.Unitytk.ArticulatedRig
             EditorApplication.update += Update;
             AssemblyReloadEvents.beforeAssemblyReload += ReleaseAll;
             EditorApplication.playModeStateChanged += OnPlayMode;
-            EditorSceneManager.sceneSaving += (scene, path) => GiveBackIn(scene);
+            SaveSuspension.Add(new Saves());
             EditorSceneManager.sceneClosing += (scene, removing) => ReleaseIn(scene);
-            PrefabStage.prefabSaving += prefab => GiveBackAll();
         }
 
         /// <summary>
-        /// Before Unity writes a prefab -- one made from a scene object or an instance's
-        /// overrides applied -- every held part is given back, so the asset holds the parts' own
-        /// transforms, never the preview's pose.
+        /// Around a write of a scene or a prefab (one made from a scene object, an instance's
+        /// overrides applied): every held part given back before it is written, so the file holds
+        /// the parts' own transforms, and every shown rig posed again once it is.
         /// </summary>
-        sealed class PrefabSaves : AssetModificationProcessor
+        sealed class Saves : ISaveSuspended
         {
-            static string[] OnWillSaveAssets(string[] paths)
-            {
-                foreach (string path in paths)
-                    if (path.EndsWith(".prefab", System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        GiveBackAll();
-                        break;
-                    }
-                return paths;
-            }
+            public void Suspend() => GiveBackAll();
+
+            public void Resume() => Update();
         }
 
         /// <summary>Whether <paramref name="rig"/> shows through the preview.</summary>
@@ -311,13 +305,6 @@ namespace M3trik.Unitytk.ArticulatedRig
         {
             for (int i = _held.Count - 1; i >= 0; i--)
                 if (_held[i].rig == null || _held[i].scene == scene) Drop(i);
-        }
-
-        // Every held part of scene's rigs given back before it is written; they show again after.
-        static void GiveBackIn(Scene scene)
-        {
-            foreach (Held held in _held)
-                if (held.rig == null || held.scene == scene) GiveBack(held);
         }
 
         // Enabled on an active object (outside play mode, Unity sends it no OnEnable).

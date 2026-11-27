@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 try:
@@ -21,6 +22,7 @@ import pythontk as ptk
 
 from unitytk.project_builder import ProjectBuilder
 from unitytk.unity_cli import UnityCli
+from unitytk.unity_project import UnityProject
 
 RESULTS = """<?xml version="1.0" encoding="utf-8"?>
 <test-run result="Failed(Child)">
@@ -42,6 +44,27 @@ INCONCLUSIVE = """<?xml version="1.0" encoding="utf-8"?>
 NOTHING = """<?xml version="1.0" encoding="utf-8"?>
 <test-run result="Passed" />
 """
+
+
+def _pipeline_asset(project, name, body: bytes, quality: bool = False) -> Path:
+    """A URP pipeline asset at ``Assets/Settings/<name>.asset`` with its
+    ``.meta``, named by the project's graphics settings (*quality*: by a
+    quality level, as a template's PC and Mobile assets are)."""
+    import uuid
+
+    settings = Path(project, "Assets", "Settings")
+    settings.mkdir(parents=True, exist_ok=True)
+    asset = settings / f"{name}.asset"
+    asset.write_bytes(body)
+    guid = uuid.uuid4().hex
+    (settings / f"{name}.asset.meta").write_text(f"fileFormatVersion: 2\nguid: {guid}\n", encoding="utf-8")
+    which = "QualitySettings.asset" if quality else "GraphicsSettings.asset"
+    key = "customRenderPipeline" if quality else "m_CustomRenderPipeline"
+    path = Path(project, "ProjectSettings", which)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(f"  {key}: {{fileID: 11400000, guid: {guid}, type: 2}}\n")
+    return asset
 
 
 def _made_by_cli(path, version=None, template=None, timeout=None, cancel=None):
@@ -223,6 +246,18 @@ class TestProjectBuilder(UnityTkTestCase):
                 ProjectBuilder.build()
         made.assert_not_called()
         self.assertTrue((folder / "notes.txt").is_file())
+
+    def test_a_drive_without_room_for_a_project_is_refused_before_unity_starts(self):
+        """Measured 2026-11-24: a drive at 327 MB free let Unity's CLI run two
+        minutes and die in its package import (ENOSPC). Added: 2026-11-24"""
+        full = SimpleNamespace(free=UnityProject.ROOM_BYTES - 1)
+        with patch.object(UnityCli, "create_project", side_effect=_made_by_cli) as made, patch(
+            "shutil.disk_usage", return_value=full
+        ):
+            with self.assertRaisesRegex(UnityProject.NoRoom, r"GB free.*UNITYTK_TEMP_PROJECTS"):
+                ProjectBuilder.build()
+        made.assert_not_called()
+        self.assertFalse(ProjectBuilder.folder("6000.3.10f1").exists())
 
     def test_a_failed_make_takes_away_only_what_it_made(self):
         """Added: 2026-11-08"""
@@ -411,6 +446,108 @@ class TestProjectBuilder(UnityTkTestCase):
         imported = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
         self.assertNotIn("unitytk.unity_host", imported)
 
+    def test_its_urp_pipeline_assets_smooth_their_edges_asked_first_once(self):
+        """The URP template ships MSAA off: each pipeline asset gets 4x, its line
+        endings kept, a plan writes nothing, a second run writes nothing.
+        Added: 2026-11-21"""
+        project = self.cache / "proj"
+        pc = _pipeline_asset(project, "PC_RPAsset", b"MonoBehaviour:\r\n  m_RendererDataList:\r\n  - {fileID: 1}\r\n  m_MSAA: 1\r\n  m_RenderScale: 1\r\n",
+                             quality=True)
+        other = project / "Assets" / "Settings" / "Volume.asset"
+        other.write_bytes(b"MonoBehaviour:\n  m_MSAA: 1\n")
+        plan = ptk.OpContext(dry_run=True)
+        self.assertEqual(ProjectBuilder.tune_pipeline(project, plan), [str(pc)])
+        self.assertIn(b"m_MSAA: 1", pc.read_bytes(), "a plan writes nothing")
+        self.assertEqual(ProjectBuilder.tune_pipeline(project), [str(pc)])
+        self.assertIn(b"  m_MSAA: 4\r\n  m_RenderScale: 1\r\n", pc.read_bytes())
+        self.assertEqual(other.read_bytes(), b"MonoBehaviour:\n  m_MSAA: 1\n", "no pipeline asset: left as it is")
+        self.assertEqual(ProjectBuilder.tune_pipeline(project), [], "set already")
+
+    def test_the_owned_project_is_tuned_and_a_keyed_one_keeps_its_rendering_unless_asked(self):
+        """``build`` tuned every project's rendering, a person's keyed play
+        project included; now the owned project by default, a keyed one only
+        with ``tuned=True``, and ``tuned=False`` leaves the owned one alone.
+        Added: 2026-11-24"""
+
+        def made(path, **kwargs):
+            folder = Path(_made_by_cli(path, **kwargs))
+            _pipeline_asset(folder, "PC_RPAsset", b"MonoBehaviour:\n  m_RendererDataList:\n  - {fileID: 1}\n  m_MSAA: 1\n")
+            return str(folder)
+
+        def msaa(folder):
+            return Path(folder, "Assets", "Settings", "PC_RPAsset.asset").read_bytes()
+
+        with patch.object(UnityCli, "create_project", side_effect=made), patch.object(ProjectBuilder, "import_samples"):
+            owned = ProjectBuilder.build()
+            self.assertIn(b"m_MSAA: 4", msaa(owned), "the owned project: tuned")
+            keyed = ProjectBuilder.build(key="play")
+            self.assertIn(b"m_MSAA: 1", msaa(keyed), "a keyed project's rendering: its own")
+            ProjectBuilder.build(key="play", tuned=True)
+            self.assertIn(b"m_MSAA: 4", msaa(keyed), "tuned where asked")
+            Path(owned, "Assets", "Settings", "PC_RPAsset.asset").write_bytes(msaa(owned).replace(b"m_MSAA: 4", b"m_MSAA: 2"))
+            ProjectBuilder.build(tuned=False)
+            self.assertIn(b"m_MSAA: 2", msaa(owned), "left alone where asked")
+
+    def test_the_tuning_is_its_parameters(self):
+        """Each tuned setting is a parameter, today's values its defaults.
+        Added: 2026-11-24"""
+        project = self.cache / "proj"
+        pc = _pipeline_asset(project, "PC_RPAsset", b"MonoBehaviour:\n  m_RendererDataList:\n  - {fileID: 1}\n  m_MSAA: 1\n")
+        written = ProjectBuilder.tune_pipeline(project, pipeline_settings={"m_MSAA": "8"})
+        self.assertEqual(written, [str(pc)])
+        self.assertIn(b"m_MSAA: 8", pc.read_bytes())
+
+    def test_a_project_is_muted_asked_first_once_and_can_sound_again(self):
+        """Tests and agent sessions run unattended: the global volume goes to 0
+        (sources still play, so audio tests hold), line endings kept, a plan
+        writes nothing, a second run writes nothing; ``muted=False`` undoes it.
+        Added: 2026-11-21"""
+        project = self.cache / "proj"
+        (project / "ProjectSettings").mkdir(parents=True)
+        audio = project / "ProjectSettings" / "AudioManager.asset"
+        audio.write_bytes(b"AudioManager:\r\n  m_Volume: 1\r\n  m_DisableAudio: 0\r\n")
+        self.assertEqual(ProjectBuilder.mute(project, ctx=ptk.OpContext(dry_run=True)), [str(audio)])
+        self.assertIn(b"m_Volume: 1\r\n", audio.read_bytes(), "a plan writes nothing")
+        self.assertEqual(ProjectBuilder.mute(project), [str(audio)])
+        self.assertEqual(audio.read_bytes(), b"AudioManager:\r\n  m_Volume: 0\r\n  m_DisableAudio: 0\r\n")
+        self.assertEqual(ProjectBuilder.mute(project), [], "muted already")
+        self.assertEqual(ProjectBuilder.mute(project, muted=False), [str(audio)])
+        self.assertIn(b"m_Volume: 1\r\n", audio.read_bytes())
+        self.assertEqual(ProjectBuilder.mute(self.cache / "none"), [], "no project: nothing")
+
+    def test_the_pipeline_assets_are_those_the_settings_name_and_no_other(self):
+        """``tune_pipeline`` read every ``*.asset`` under ``Assets`` to find the
+        pipeline assets; they are the ones the graphics and quality settings
+        name, by GUID, and an asset that only looks like one (a copy no setting
+        names, a sample's) is left as it is. Added: 2026-11-24"""
+        project = self.cache / "proj"
+        body = b"MonoBehaviour:\n  m_RendererDataList:\n  - {fileID: 1}\n  m_MSAA: 1\n"
+        drawn = _pipeline_asset(project, "PC_RPAsset", body)
+        level = _pipeline_asset(project, "Mobile_RPAsset", body, quality=True)
+        unnamed = Path(project, "Assets", "Samples", "Copy_RPAsset.asset")
+        unnamed.parent.mkdir(parents=True)
+        unnamed.write_bytes(body)
+        self.assertEqual(ProjectBuilder.pipeline_assets(project), sorted([drawn, level]))
+        self.assertEqual(sorted(ProjectBuilder.tune_pipeline(project)), sorted([str(drawn), str(level)]))
+        self.assertEqual(unnamed.read_bytes(), body, "no setting names it: left as it is")
+        self.assertEqual(ProjectBuilder.pipeline_assets(self.cache / "none"), [], "no project: none")
+
+    def test_its_urp_renderers_keep_the_templates_settings(self):
+        """A tuned project's renderers stay as its template made them (its
+        path, its screen-space occlusion): what a delivery needs of them, the
+        package's own checks name, as in a person's project. Added: 2026-11-24"""
+        project = self.cache / "proj"
+        settings = project / "Assets" / "Settings"
+        settings.mkdir(parents=True)
+        renderer = settings / "PC_Renderer.asset"
+        made = (
+            b"--- !u!114 &1\r\nMonoBehaviour:\r\n  m_Name: PC_Renderer\r\n  m_RendererFeatures:\r\n  - {fileID: 2}\r\n  m_RenderingMode: 2\r\n"
+            b"--- !u!114 &2\r\nMonoBehaviour:\r\n  m_Name: ScreenSpaceAmbientOcclusion\r\n  m_Active: 1\r\n"
+        )
+        renderer.write_bytes(made)
+        self.assertEqual(ProjectBuilder.tune_pipeline(project), [])
+        self.assertEqual(renderer.read_bytes(), made, "its Forward+ path and its occlusion kept")
+
 
 class TestSampleImport(UnityTkTestCase):
     """The package's samples, copied in where the Package Manager imports
@@ -502,6 +639,30 @@ class TestSampleImport(UnityTkTestCase):
         ProjectBuilder.import_samples(self.project, self.package)
         self.assertTrue(self._imported("1.3.0").is_dir())
         self.assertFalse(self._imported("1.2.0").parent.exists(), "one version's assemblies, never two")
+
+    def test_a_sample_the_package_no_longer_lists_leaves_and_a_folder_it_did_not_copy_stays(self):
+        """Bug: a sample the package renamed stayed in the owned project beside the new one, its recipe
+        no longer compiling: every editor run failed on it. Fixed: 2026-11-25"""
+        ProjectBuilder.import_samples(self.project, self.package)
+        own = self._imported().parent / "Mine"  # a folder a person made there: no stamp, not the builder's
+        own.mkdir()
+        (own / "Notes.txt").write_text("kept", encoding="utf-8")
+        (self.source.parent / "Demo").rename(self.source.parent / "Tour")
+        (self.package / "package.json").write_text(
+            json.dumps({"name": "com.example.pkg", "version": "1.2.0", "displayName": "Pkg",
+                        "samples": [{"displayName": "Tour", "description": "d", "path": "Samples~/Tour"}]}),
+            encoding="utf-8",
+        )
+        Path(str(self._imported()) + ".meta").write_text("fileFormatVersion: 2\n", encoding="utf-8")
+        plan = ptk.OpContext(dry_run=True)
+        ProjectBuilder.import_samples(self.project, self.package, ctx=plan)
+        self.assertEqual([c.kind for c in plan.changes], ["delete", "write"], "the sample that left, then the one that came")
+        self.assertTrue(self._imported().is_dir(), "a dry run removes nothing")
+        ProjectBuilder.import_samples(self.project, self.package)
+        self.assertFalse(self._imported().exists(), "the sample the package no longer lists is gone")
+        self.assertFalse(Path(str(self._imported()) + ".meta").exists(), "with its meta")
+        self.assertTrue((self._imported().parent / "Tour" / "Editor" / "Recipe.cs").is_file())
+        self.assertTrue((own / "Notes.txt").is_file(), "what the builder did not copy stays")
 
     def test_a_dry_run_plans_the_copy_and_writes_nothing(self):
         ctx = ptk.OpContext(dry_run=True)

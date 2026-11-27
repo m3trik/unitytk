@@ -49,7 +49,7 @@ namespace M3trik.Unitytk.Shots
                     "next import): add a ShotList to an object of your own, whose Animator or Animation plays the " +
                     "clip. The delivered entries are the source's.", nameof(target));
             if (shots != null && shots.Entry(clip) != null) return false;
-            if (shots == null && (ctx == null || ctx.ShouldCreate($"{target.name}/ShotList", "add ShotList")))
+            if (shots == null && (ctx == null || ctx.ShouldCreate(OpContextEdits.Key(target, typeof(ShotList)), "add ShotList")))
                 shots = ctx.AddComponent<ShotList>(target);
 
             string action = $"add the shot entry for clip '{clip.name}'";

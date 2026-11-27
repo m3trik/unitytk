@@ -1,7 +1,9 @@
 {
     "name": "M3trik.Unitytk.Lightmaps",
     "rootNamespace": "",
-    "references": [],
+    "references": [
+        "M3trik.Unitytk.Kernel.Runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

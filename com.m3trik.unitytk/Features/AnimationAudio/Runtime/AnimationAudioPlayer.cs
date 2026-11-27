@@ -57,6 +57,10 @@ namespace M3trik.Unitytk.AnimationAudio
         [Range(0f, 1f)]
         public float volume = 1f;
 
+        [Tooltip("Sounds something else plays, by name (a task's voice line, played as its step starts): a cue of one " +
+                 "of them is left out here, so it never plays twice.")]
+        public List<string> leave = new List<string>();
+
         // A sound playing: its source, what it plays, and the clip whose event
         // started it (null when it names none), with that clip's legacy state, and
         // whether the Animator's states played that clip when it started (so they
@@ -107,6 +111,7 @@ namespace M3trik.Unitytk.AnimationAudio
                                  "set its Object to an AudioClip (the Events tab, or the Animation window).", this);
                 return;
             }
+            if (leave.Contains(sound.name)) return;  // played elsewhere
             AnimationClip by = ClipOf(evt, out AnimationState state, out bool legacy);
             Play(sound, evt.floatParameter, by, state, legacy);
         }

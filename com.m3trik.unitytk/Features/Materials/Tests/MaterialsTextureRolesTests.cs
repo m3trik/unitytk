@@ -11,8 +11,9 @@ namespace M3trik.Unitytk.Materials.Tests
     /// The texture-role postprocessor, through a real first import and the carrier's
     /// media: a map a written material names takes its role in its model's folder of
     /// its own, never beside the model, and never once the
-    /// texture has import settings of its own; a texture no written material names
-    /// asks nothing, not even for the media provider.
+    /// texture has import settings of its own; it keeps the project's cap unless the project
+    /// asks for full size; a texture no written material names asks nothing, not even for the
+    /// media provider.
     /// </summary>
     public class MaterialsTextureRolesTests
     {
@@ -64,6 +65,59 @@ namespace M3trik.Unitytk.Materials.Tests
             imported.SaveAndReimport();
             Assert.That(((TextureImporter)AssetImporter.GetAtPath(Own + "/UnitytkRoleOn_normal.png")).textureType,
                         Is.EqualTo(TextureImporterType.Default));
+        }
+
+        [Test]
+        public void A_maps_first_import_keeps_the_projects_cap_unless_the_project_asks_for_full_size()
+        {
+            Name(("UnitytkRoleCapped_rough.png", false), ("UnitytkRoleFull_rough.png", false));
+            TextureImporter Wide(string path)
+            {
+                var image = new Texture2D(4096, 4, TextureFormat.RGBA32, false);
+                File.WriteAllBytes(path, image.EncodeToPNG());
+                Object.DestroyImmediate(image);
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                return (TextureImporter)AssetImporter.GetAtPath(path);
+            }
+            int unitys = new TextureImporterPlatformSettings().maxTextureSize;
+            Assert.That(MaterialsSettings.instance.fullSize, Is.False, "off by default");
+            Assert.That(Wide(Own + "/UnitytkRoleCapped_rough.png").maxTextureSize, Is.EqualTo(unitys), "the project's cap stands");
+            bool was = MaterialsSettings.instance.fullSize;
+            MaterialsSettings.instance.fullSize = true;  // the project asks (not saved: a test's)
+            try
+            {
+                TextureImporter full = Wide(Own + "/UnitytkRoleFull_rough.png");
+                Assert.That(full.maxTextureSize, Is.EqualTo(4096), "asked: at its own size");
+                Assert.That(full.sRGBTexture, Is.False, "its role as well");
+            }
+            finally
+            {
+                MaterialsSettings.instance.fullSize = was;
+            }
+        }
+
+        [Test]
+        public void A_named_map_with_no_role_here_keeps_the_projects_cap_even_where_full_size_is_asked()
+        {
+            Name(("UnitytkRoleBeside_rough.png", false));
+            string path = Folder + "/UnitytkRoleBeside_rough.png";  // beside the model, not in its own folder: no role
+            var image = new Texture2D(4096, 4, TextureFormat.RGBA32, false);
+            File.WriteAllBytes(path, image.EncodeToPNG());
+            Object.DestroyImmediate(image);
+            bool was = MaterialsSettings.instance.fullSize;
+            MaterialsSettings.instance.fullSize = true;  // the project asks (not saved: a test's)
+            try
+            {
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+                Assert.That(importer.maxTextureSize, Is.EqualTo(new TextureImporterPlatformSettings().maxTextureSize),
+                            "no role here: its first import is left as Unity makes it");
+                Assert.That(importer.sRGBTexture, Is.True);
+            }
+            finally
+            {
+                MaterialsSettings.instance.fullSize = was;
+            }
         }
 
         [Test]

@@ -6,8 +6,9 @@ The compiler is the editor's own (its bundled Roslyn, run on its bundled .NET
 runtime) against its own engine assemblies, so what compiles here compiles in
 that editor. Each assembly definition (``.asmdef``) under the source folder is
 one assembly: the ``.cs`` files below it and not below a nested one, built in
-dependency order against those before it, its ``versionDefines`` and
-``defineConstraints`` honoured.
+dependency order against those before it (the assemblies that reference none
+of each other side by side, a compiler process per core), its
+``versionDefines`` and ``defineConstraints`` honoured.
 
 It builds a matrix: the editor build (``UNITY_EDITOR``, the editor's modules)
 and the player build (neither), each without the optional packages (Built-in,
@@ -57,14 +58,16 @@ class _UnityCompileInternal:
     #: Below the Data folder: the engine and editor modules, and the .NET Standard facade.
     ENGINE = ("Managed", "UnityEngine")
     NETSTANDARD = ("NetStandard", "ref", "2.1.0", "netstandard.dll")
-    #: Below the Data folder: the .NET Framework facades a precompiled .NET
-    #: Framework assembly (NUnit's) needs beside .NET Standard, as Unity adds them.
+    #: Below the Data folder: the .NET Framework facades an assembly built
+    #: against .NET Framework needs beside .NET Standard (NUnit's, and a
+    #: project's own editor assemblies, uGUI's among them), as Unity adds them.
     NETFX_SHIMS = ("NetStandard", "compat", "2.1.0", "shims", "netfx")
     #: The optional packages the package half adds, by the id an asmdef's
     #: ``versionDefines`` names: present when the reference project holds them.
     PACKAGES = (
         "com.unity.render-pipelines.universal",
         "com.unity.inputsystem",
+        "com.unity.ugui",
         "com.unity.xr.interaction.toolkit",
     )
     #: The package whose presence turns on the test assemblies (their
@@ -261,9 +264,12 @@ class _UnityCompileInternal:
         project: Optional[Path],
         out: Path,
         check=lambda: None,
+        jobs=None,
     ) -> Dict[str, Any]:
-        """One variant: each assembly in order, against the ones built before it,
-        *check* (a cancel checkpoint) before each."""
+        """One variant: each assembly against the ones it references, a wave
+        (:meth:`_waves`) at a time through *jobs* (a ``map`` that may run its
+        calls side by side; the builtin when ``None``), *check* (a cancel
+        checkpoint) before each. The report keeps the assemblies' order."""
         name, in_editor, _ = variant
         started = time.monotonic()
         system = platform.system().lower()
@@ -286,31 +292,39 @@ class _UnityCompileInternal:
         if not in_editor:
             engine = [d for d in engine if not d.name.startswith("UnityEditor")]
         references = [str(d) for d in engine] + [str(data / Path(*cls.NETSTANDARD))]
+        shims = [str(d) for d in sorted((data / Path(*cls.NETFX_SHIMS)).glob("*.dll"))]
         if packages and project is not None:
             for dll in sorted((project / "Library" / "ScriptAssemblies").glob("*.dll")):
                 ours = any(dll.stem == a["name"] for a in assemblies)
-                if not ours and (in_editor or ".Editor" not in dll.stem):
+                editor_only = ".Editor" in dll.stem or dll.stem.startswith("UnityEditor")  # uGUI's UnityEditor.UI too
+                if not ours and (in_editor or not editor_only):
                     references.append(str(dll))
+            if in_editor:  # the project's editor assemblies name mscorlib (NETFX_SHIMS)
+                references += shims
         runtime = data / Path(*cls.RUNTIME.get(system, cls.RUNTIME_DEFAULT))
         built: Dict[str, str] = {}
-        report = []
         folder = out / name.replace("+", "_")
         folder.mkdir(parents=True, exist_ok=True)
+        defines_of: Dict[str, List[str]] = {}
+        mine = []
         for assembly in assemblies:
             defines = list(base)
             for entry in assembly.get("versionDefines", []):
                 if entry.get("name") in packages:
                     defines.append(entry["define"])
-            if not cls._targets(assembly, in_editor) or not cls._satisfied(
-                assembly.get("defineConstraints", []), defines
-            ):
-                continue
+            if cls._targets(assembly, in_editor) and cls._satisfied(assembly.get("defineConstraints", []), defines):
+                defines_of[assembly["name"]] = defines
+                mine.append(assembly)
+
+        def one(assembly: Dict[str, Any]) -> Dict[str, Any]:
+            """Compile *assembly* against the waves before it: its report entry."""
             check()
+            defines = defines_of[assembly["name"]]
             target = folder / f"{assembly['name']}.dll"
             own = [built[r] for r in assembly.get("references", []) if r in built]
             framework = [precompiled[p] for p in assembly.get("precompiledReferences", []) if p in precompiled]
             if framework:
-                own += framework + [str(d) for d in sorted((data / Path(*cls.NETFX_SHIMS)).glob("*.dll"))]
+                own += framework + [s for s in shims if s not in references]
             rsp = folder / f"{assembly['name']}.rsp"
             lines = [
                 "-nologo -noconfig -nostdlib+ -target:library -deterministic",
@@ -332,36 +346,51 @@ class _UnityCompileInternal:
                     timeout=cls.COMPILE_TIMEOUT,
                 )
             except subprocess.TimeoutExpired:
-                report.append(
-                    {
-                        "assembly": assembly["name"],
-                        "files": len(assembly["files"]),
-                        "errors": [f"the compiler ran past {cls.COMPILE_TIMEOUT} s and was stopped"],
-                        "warnings": 0,
-                    }
-                )
-                continue
+                return {
+                    "assembly": assembly["name"],
+                    "files": len(assembly["files"]),
+                    "errors": [f"the compiler ran past {cls.COMPILE_TIMEOUT} s and was stopped"],
+                    "warnings": 0,
+                }
             diagnostics = [m for m in map(cls._DIAGNOSTIC.match, proc.stdout.splitlines()) if m]
             errors = [m.group(0) for m in diagnostics if m.group("severity") == "error"]
             if proc.returncode and not errors:  # the compiler failed without saying where
                 errors = [line for line in proc.stdout.splitlines() if line.strip()][-3:] or [
                     f"the compiler exited {proc.returncode}"
                 ]
-            report.append(
-                {
-                    "assembly": assembly["name"],
-                    "files": len(assembly["files"]),
-                    "errors": errors,
-                    "warnings": sum(m.group("severity") == "warning" for m in diagnostics),
-                }
-            )
-            if not errors:
-                built[assembly["name"]] = str(target)
+            return {
+                "assembly": assembly["name"],
+                "files": len(assembly["files"]),
+                "errors": errors,
+                "warnings": sum(m.group("severity") == "warning" for m in diagnostics),
+            }
+
+        entries: Dict[str, Dict[str, Any]] = {}
+        for wave in cls._waves(mine):
+            check()
+            for assembly, entry in zip(wave, (jobs or map)(one, wave)):
+                entries[assembly["name"]] = entry
+                if not entry["errors"]:  # the next wave builds against it
+                    built[assembly["name"]] = str(folder / f"{assembly['name']}.dll")
         return {
             "variant": name,
-            "assemblies": report,
+            "assemblies": [entries[a["name"]] for a in mine],
             "seconds": round(time.monotonic() - started, 2),
         }
+
+    @staticmethod
+    def _waves(assemblies: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+        """*assemblies* (each after the ones it references) in waves: a wave's
+        assemblies reference only earlier waves', so they compile side by side."""
+        depth: Dict[str, int] = {}
+        for assembly in assemblies:
+            depth[assembly["name"]] = 1 + max(
+                (depth[r] for r in assembly.get("references", []) if r in depth), default=-1
+            )
+        waves: List[List[Dict[str, Any]]] = [[] for _ in range(max(depth.values(), default=-1) + 1)]
+        for assembly in assemblies:
+            waves[depth[assembly["name"]]].append(assembly)
+        return waves
 
 
 class UnityCompile(_UnityCompileInternal):
@@ -453,11 +482,14 @@ class UnityCompile(_UnityCompileInternal):
                 "info",
             )
         out = Path(TempArtifacts("unity_compile", max_age_days=1).dir_path())
-        with ThreadPoolExecutor(max_workers=len(variants)) as pool:
+        # One compiler process per core, shared by the variants: each hands its waves to it.
+        with ThreadPoolExecutor(max_workers=len(variants)) as pool, ThreadPoolExecutor(
+            max_workers=os.cpu_count() or 4
+        ) as compilers:
             results = list(
                 pool.map(
                     lambda v: cls._build(
-                        data, version, assemblies, v, packages if v[2] else {}, project, out, check
+                        data, version, assemblies, v, packages if v[2] else {}, project, out, check, compilers.map
                     ),
                     variants,
                 )

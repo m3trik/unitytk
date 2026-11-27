@@ -11,6 +11,7 @@
 // nothing registered the legacy Input Manager is read, and with neither the
 // component does nothing.
 // ----------------------------------------------------------------------------
+using M3trik.Unitytk.Kernel;
 using UnityEngine;
 
 namespace M3trik.Unitytk.ArticulatedRig
@@ -81,7 +82,7 @@ namespace M3trik.Unitytk.ArticulatedRig
             _pointer = pointer;
         }
 
-        Camera ViewCamera => viewCamera != null ? viewCamera : Camera.main;
+        Camera ViewCamera => Viewer.ViewCamera(viewCamera);
 
         void Update()
         {

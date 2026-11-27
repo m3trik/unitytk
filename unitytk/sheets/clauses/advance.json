@@ -1,0 +1,12 @@
+{
+  "behavior": "advance",
+  "order": 80,
+  "description": "The step completes once its actions are done (at once where it has none).",
+  "detect": [
+    "^auto\\s*advance(?:\\s+when\\s+.+)?$",
+    "^end\\s+of\\s+.+?\\s+triggers\\s+auto\\s*advance$"
+  ],
+  "roles": [
+    "continues"
+  ]
+}

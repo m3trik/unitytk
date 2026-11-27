@@ -14,7 +14,7 @@ host calls it), and a caller's cancel stops it and what it started.
 
 Measured 2026-11-04 (CLI 1.0.0-beta.13, Unity 6000.3.10f1): ``editors -i``
 answers in about 0.4 s (read once a process, :meth:`UnityCli.editors`);
-``projects new`` with the URP template (``com.unity.template.urp-blank``) took
+``projects new`` (``projects create`` from CLI 1.0.1) with the URP template (``com.unity.template.urp-blank``) took
 214 s and leaves the project imported, and registered in the Hub's project list
 (``projects remove`` takes it out again, never touching its files). unitytk's
 ``test_unity_cli`` reads the real CLI's answer where one is installed.
@@ -44,6 +44,25 @@ class _UnityCliInternal:
     #: :meth:`UnityCli.editors`' answer, read once a process.
     _editors: Optional[Dict[str, str]] = None
 
+    #: A message naming the log the CLI wrote, and the lines of that log that say why.
+    _SEE_LOG = re.compile(r"See log:\s*(?P<path>.+?\.log)\b")
+    _CAUSE = re.compile(r"\b(error|errors|exception|failed|ENOSPC|EACCES|no space|denied)\b", re.I)
+    #: The licensing client's own checks, which say "failed" on every healthy start.
+    _NOISE = re.compile(r"^\s*\[Licensing::", re.I)
+
+    @classmethod
+    def _log_cause(cls, message: str, lines: int = 3) -> str:
+        """The last few lines of the log *message* points at that say why it
+        failed, joined; "" when it names no log or the log is gone. The CLI
+        writes it to the temp folder, which a test run deletes as it ends, so
+        a failure that only points at it says nothing once read."""
+        found = cls._SEE_LOG.search(message or "")
+        if not found:
+            return ""
+        said = [ln.strip() for ln in UnityCli.log_tail(found.group("path")).splitlines()
+                if cls._CAUSE.search(ln) and not cls._NOISE.search(ln)]
+        return " | ".join(said[-lines:])
+
     @staticmethod
     def _spawn_flags() -> Dict[str, Any]:
         """How the child starts: no console window on Windows (a GUI host calls
@@ -54,7 +73,7 @@ class _UnityCliInternal:
 
     @staticmethod
     def _stop(proc: "subprocess.Popen") -> None:
-        """End *proc* and every process it started (``projects new`` runs an editor)."""
+        """End *proc* and every process it started (``projects create`` runs an editor)."""
         if proc.poll() is None:
             if os.name == "nt":
                 subprocess.run(
@@ -152,6 +171,26 @@ class UnityCli(_UnityCliInternal):
         found = [os.path.join(local, "Unity", "bin", "unity.exe")] if local else []
         return found + [os.path.expanduser("~/.local/bin/unity"), "/usr/local/bin/unity"]
 
+    #: How much of a log's end :meth:`log_tail` reads: where a failure says why.
+    LOG_TAIL_CHARS = 20000
+
+    @classmethod
+    def log_tail(cls, log: "os.PathLike | str") -> str:
+        """The end of the log at *log* (its last :attr:`LOG_TAIL_CHARS`
+        characters, line ends read as text reads them): the one reader of an
+        editor's or the CLI's log a failure quotes, which reads the file's last
+        bytes alone (an editor's log runs to megabytes). ``""`` when there is
+        no such file, or it cannot be read."""
+        try:
+            with open(log, "rb") as fh:
+                size = fh.seek(0, os.SEEK_END)
+                fh.seek(max(0, size - 4 * cls.LOG_TAIL_CHARS))  # a character is at most 4 bytes of UTF-8
+                data = fh.read()
+        except OSError:
+            return ""
+        text = data.decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
+        return text[-cls.LOG_TAIL_CHARS:]
+
     @classmethod
     def exe(cls) -> Optional[str]:
         """The CLI's executable: :attr:`ENV_VAR`, then ``PATH``, then
@@ -199,7 +238,9 @@ class UnityCli(_UnityCliInternal):
                 str(e.get("message", e)) if isinstance(e, dict) else str(e)
                 for e in (errors or [])
             )
-            raise RuntimeError(f"unity {' '.join(args)} failed: {messages or text[-400:]}")
+            said = messages or text[-400:]
+            cause = cls._log_cause(said)
+            raise RuntimeError(f"unity {' '.join(args)} failed: {said}" + (f" -- the log says: {cause}" if cause else ""))
         return answer.get("data")
 
     @classmethod
@@ -214,11 +255,27 @@ class UnityCli(_UnityCliInternal):
         """
         if refresh or cls._editors is None:
             found: Dict[str, str] = {}
-            for entry in cls.run("editors", "-i", timeout=cls.EDITORS_TIMEOUT) or []:
+            for entry in cls.items(cls.run("editors", "-i", timeout=cls.EDITORS_TIMEOUT)):
                 if isinstance(entry, dict) and entry.get("version") and entry.get("location"):
                     found[str(entry["version"])] = str(entry["location"])
             cls._editors = found
         return dict(cls._editors)
+
+    @staticmethod
+    def items(data: Any) -> List[Any]:
+        """A listing's entries: the page's ``items`` (the CLI answers a page from 1.0.1 on:
+        ``{items, total, nextPage, partial}``), or the list an earlier CLI answered; ``[]``
+        for neither.
+
+        Raises:
+            RuntimeError: The page is one of several (``nextPage``, ``partial``): ask for all
+                of it (``--all``) where the command pages.
+        """
+        if isinstance(data, dict):
+            if data.get("nextPage") or data.get("partial"):
+                raise RuntimeError(f"the CLI answered one page of {data.get('total')}: ask for all of it")
+            data = data.get("items")
+        return list(data) if isinstance(data, list) else []
 
     @classmethod
     def version_key(cls, version: str) -> Tuple[Any, ...]:
@@ -245,7 +302,7 @@ class UnityCli(_UnityCliInternal):
         timeout: float = 1800.0,
         cancel: Optional[Callable[[], None]] = None,
     ) -> str:
-        """Make a Unity project at *path* (``unity projects new``), imported
+        """Make a Unity project at *path* (``unity projects create``), imported
         and closed, never linked to Unity Cloud. The Hub lists it from then on
         (:meth:`unregister` takes it out).
 
@@ -269,10 +326,11 @@ class UnityCli(_UnityCliInternal):
         folder = os.path.abspath(path)
         args: List[str] = [
             "projects",
-            "new",
+            "create",
             os.path.basename(folder),
-            "--path",
+            "--output-dir",
             os.path.dirname(folder),
+            "--no-cloud",  # a signed-in run links a new project to Unity Cloud unless told not to
         ]
         if version:
             args += ["--editor-version", version]
@@ -283,7 +341,7 @@ class UnityCli(_UnityCliInternal):
 
     @classmethod
     def projects(cls) -> List[str]:
-        """The project folders the Hub lists (``unity projects list -a``).
+        """The project folders the Hub lists (``unity projects --all``).
 
         Raises:
             FileNotFoundError: The CLI is not installed.
@@ -291,7 +349,7 @@ class UnityCli(_UnityCliInternal):
         """
         return [
             str(entry["path"])
-            for entry in cls.run("projects", "list", "-a") or []
+            for entry in cls.items(cls.run("projects", "--all"))
             if isinstance(entry, dict) and entry.get("path")
         ]
 

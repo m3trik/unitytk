@@ -214,10 +214,16 @@ namespace M3trik.Unitytk.Kernel
             return !DryRun;
         }
 
-        static string NameOf(object target)
+        // What a change names target by: a scene object, or a component by its object, as OpContextEdits.Label
+        // does (its path), so two same-named objects' changes never read as one; another Unity object by its
+        // name; anything else as it prints.
+        internal static string NameOf(object target)
         {
             if (target is UnityEngine.Object unityObject)
-                return unityObject == null ? "(destroyed)" : unityObject.name;
+                return unityObject == null ? "(destroyed)"
+                     : unityObject is GameObject node ? OpContextEdits.Label(node)
+                     : unityObject is Component part ? OpContextEdits.Label(part.gameObject)
+                     : unityObject.name;
             return Convert.ToString(target, CultureInfo.InvariantCulture) ?? "";
         }
     }
@@ -291,6 +297,101 @@ namespace M3trik.Unitytk.Kernel
         /// editor (<c>unity.csharp.exec</c>) returns as its output.
         /// </summary>
         public static void Log(this OpContext ctx, string message) => Debug.Log(message);
+
+        /// <summary>
+        /// Whether this is a dry run that already planned a <paramref name="kind"/> on
+        /// <paramref name="target"/> (and <paramref name="action"/>, when given). A part a dry run
+        /// only planned is not there to find, so an action that would make or change it again asks
+        /// this and treats it as made: a chained dry run then plans what its live run makes. False
+        /// in a live run and with no context.
+        /// </summary>
+        /// <param name="kind"><c>create</c>, <c>change</c>, <c>delete</c> or <c>write</c>, as the asks record it.</param>
+        /// <param name="target">What was asked about, named as the asks name it (a scene object or a component by its
+        /// object's <see cref="Label(GameObject)"/>, another Unity object by its name).</param>
+        /// <param name="action">The ask's action; null matches any.</param>
+        public static bool Planned(this OpContext ctx, string kind, object target, string action = null)
+        {
+            if (ctx == null || !ctx.DryRun) return false;
+            string name = OpContext.NameOf(target);
+            foreach (Change change in ctx.Changes)
+                if (change.kind == kind && change.target == name && (action == null || change.action == action)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// The name an action asks about <paramref name="node"/>'s <paramref name="part"/> by:
+        /// <c>&lt;node&gt;/&lt;Part&gt;</c>, the node by its path (<see cref="Label(GameObject)"/>), so a dry run
+        /// never takes two same-named objects' parts for one. What an action passes
+        /// <see cref="OpContext.ShouldCreate"/> and <see cref="Planned"/> for a part it adds; a caller
+        /// that has only planned the node hands the action a <see cref="PlannedObject"/> (its own
+        /// <see cref="Key(PlannedObject, Type)"/>, the same key), never a key of its own making.
+        /// </summary>
+        /// <param name="node">The object the part goes on.</param>
+        /// <param name="part">The part's type (a component).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="node"/> or <paramref name="part"/> is null.</exception>
+        public static string Key(GameObject node, Type part)
+        {
+            if (part == null) throw new ArgumentNullException(nameof(part));
+            return $"{Label(node)}/{part.Name}";
+        }
+
+        /// <summary>
+        /// The name an action asks about a part of <paramref name="node"/>, an object a dry run only planned,
+        /// by: the key its live run asks with once the object is made (<see cref="PlannedObject.Path"/>).
+        /// </summary>
+        /// <param name="node">The planned object the part goes on.</param>
+        /// <param name="part">The part's type (a component).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="node"/> or <paramref name="part"/> is null.</exception>
+        public static string Key(PlannedObject node, Type part)
+        {
+            if (node == null) throw new ArgumentNullException(nameof(node));
+            if (part == null) throw new ArgumentNullException(nameof(part));
+            return $"{node.Path}/{part.Name}";
+        }
+
+        /// <summary>
+        /// <paramref name="node"/> as an action's plan names it: its path from its scene's root
+        /// (<c>Root/Child/Node</c>; a top-level object's is its name). It depends on the node alone, so a dry
+        /// run names an object it only planned (<see cref="PlannedObject.Path"/>) as its live run names the made one.
+        /// </summary>
+        /// <param name="node">A scene object (one in no scene, a prefab asset's, by its path from the asset's root).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="node"/> is null.</exception>
+        public static string Label(GameObject node)
+        {
+            if (node == null) throw new ArgumentNullException(nameof(node));
+            return AnimationUtility.CalculateTransformPath(node.transform, null);
+        }
+
+        /// <summary>
+        /// Plan, once, the creation of <paramref name="key"/> in a dry run: what an action handed a
+        /// <see cref="PlannedObject"/> does in place of making the part (it has nothing to make it on), so
+        /// the dry run plans what its live run makes. Nothing in a live run or with no context.
+        /// </summary>
+        /// <param name="key">What would be made, as the live run asks for it (<see cref="Key(PlannedObject, Type)"/>).</param>
+        /// <param name="action">What making it does, as the live run says it.</param>
+        /// <returns>Whether it planned it now (false: planned already, a live run, or no context).</returns>
+        public static bool PlanCreate(this OpContext ctx, string key, string action)
+        {
+            if (ctx == null || !ctx.DryRun || ctx.Planned("create", key)) return false;
+            ctx.ShouldCreate(key, action);
+            return true;
+        }
+
+        /// <summary>
+        /// Plan, once, the change <paramref name="action"/> of <paramref name="target"/> in a dry run: what an action handed a
+        /// <see cref="PlannedObject"/> does in place of the change (there is nothing yet to change), so the dry run plans what
+        /// its live run changes. Nothing in a live run or with no context.
+        /// </summary>
+        /// <param name="target">What would change, as the live run names it (a planned object's <see cref="PlannedObject.Path"/>,
+        /// or an object there).</param>
+        /// <param name="action">What the change does, as the live run says it.</param>
+        /// <returns>Whether it planned it now (false: planned already, a live run, or no context).</returns>
+        public static bool PlanChange(this OpContext ctx, object target, string action)
+        {
+            if (ctx == null || !ctx.DryRun || ctx.Planned("change", target, action)) return false;
+            ctx.ShouldChange(target, action);
+            return true;
+        }
 
         /// <summary>The title a problem's Console line carries when no menu ran the action.</summary>
         internal const string ConsoleTitle = "unitytk";

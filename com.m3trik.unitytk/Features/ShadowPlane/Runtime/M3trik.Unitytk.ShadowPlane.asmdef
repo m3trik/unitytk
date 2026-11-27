@@ -2,6 +2,7 @@
     "name": "M3trik.Unitytk.ShadowPlane",
     "rootNamespace": "",
     "references": [
+        "M3trik.Unitytk.Kernel.Runtime",
         "M3trik.Unitytk.ShadowPlane.Model"
     ],
     "includePlatforms": [],

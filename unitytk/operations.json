@@ -3,6 +3,146 @@
   "provider": "unitytk",
   "operations": [
     {
+      "id": "sheet.check",
+      "title": "Check a build sheet, alone or against its FBX",
+      "summary": "Check a build sheet: alone, or against its delivery (the FBX or GLB), naming each problem's cell and fix; optionally write the take list the artist builds from.",
+      "effect": "files",
+      "target": "unitytk.sheets:SheetCheck.check",
+      "dry_run": true,
+      "args": {
+        "type": "object",
+        "properties": {
+          "sheet": {
+            "type": "string",
+            "description": "The sheet (CSV path or URL); empty where *settings* names it.",
+            "default": ""
+          },
+          "delivery": {
+            "type": "string",
+            "description": "The delivery's FBX or GLB; empty checks the sheet alone.",
+            "default": ""
+          },
+          "mapping": {
+            "type": "string",
+            "description": "The template's name (`interactive`, `linear`, `default` or a user's).",
+            "default": "interactive"
+          },
+          "takes": {
+            "type": "string",
+            "description": "Where to write the take list (CSV); empty writes none.",
+            "default": ""
+          },
+          "settings": {
+            "type": "string",
+            "description": "A sheet settings file (`SheetSettings`): its sheet, delivery, template, names, clause templates and retired IDs, in place of *sheet*, *delivery* and *mapping*.",
+            "default": ""
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    {
+      "id": "sheet.convert",
+      "title": "Rewrite an old build sheet in the Interactive format",
+      "summary": "Rewrite *sheet* in the format *to* at *out*, from what its tolerant reading against *delivery* bound.",
+      "effect": "files",
+      "target": "unitytk.sheets:SheetConverter.convert",
+      "dry_run": true,
+      "args": {
+        "type": "object",
+        "properties": {
+          "sheet": {
+            "type": "string",
+            "description": "The old sheet (CSV path or URL); empty where *settings* names it.",
+            "default": ""
+          },
+          "delivery": {
+            "type": "string",
+            "description": "Its delivery's FBX or GLB; empty where *settings* names it.",
+            "default": ""
+          },
+          "out": {
+            "type": "string",
+            "description": "The converted sheet's path (CSV).",
+            "default": ""
+          },
+          "mapping": {
+            "type": "string",
+            "description": "The old sheet's template (`default`: the tolerant reading).",
+            "default": "default"
+          },
+          "settings": {
+            "type": "string",
+            "description": "The old sheet's settings file (`SheetSettings`): its sheet, delivery (extra files too), template, options, renamed nodes and clause templates, in place of *sheet*, *delivery*, *mapping* and *options*.",
+            "default": ""
+          },
+          "to": {
+            "type": "string",
+            "description": "The format to write: a template whose reading lists its columns (`interactive`, `linear`).",
+            "default": "interactive"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The old sheet's template options (as `SheetPlan.from_sheet`).",
+            "default": null
+          },
+          "cells": {
+            "type": "boolean",
+            "description": "Write the format's cells (a step's own row, then a row per action with its word and its names: the reading's `cell_columns`); False writes the older sheet of sentences.",
+            "default": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    {
+      "id": "sheet.sync",
+      "title": "Read a sheet again and stage its plan and delivery into a Unity project",
+      "summary": "Read a sheet again and stage its plan, its delivery and its steps' files into a Unity project.",
+      "effect": "files",
+      "target": "unitytk.sheets:SheetSync.sync",
+      "dry_run": true,
+      "args": {
+        "type": "object",
+        "properties": {
+          "settings": {
+            "type": "string",
+            "description": "The sheet's settings file (`SheetSettings`)."
+          },
+          "project": {
+            "type": "string",
+            "description": "The Unity project's folder (the one holding `Assets`)."
+          },
+          "folder": {
+            "type": "string",
+            "description": "Where to stage, under the project (`Assets/...`); empty: `Assets/<settings stem>`.",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "settings",
+          "project"
+        ]
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    {
       "id": "unity_package.compile",
       "title": "Compile the package's C#",
       "summary": "Compile every assembly under *source*, editor and player builds, without the optional packages and (given a reference project) with them.",
@@ -109,6 +249,30 @@
               }
             ],
             "description": "Per sample, a folder of files delivered in place of its own (`import_samples`).",
+            "default": null
+          },
+          "muted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Mute it (`mute`) or let it sound; `None` mutes the owned project, which tests and agent sessions run unattended, and leaves a keyed one (a person's play project) as it is.",
+            "default": null
+          },
+          "tuned": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Tune its pipeline assets (`tune_pipeline`) or leave them as its template made them; `None` tunes the owned project and leaves a keyed one's as they are. Its renderers keep the template's settings either way: what a delivery needs of them, the package's own checks name (`LightmapsActions .Validate`), as they do in a person's project.",
             "default": null
           }
         },

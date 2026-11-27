@@ -133,6 +133,83 @@ namespace M3trik.Unitytk.Kernel.Tests
         }
 
         [Test]
+        public void A_dry_run_answers_whether_it_already_planned_a_change()
+        {
+            var plan = new OpContext(dryRun: true);
+            Assert.That(plan.ShouldCreate("Door/Hand", "add a hand"), Is.False);
+            Assert.That(plan.ShouldChange(_target, "rename"), Is.False);
+            Assert.That(plan.Planned("create", "Door/Hand"), Is.True);
+            Assert.That(plan.Planned("change", _target), Is.True, "a Unity object is named as the asks name it");
+            Assert.That(plan.Planned("change", "before", "rename"), Is.True);
+            Assert.That(plan.Planned("change", "before", "move"), Is.False, "a given action must match");
+            Assert.That(plan.Planned("create", "before"), Is.False, "and the kind");
+
+            var live = new OpContext();
+            live.ShouldCreate("Door/Hand");
+            Assert.That(live.Planned("create", "Door/Hand"), Is.False, "a live run makes what it asks, so nothing is only planned");
+            OpContext none = null;
+            Assert.That(none.Planned("create", "Door/Hand"), Is.False);
+        }
+
+        [Test]
+        public void A_key_names_the_node_by_its_path_whatever_else_the_scene_holds()
+        {
+            var parent = new GameObject("Holder");
+            var node = new GameObject("Door");
+            node.transform.SetParent(parent.transform);
+            try
+            {
+                Assert.That(OpContextEdits.Key(node, typeof(Light)), Is.EqualTo("Holder/Door/Light"));
+                Assert.That(OpContextEdits.Label(node), Is.EqualTo("Holder/Door"));
+                var plan = new OpContext(dryRun: true);
+                plan.ShouldChange(node.AddComponent<Light>(), "light it");
+                plan.ShouldDelete(node, "take it away");
+                Assert.That(plan.Changes.Select(c => c.target), Is.EqualTo(new[] { "Holder/Door", "Holder/Door" }),
+                            "an ask names a component by its object's path, as it names the object");
+                var twin = new GameObject("Door");
+                twin.SetActive(false);
+                Assert.That(OpContextEdits.Key(node, typeof(Light)), Is.EqualTo("Holder/Door/Light"), "a twin changes nothing");
+                Assert.That(OpContextEdits.Key(twin, typeof(Light)), Is.EqualTo("Door/Light"), "a root's path is its name");
+                Object.DestroyImmediate(twin);
+                Assert.Throws<System.ArgumentNullException>(() => OpContextEdits.Key((GameObject)null, typeof(Light)));
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent);
+            }
+        }
+
+        [Test]
+        public void A_planned_part_is_planned_once_and_only_in_a_dry_run()
+        {
+            var plan = new OpContext(dryRun: true);
+            Assert.That(plan.PlanCreate("Door/Light", "light it"), Is.True);
+            Assert.That(plan.PlanCreate("Door/Light", "light it"), Is.False, "once");
+            Assert.That(plan.Changes.Single().target, Is.EqualTo("Door/Light"));
+            var live = new OpContext();
+            Assert.That(live.PlanCreate("Door/Light", "light it"), Is.False);
+            Assert.That(live.Changes, Is.Empty, "a live run makes the part on the object it has");
+            OpContext none = null;
+            Assert.That(none.PlanCreate("Door/Light", "light it"), Is.False);
+        }
+
+        [Test]
+        public void A_planned_change_is_planned_once_per_action_and_only_in_a_dry_run()
+        {
+            var plan = new OpContext(dryRun: true);
+            Assert.That(plan.PlanChange("Door", "open it"), Is.True);
+            Assert.That(plan.PlanChange("Door", "open it"), Is.False, "once");
+            Assert.That(plan.PlanChange("Door", "paint it"), Is.True, "another change of it is its own");
+            Assert.That(plan.Changes.Select(c => (c.kind, c.target, c.action)),
+                        Is.EqualTo(new[] { ("change", "Door", "open it"), ("change", "Door", "paint it") }));
+            var live = new OpContext();
+            Assert.That(live.PlanChange("Door", "open it"), Is.False);
+            Assert.That(live.Changes, Is.Empty, "a live run changes the object it has");
+            OpContext none = null;
+            Assert.That(none.PlanChange("Door", "open it"), Is.False);
+        }
+
+        [Test]
         public void A_problem_raised_with_no_context_is_said_in_the_console_as_a_menu_says_it()
         {
             var ctx = new OpContext();

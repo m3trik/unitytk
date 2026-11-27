@@ -1,0 +1,11 @@
+{
+  "behavior": "select",
+  "order": 21,
+  "description": "Selecting a scene target (not a quoted button) completes the step.",
+  "detect": [
+    "^selecting\\s+(?P<targets>(?!['\\\"]).+?)\\s+triggers\\s+step\\s+advancement$"
+  ],
+  "roles": [
+    "advances"
+  ]
+}

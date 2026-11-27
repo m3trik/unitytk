@@ -1,0 +1,25 @@
+{
+    "name": "M3trik.Unitytk.Interaction.XRI",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Interaction",
+        "Unity.XR.Interaction.Toolkit"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITYTK_XRI"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.interaction.toolkit",
+            "expression": "3.3.1",
+            "define": "UNITYTK_XRI"
+        }
+    ],
+    "noEngineReferences": false
+}

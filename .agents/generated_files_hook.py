@@ -19,7 +19,10 @@ from pathlib import Path
 SUFFIXES = (".g.cs", ".g.cs.meta")
 GENERATOR = re.compile(r"m3trik/scripts/\w+\.py")
 #: Who writes a *.g.cs whose header names none (a new file, say).
-GENERATORS = "m3trik/scripts/sync_operation_contract.py or m3trik/scripts/sync_scene_records.py"
+GENERATORS = (
+    "m3trik/scripts/sync_operation_contract.py, m3trik/scripts/sync_scene_records.py "
+    "or m3trik/scripts/sync_unity_contracts.py"
+)
 
 
 def generator_of(path):

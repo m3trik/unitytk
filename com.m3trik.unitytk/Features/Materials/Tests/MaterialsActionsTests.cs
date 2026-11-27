@@ -219,17 +219,138 @@ namespace M3trik.Unitytk.Materials.Tests
             _material.SetTexture(_table.BaseMap, Texture("Crate_BaseColor.png"));
 
             var plan = new OpContext(dryRun: true);
-            Assert.That(MaterialsActions.FixTextureRoles(_material, plan), Is.EqualTo(2), "the normal map and the mask; the colour map is sRGB already");
+            Assert.That(MaterialsActions.FixTextureRoles(_material, ctx: plan), Is.EqualTo(2), "the normal map and the mask; the colour map is sRGB already");
             var live = new OpContext();
-            Assert.That(MaterialsActions.FixTextureRoles(_material, live), Is.EqualTo(2));
+            Assert.That(MaterialsActions.FixTextureRoles(_material, ctx: live), Is.EqualTo(2));
             AssertSamePlan(plan, live);
             Assert.That(((TextureImporter)AssetImporter.GetAtPath(Folder + "/Crate_Normal.png")).textureType,
                         Is.EqualTo(TextureImporterType.NormalMap));
             Assert.That(((TextureImporter)AssetImporter.GetAtPath(Folder + "/Crate_ORM.png")).sRGBTexture, Is.False);
 
             var again = new OpContext(dryRun: true);
-            Assert.That(MaterialsActions.FixTextureRoles(_material, again), Is.EqualTo(0));
+            Assert.That(MaterialsActions.FixTextureRoles(_material, ctx: again), Is.EqualTo(0));
             Assert.That(again.Changes, Is.Empty);
+        }
+
+        [Test]
+        public void Fix_texture_roles_raises_the_projects_default_cap_to_a_maps_own_size_where_asked_and_leaves_a_chosen_one()
+        {
+            // A long thin map: 4096 across, as a 4K delivery's, in a few bytes.
+            string Wide(string name, int cap)
+            {
+                string path = Folder + "/" + name;
+                var image = new Texture2D(4096, 4, TextureFormat.RGBA32, false);
+                File.WriteAllBytes(path, image.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(image);
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+                importer.maxTextureSize = cap;
+                importer.SaveAndReimport();
+                return path;
+            }
+            int unitys = new TextureImporterPlatformSettings().maxTextureSize;  // no default preset: Unity's own
+            string defaulted = Wide("Crate_Wide.png", unitys);
+            string chosen = Wide("Crate_Capped.png", 1024);  // a cap a person chose
+            _material.shader = Shader.Find(_table.Lit);
+            _material.SetTexture(_table.BaseMap, Texture("Crate_Wide.png"));
+            _material.SetTexture(_table.EmissionMap, Texture("Crate_Capped.png"));
+
+            Assert.That(MaterialsActions.FixTextureRoles(_material, ctx: new OpContext(dryRun: true)), Is.EqualTo(0),
+                        "by default every cap stays: full size is asked for");
+            var plan = new OpContext(dryRun: true);
+            Assert.That(MaterialsActions.FixTextureRoles(_material, fullSize: true, ctx: plan), Is.EqualTo(1),
+                        "its role is right, the project's default cap is not");
+            Assert.That(MaterialsActions.FixTextureRoles(_material, fullSize: true, ctx: new OpContext()), Is.EqualTo(1));
+            Assert.That(((TextureImporter)AssetImporter.GetAtPath(defaulted)).maxTextureSize, Is.EqualTo(4096), "at its own size");
+            Assert.That(((TextureImporter)AssetImporter.GetAtPath(chosen)).maxTextureSize, Is.EqualTo(1024), "a chosen cap stays");
+            Assert.That(MaterialsActions.FixTextureRoles(_material, fullSize: true, ctx: new OpContext(dryRun: true)), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Fix_texture_roles_asks_the_projects_full_size_setting_unless_told()
+        {
+            string path = Folder + "/Crate_Wide.png";
+            var image = new Texture2D(4096, 4, TextureFormat.RGBA32, false);
+            File.WriteAllBytes(path, image.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(image);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+            _material.shader = Shader.Find(_table.Lit);
+            _material.SetTexture(_table.BaseMap, Texture("Crate_Wide.png"));
+            bool was = MaterialsSettings.instance.fullSize;
+            try
+            {
+                MaterialsSettings.instance.fullSize = false;
+                Assert.That(MaterialsActions.FixTextureRoles(_material, ctx: new OpContext(dryRun: true)), Is.EqualTo(0), "the project keeps its cap");
+                MaterialsSettings.instance.fullSize = true;  // the project asks (not saved: a test's)
+                Assert.That(MaterialsActions.FixTextureRoles(_material, ctx: new OpContext(dryRun: true)), Is.EqualTo(1),
+                            "left out: the project's setting");
+                Assert.That(MaterialsActions.FixTextureRoles(_material, fullSize: false, ctx: new OpContext(dryRun: true)), Is.EqualTo(0),
+                            "told: as told");
+            }
+            finally
+            {
+                MaterialsSettings.instance.fullSize = was;
+            }
+        }
+
+        [Test]
+        public void The_default_cap_is_read_without_touching_the_importer()
+        {
+            string path = Folder + "/Crate_Untouched.png";
+            var image = new Texture2D(64, 4, TextureFormat.RGBA32, false);
+            File.WriteAllBytes(path, image.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(image);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.maxTextureSize = 1024;
+            var preset = new UnityEditor.Presets.Preset(importer);
+            AssetDatabase.CreateAsset(preset, Folder + "/Untouched.preset");
+            importer.maxTextureSize = 512;  // its own, unsaved: what a read must not touch
+            var type = new UnityEditor.Presets.PresetType(importer);
+            UnityEditor.Presets.DefaultPreset[] were = UnityEditor.Presets.Preset.GetDefaultPresetsForType(type);
+            try
+            {
+                UnityEditor.Presets.Preset.SetDefaultPresetsForType(type, new[] { new UnityEditor.Presets.DefaultPreset("", preset) });
+                int edits = EditorUtility.GetDirtyCount(importer);
+                Assert.That(MaterialsTextureRoles.DefaultCap(importer), Is.EqualTo(1024), "the preset's");
+                Assert.That(EditorUtility.GetDirtyCount(importer), Is.EqualTo(edits), "read, never written");
+                Assert.That(importer.maxTextureSize, Is.EqualTo(512));
+            }
+            finally
+            {
+                UnityEditor.Presets.Preset.SetDefaultPresetsForType(type, were);
+            }
+        }
+
+        [Test]
+        public void The_default_cap_is_the_projects_own_preset_where_it_has_one()
+        {
+            string path = Folder + "/Crate_Preset.png";
+            var image = new Texture2D(4096, 4, TextureFormat.RGBA32, false);
+            File.WriteAllBytes(path, image.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(image);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            int unitys = new TextureImporterPlatformSettings().maxTextureSize;
+            importer.maxTextureSize = 1024;
+            var preset = new UnityEditor.Presets.Preset(importer);  // the project's textures start at 1024
+            AssetDatabase.CreateAsset(preset, Folder + "/Capped.preset");
+            importer.maxTextureSize = unitys;
+            var type = new UnityEditor.Presets.PresetType(importer);
+            UnityEditor.Presets.DefaultPreset[] were = UnityEditor.Presets.Preset.GetDefaultPresetsForType(type);
+            try
+            {
+                UnityEditor.Presets.Preset.SetDefaultPresetsForType(type, new[] { new UnityEditor.Presets.DefaultPreset("", preset) });
+                Assert.That(MaterialsTextureRoles.DefaultCap(importer), Is.EqualTo(1024), "the preset's");
+                Assert.That(importer.maxTextureSize, Is.EqualTo(unitys), "read, its own settings put back");
+                Assert.That(MaterialsTextureRoles.FullSize(importer, false, MaterialsTextureRoles.DefaultCap(importer)), Is.False,
+                            "Unity's 2048 under a project that starts at 1024: a chosen cap, kept");
+            }
+            finally
+            {
+                UnityEditor.Presets.Preset.SetDefaultPresetsForType(type, were);
+            }
+            Assert.That(MaterialsTextureRoles.DefaultCap(importer), Is.EqualTo(unitys), "no preset: Unity's own");
         }
 
         // -- Reapply --------------------------------------------------------------------------

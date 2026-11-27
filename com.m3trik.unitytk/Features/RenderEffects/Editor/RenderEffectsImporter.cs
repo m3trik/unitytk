@@ -35,9 +35,10 @@ namespace M3trik.Unitytk.RenderEffects
     /// record names gets a <see cref="Fade"/> for an <c>opacity</c> channel and a
     /// <see cref="Highlight"/> (its colours from the record) for a <c>highlight</c> one;
     /// each material entry an <see cref="EmissionTrack"/> on an object of its own under
-    /// the carrier. In every clip, each channel's proxy curve is rebound onto the
-    /// component's own field (<c>Fade.alpha</c>, <c>Highlight.intensity</c>,
-    /// <c>EmissionTrack.weight</c>), and a <c>visibility</c> one onto the node's own
+    /// the carrier, its named states with it. In every clip, each channel's proxy curve is
+    /// rebound onto the component's own field (<c>Fade.alpha</c>, <c>Highlight.intensity</c>,
+    /// <c>EmissionTrack.weight</c>, <c>EmissionTrack.tint</c>'s r, g and b), and a
+    /// <c>visibility</c> one onto the node's own
     /// active state (<c>GameObject.m_IsActive</c>, Unity's native binding); the proxies'
     /// other curves and the proxies themselves are dropped, and so are Unity's own
     /// renderer-enabled curves under a node whose effect now owns its presence. The
@@ -81,7 +82,7 @@ namespace M3trik.Unitytk.RenderEffects
         const string Tag = "RenderEffects";
 
         /// <summary>Bump to reimport every model when what the import writes changes.</summary>
-        const uint VERSION = 2;
+        const uint VERSION = 3;
 
         /// <inheritdoc/>
         public override uint GetVersion() => VERSION;
@@ -98,6 +99,25 @@ namespace M3trik.Unitytk.RenderEffects
         internal const string Separator = "__";
 
         internal const string Visibility = "visibility", Opacity = "opacity", Highlighted = "highlight", Emission = "emission";
+
+        /// <summary>A material's tint channels: the r, g and b of <see cref="EmissionTrack.tint"/>.</summary>
+        internal const string TintR = "tint_r", TintG = "tint_g", TintB = "tint_b";
+
+        /// <summary>Whether <paramref name="channel"/> is a material's (its proxy under the carrier, no node's).</summary>
+        internal static bool MaterialChannel(string channel)
+            => channel == Emission || channel == TintR || channel == TintG || channel == TintB;
+
+        // The EmissionTrack field a material channel's curve plays on.
+        static string TrackField(string channel)
+        {
+            switch (channel)
+            {
+                case TintR: return nameof(EmissionTrack.tint) + ".r";
+                case TintG: return nameof(EmissionTrack.tint) + ".g";
+                case TintB: return nameof(EmissionTrack.tint) + ".b";
+                default: return nameof(EmissionTrack.weight);
+            }
+        }
 
         static IRecordSource Records => Provided.One<IRecordSource>();
         static IModelImportSettings Settings => Provided.One<IModelImportSettings>();
@@ -120,11 +140,18 @@ namespace M3trik.Unitytk.RenderEffects
             public bool detecting;
             /// <summary>Curves rebound onto a field, curves dropped, across the clips.</summary>
             public int rebound, dropped;
+            /// <summary>
+            /// The node the record was read off (the carrier), where a material's track hangs
+            /// when no proxy of its own says (states alone, no curve); null: the model's root.
+            /// </summary>
+            public Transform carrier;
         }
 
         // This model's import, OnPreprocessModel to OnPostprocessModel (one postprocessor per
         // import): the record collected off its carrier, then read once.
         readonly Dictionary<string, string> _collected = new Dictionary<string, string>(StringComparer.Ordinal);
+        // Each collected record's node, by its JSON: the chosen one's is the delivery's carrier.
+        readonly Dictionary<string, Transform> _holders = new Dictionary<string, Transform>(StringComparer.Ordinal);
         Delivery _delivery;
         bool _read;
 
@@ -178,6 +205,7 @@ namespace M3trik.Unitytk.RenderEffects
         void OnPreprocessModel()
         {
             _collected.Clear();
+            _holders.Clear();
             _delivery = null;
             _read = false;
         }
@@ -187,13 +215,18 @@ namespace M3trik.Unitytk.RenderEffects
             if (!Imports.IsDelivery(assetPath)) return;
             if (!Records.TryGetRecord(names, values, UnitytkRecords.RenderEffects, out string json)) return;
             Records.Collect(_collected, assetPath, go, json);
+            if (!_holders.ContainsKey(json)) _holders[json] = go.transform;
         }
 
         Delivery Current()
         {
             if (_read) return _delivery;
             _read = true;
-            if (_collected.TryGetValue(assetPath, out string json)) _delivery = Read(json, assetPath);
+            if (_collected.TryGetValue(assetPath, out string json))
+            {
+                _delivery = Read(json, assetPath);
+                if (_delivery != null && _holders.TryGetValue(json, out Transform holder)) _delivery.carrier = holder;
+            }
             // Keys as authored: a stepped key resampled is a one-frame ramp (measured). A
             // refused record asks nothing of the model's settings.
             if (_delivery != null) Settings.RequestSparseCurves(assetPath);
@@ -217,6 +250,7 @@ namespace M3trik.Unitytk.RenderEffects
             Delivery delivery = Current();
             _delivery = null;
             _collected.Clear();
+            _holders.Clear();
             if (delivery == null || delivery.detecting) return;
             Assemble(delivery, root.transform, assetPath, RenderPipelineHosts.Current,
                      (name, made) => context.AddObjectToAsset(name, made));
@@ -265,9 +299,12 @@ namespace M3trik.Unitytk.RenderEffects
                         moved.Add((EditorCurveBinding.FloatCurve(at, typeof(GameObject), "m_IsActive"), Stepped(curve)));
                         break;
                     case Emission:
+                    case TintR:
+                    case TintG:
+                    case TintB:
                         if (!worn.ContainsKey(node)) break;  // no renderer wears it: no track to bind (Assemble says so)
                         moved.Add((EditorCurveBinding.FloatCurve(TrackPath(at, node), typeof(EmissionTrack),
-                                                                 nameof(EmissionTrack.weight)), curve));
+                                                                 TrackField(channel)), curve));
                         break;
                 }
             }
@@ -299,7 +336,7 @@ namespace M3trik.Unitytk.RenderEffects
         internal static bool Proxy(Delivery delivery, string path, out string target, out string channel)
         {
             if (!Split(path, out target, out channel)) return false;
-            if (channel == Emission) return delivery.materials.TryGetValue(target, out Entry entry) && Names(entry, Emission);
+            if (MaterialChannel(channel)) return delivery.materials.TryGetValue(target, out Entry entry) && Names(entry, channel);
             return delivery.tracks.TryGetValue(target, out Track track) && Names(track, channel)
                    && RecordNames.Leaf(LeafOfPath(Parent(path))) == target;
         }
@@ -315,7 +352,7 @@ namespace M3trik.Unitytk.RenderEffects
         internal static bool Folded(Delivery delivery, HashSet<string> nodes, string path, out string node)
         {
             node = null;
-            if (Parent(path).Length != 0 || !Split(path, out string target, out string channel) || channel == Emission)
+            if (Parent(path).Length != 0 || !Split(path, out string target, out string channel) || MaterialChannel(channel))
                 return false;
             if (!delivery.tracks.TryGetValue(target, out Track track) || !Names(track, channel) || nodes.Contains(target))
                 return false;
@@ -355,7 +392,7 @@ namespace M3trik.Unitytk.RenderEffects
                 if (Proxy(delivery, path, out string target, out string channel))
                 {
                     // A material's proxy hangs under the carrier: its node is no track's.
-                    if (channel == Emission) continue;
+                    if (MaterialChannel(channel)) continue;
                     proxied.Add(target);
                     if (seen.Add((t.parent, target))) joined.Add((t.parent, target, delivery.tracks[target]));
                     continue;
@@ -536,8 +573,13 @@ namespace M3trik.Unitytk.RenderEffects
                                                  "renderer of the model wears: it is left out (re-export the file).");
                     continue;
                 }
-                Transform proxy = proxies.Find(p => RecordNames.Leaf(p.name) == pair.Key + Separator + Emission);
-                Transform carrier = proxy != null && proxy.parent != null ? proxy.parent : root;
+                // Any of its channels' proxies (a tint keyed alone has no weight curve); with
+                // none (states alone), the node the record was read off.
+                Transform proxy = proxies.Find(p => p != null && Split(p.name, out string of, out string channel)
+                                                    && of == pair.Key && MaterialChannel(channel));
+                Transform carrier = proxy != null && proxy.parent != null ? proxy.parent
+                                  : delivery.carrier != null && delivery.carrier.IsChildOf(root) ? delivery.carrier
+                                  : root;
                 var holder = new GameObject(pair.Key);
                 holder.transform.SetParent(carrier, false);
                 var track = holder.AddComponent<EmissionTrack>();
@@ -556,10 +598,12 @@ namespace M3trik.Unitytk.RenderEffects
         }
 
         /// <summary>
-        /// A track's colour, strength and resting weight from its record entry: the
-        /// record's colour (linear, encoded as the colour field stores it) or the material's
-        /// own, its strength or 1, and the weight at which it shows the material as
-        /// delivered, so the model at rest wears its shared original.
+        /// A track's colour, strength, states, tint and resting weight from its record
+        /// entry: the record's colour (linear, encoded as the colour field stores it) or the
+        /// material's own, its strength or 1, its named states, the tint the delivered
+        /// material shows (white when it states none), and the weight at which colour x
+        /// strength x tint x weight shows the material as delivered, so the model at rest
+        /// wears its shared original.
         /// </summary>
         internal static void Fill(EmissionTrack track, Material material, Entry entry, IRenderPipelineHost host)
         {
@@ -568,9 +612,18 @@ namespace M3trik.Unitytk.RenderEffects
             track.color = entry.emission_color != null ? MaterialColor.Encode(ColorOf(entry.emission_color, Color.white))
                                                        : MaterialColor.Encode(own);
             track.strength = entry.emission_strength.HasValue ? (float)entry.emission_strength.Value : 1f;
-            // The weight at which colour x strength x weight is the delivered emission.
-            float full = (MaterialColor.Decode(track.color) * track.strength).maxColorComponent;
-            track.weight = full > 0f ? Mathf.Clamp01(own.maxColorComponent / full) : 0f;
+            track.states.Clear();
+            if (entry.states != null)
+                foreach (var state in entry.states)
+                    track.states.Add(new EmissionState
+                    {
+                        name = state.name,
+                        tint = ColorOf(state.tint, Color.white),
+                        weight = state.weight.HasValue ? Mathf.Clamp01((float)state.weight.Value) : 1f,
+                    });
+            track.tint = ColorOf(entry.tint, Color.white);
+            Color full = MaterialColor.Decode(track.color) * track.strength * track.tint;
+            track.weight = full.maxColorComponent > 0f ? Mathf.Clamp01(own.maxColorComponent / full.maxColorComponent) : 0f;
         }
 
         /// <summary>

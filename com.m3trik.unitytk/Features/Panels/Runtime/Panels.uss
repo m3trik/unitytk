@@ -1,0 +1,266 @@
+/* unitytk's panels: one look for every panel a scene shows (sizes in panel pixels;
+   the world panel's settings put a thousand to the metre, so 24px is 24 mm).
+   Its colours are variables on each window's own class: a project's style sheet, added after
+   this one, sets them on .placard, .pip and .debug to recolour every window at once. */
+
+.placard,
+.pip,
+.debug {
+    --panel-background: rgba(16, 20, 26, 0.78);
+    --panel-border: rgba(255, 255, 255, 0.18);
+    --panel-text: rgb(236, 240, 245);
+    --panel-heading: rgb(255, 210, 100);
+    --panel-muted: rgb(150, 160, 170);
+    --panel-button-text: rgb(255, 255, 255);
+    --panel-accent: rgb(38, 116, 196);
+    --panel-accent-hover: rgb(58, 142, 228);
+    --panel-accent-active: rgb(24, 86, 152);
+    --panel-key: rgb(62, 70, 84);
+    --panel-key-hover: rgb(82, 92, 110);
+    --panel-key-active: rgb(44, 50, 60);
+    --panel-entry: rgba(0, 0, 0, 0.45);
+    --panel-box: rgba(255, 255, 255, 0.6);
+    --panel-ticked: rgb(80, 196, 120);
+    --panel-fold: rgba(255, 255, 255, 0.55);
+    --panel-fold-hover: rgb(255, 255, 255);
+    --debug-background: rgba(16, 20, 26, 0.7);
+    --debug-accent: rgb(255, 196, 0);
+    --debug-border: rgba(255, 196, 0, 0.45);
+    --debug-text: rgb(230, 234, 240);
+    --debug-button: rgba(255, 255, 255, 0.1);
+    --debug-button-border: rgba(255, 255, 255, 0.2);
+    --debug-button-hover: rgba(255, 196, 0, 0.3);
+}
+
+.placard--empty {
+    display: none;
+}
+
+.placard {
+    width: 480px;
+    padding: 20px 24px 24px 24px;
+    background-color: var(--panel-background);
+    border-width: 2px;
+    border-color: var(--panel-border);
+    border-radius: 14px;
+}
+
+/* Every window's frame (WindowFrame): dragged anywhere but a control, with no bar drawn for it; the
+   pointer over a movable frame shows it can move; a bare arrow in its corner folds it. */
+
+.window--movable,
+.window--movable Label,
+.window--movable VisualElement {
+    cursor: url("Cursors/WindowMove.png") 12 12;
+}
+
+/* A control keeps the usual pointer (the fold arrow's selector outweighs the frame's Label one). */
+.window--movable Button,
+.window--movable .window-fold {
+    cursor: initial;
+}
+
+.window-fold {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    padding: 0;
+    margin: 0;
+    font-size: 22px;
+    -unity-text-align: middle-center;
+    color: var(--panel-fold);
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+}
+
+.window-fold:hover {
+    color: var(--panel-fold-hover);
+}
+
+.window--movable .placard-heading,
+.window--movable .debug-tab {
+    padding-right: 28px;
+}
+
+.pip {
+    padding: 8px;
+    background-color: var(--panel-background);
+    border-width: 2px;
+    border-color: var(--panel-border);
+    border-radius: 14px;
+}
+
+.pip-image {
+    border-radius: 8px;
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+.pip-caption {
+    font-size: 20px;
+    color: var(--panel-text);
+    white-space: normal;
+    margin: 6px 4px 0 4px;
+    padding: 0;
+}
+
+.placard-heading {
+    font-size: 28px;
+    -unity-font-style: bold;
+    color: var(--panel-heading);
+    white-space: normal;
+    margin: 0 0 8px 0;
+    padding: 0;
+}
+
+.placard-text {
+    font-size: 24px;
+    color: var(--panel-text);
+    white-space: normal;
+    margin: 0 0 4px 0;
+    padding: 0;
+}
+
+.placard-choices {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.placard-choice {
+    font-size: 24px;
+    min-height: 56px;
+    min-width: 120px;
+    margin: 12px 12px 0 0;
+    padding: 6px 20px;
+    color: var(--panel-button-text);
+    background-color: var(--panel-accent);
+    border-width: 0;
+    border-radius: 10px;
+}
+
+.placard-choice:hover {
+    background-color: var(--panel-accent-hover);
+}
+
+.placard-choice:active {
+    background-color: var(--panel-accent-active);
+}
+
+.placard-entry {
+    font-size: 32px;
+    min-height: 48px;
+    margin: 12px 0 0 0;
+    padding: 4px 12px;
+    color: var(--panel-button-text);
+    background-color: var(--panel-entry);
+    border-radius: 8px;
+    -unity-text-align: middle-right;
+}
+
+.placard-keys {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 336px;
+}
+
+.placard-key {
+    font-size: 26px;
+    width: 96px;
+    min-height: 56px;
+    margin: 12px 12px 0 0;
+    color: var(--panel-button-text);
+    background-color: var(--panel-key);
+    border-width: 0;
+    border-radius: 10px;
+}
+
+.placard-key:hover {
+    background-color: var(--panel-key-hover);
+}
+
+.placard-key:active {
+    background-color: var(--panel-key-active);
+}
+
+.placard-key--enter {
+    background-color: var(--panel-accent);
+}
+
+.placard-key--enter:hover {
+    background-color: var(--panel-accent-hover);
+}
+
+.placard-list {
+    margin: 16px 0 0 0;
+}
+
+.placard-item {
+    flex-direction: row;
+    align-items: center;
+    margin: 4px 0 0 0;
+}
+
+.placard-item > Label {
+    font-size: 22px;
+    color: var(--panel-text);
+    white-space: normal;
+}
+
+.placard-item-box {
+    width: 22px;
+    height: 22px;
+    margin: 0 12px 0 0;
+    border-width: 2px;
+    border-color: var(--panel-box);
+    border-radius: 4px;
+}
+
+.placard-item--ticked .placard-item-box {
+    background-color: var(--panel-ticked);
+    border-color: var(--panel-ticked);
+}
+
+.placard-item--ticked > Label {
+    color: var(--panel-muted);
+}
+
+/* The debug panel: a small card beside the eyes, its tab folding it away. */
+.debug {
+    width: 300px;
+    padding: 6px;
+    background-color: var(--debug-background);
+    border-width: 1px;
+    border-color: var(--debug-border);
+    border-radius: 10px;
+}
+
+.debug-tab {
+    -unity-text-align: middle-left;
+    -unity-font-style: bold;
+    font-size: 14px;
+    color: var(--debug-accent);
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    margin: 0;
+}
+
+.debug-status {
+    font-size: 15px;
+    color: var(--debug-text);
+    margin: 2px 4px 6px 4px;
+    white-space: normal;
+}
+
+.debug-command {
+    font-size: 15px;
+    height: 34px;
+    margin: 2px 0;
+    color: var(--debug-text);
+    background-color: var(--debug-button);
+    border-width: 1px;
+    border-color: var(--debug-button-border);
+    border-radius: 6px;
+}
+
+.debug-command:hover {
+    background-color: var(--debug-button-hover);
+}

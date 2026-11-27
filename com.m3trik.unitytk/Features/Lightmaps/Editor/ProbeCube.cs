@@ -24,12 +24,14 @@ namespace M3trik.Unitytk.Lightmaps
     {
         /// <summary>
         /// The cube <paramref name="panorama"/> (a readable linear texture) makes, named
-        /// <paramref name="name"/>, in a project of the colour space <paramref name="space"/>;
-        /// null, with why in <paramref name="why"/>, where it cannot.
+        /// <paramref name="name"/>, in a project of the colour space <paramref name="space"/>,
+        /// and the light it gives a surface facing each way (<paramref name="ambient"/>,
+        /// <see cref="Ambient"/>); null, with why in <paramref name="why"/>, where it cannot.
         /// </summary>
-        internal static Cubemap Make(Texture2D panorama, string name, ColorSpace space, out string why)
+        internal static Cubemap Make(Texture2D panorama, string name, ColorSpace space, out float[] ambient, out string why)
         {
             why = null;
+            ambient = System.Array.Empty<float>();
             if (!panorama.isReadable)
             {
                 why = "it is not imported readable (Read/Write on, the first import a delivery gives it)";
@@ -37,6 +39,7 @@ namespace M3trik.Unitytk.Lightmaps
             }
             int w = panorama.width, h = panorama.height;
             Color[] turned = Turned(panorama.GetPixels(), w, h, space);
+            ambient = Ambient(turned, w, h);
 
             var settings = new TextureGenerationSettings(TextureImporterType.Default);
             TextureImporterSettings texture = settings.textureImporterSettings;
@@ -66,6 +69,59 @@ namespace M3trik.Unitytk.Lightmaps
             }
             cube.name = name;
             return cube;
+        }
+
+        /// <summary>
+        /// The light a panorama in Unity's layout (<see cref="Turned"/>) gives a surface facing
+        /// each way, as spherical harmonics (L2) in the order
+        /// <see cref="UnityEngine.Rendering.SphericalHarmonicsL2"/> keeps them: 27 values, each
+        /// colour channel's nine coefficients in turn. What a scene's ambient probe holds, so
+        /// a part no lightmap lights is lit by the room the panorama shows.
+        /// </summary>
+        /// <remarks>
+        /// The radiance is projected onto the harmonics exactly (averaged over at most 64 x 32
+        /// blocks first, which keeps a small bright light's energy): Unity's
+        /// <c>AddDirectionalLight</c> doubles its intensity and scales by 16/17 to hold a
+        /// single light's peak to its colour, so each block goes in at 17/32 of its
+        /// irradiance over pi. Measured against the cosine-weighted integral on a production
+        /// room: within 5% facing the ceiling lights and the walls, 20% low facing the floor
+        /// (what a second-order fit loses).
+        /// </remarks>
+        /// <param name="turned">The panorama's pixels, linear, in Unity's layout, rows bottom to top.</param>
+        /// <param name="w">Its width.</param>
+        /// <param name="h">Its height.</param>
+        internal static float[] Ambient(Color[] turned, int w, int h)
+        {
+            int across = Mathf.Min(64, w), down = Mathf.Min(32, h);
+            var light = new UnityEngine.Rendering.SphericalHarmonicsL2();
+            for (int by = 0; by < down; by++)
+            {
+                int y0 = by * h / down, y1 = Mathf.Max(y0 + 1, (by + 1) * h / down);
+                double polar = System.Math.PI * (1.0 - (by + 0.5) / down);  // from +Y: the top row is up
+                double solid = (2.0 * System.Math.PI / across) * (System.Math.PI / down) * System.Math.Sin(polar);
+                for (int bx = 0; bx < across; bx++)
+                {
+                    int x0 = bx * w / across, x1 = Mathf.Max(x0 + 1, (bx + 1) * w / across);
+                    float r = 0f, g = 0f, b = 0f;
+                    for (int y = y0; y < y1; y++)
+                        for (int x = x0; x < x1; x++)
+                        {
+                            Color c = turned[y * w + x];
+                            r += c.r;
+                            g += c.g;
+                            b += c.b;
+                        }
+                    float n = (y1 - y0) * (x1 - x0);
+                    double around = ((bx + 0.5) / across - 0.5) * 2.0 * System.Math.PI;  // +Z at the centre, +X at three quarters
+                    var from = new Vector3((float)(System.Math.Sin(around) * System.Math.Sin(polar)), (float)System.Math.Cos(polar),
+                                           (float)(System.Math.Cos(around) * System.Math.Sin(polar)));
+                    light.AddDirectionalLight(from, new Color(r / n, g / n, b / n), (float)(solid / System.Math.PI * 17.0 / 32.0));
+                }
+            }
+            var values = new float[27];
+            for (int channel = 0; channel < 3; channel++)
+                for (int i = 0; i < 9; i++) values[channel * 9 + i] = light[channel, i];
+            return values;
         }
 
         /// <summary>

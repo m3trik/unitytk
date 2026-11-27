@@ -187,7 +187,7 @@ namespace M3trik.Unitytk.Lightmaps.Tests
             Assert.That(set.receivers.Select(x => x.renderer.lightmapIndex).Distinct(), Is.EqualTo(new[] { -1 }), "its fields given back");
             Assert.That(set.probe.enabled, Is.False, "its probe off");
             var ctx = new OpContext(dryRun: true);
-            Assert.That(LightmapsActions.Validate(ctx), Is.EqualTo(1));
+            Assert.That(LightmapsActions.Validate(null, ctx), Is.EqualTo(1));
             Assert.That(ctx.Issues.Single().code, Is.EqualTo(LightmapsActions.BakeOwnsSetsCode), "a baked scene that holds sets is named");
         }
 
@@ -207,7 +207,7 @@ namespace M3trik.Unitytk.Lightmaps.Tests
                         "the maps hold the light: no realtime light lights the boxes again");
             Assert.That(set.probe.enabled, Is.True);
             var ctx = new OpContext(dryRun: true);
-            Assert.That(LightmapsActions.Validate(ctx), Is.EqualTo(0), string.Join("; ", ctx.Issues.Select(i => i.message)));
+            Assert.That(LightmapsActions.Validate(null, ctx), Is.EqualTo(0), string.Join("; ", ctx.Issues.Select(i => i.message)));
             Assert.That(ctx.Issues, Is.Empty, "Validate is clean on the demo scene");
             // The camera sees the boxes: each one's centre in front of it, inside the view.
             Camera camera = Camera.main;

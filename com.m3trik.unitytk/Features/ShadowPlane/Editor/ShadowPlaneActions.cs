@@ -96,8 +96,11 @@ namespace M3trik.Unitytk.ShadowPlane
             string folder = FolderFor(target);
             string materialPath = folder + "/" + MaterialFile;
             string mapPath = MapPathFor(folder, target.name + PlaneSuffix);
-            bool live = ctx == null || ctx.ShouldCreate(target.name + ContactSuffix, $"add the shadow's contact under '{target.name}'");
-            live &= ctx == null || ctx.ShouldCreate(target.name + PlaneSuffix, $"add a shadow plane under '{target.name}'");
+            // Each part it makes asked by its path under the target, so two same-named targets' parts never read as one.
+            bool live = ctx == null || ctx.ShouldCreate(new PlannedObject(target.name + ContactSuffix, target.transform).Path,
+                                                        $"add the shadow's contact under '{target.name}'");
+            live &= ctx == null || ctx.ShouldCreate(new PlannedObject(target.name + PlaneSuffix, target.transform).Path,
+                                                    $"add a shadow plane under '{target.name}'");
             if (AssetDatabase.LoadAssetAtPath<Material>(materialPath) == null)
                 live &= ctx == null || ctx.ShouldWrite(materialPath, "write the shadow planes' shared material");
             live &= ctx == null || ctx.ShouldWrite(mapPath, BakeAction(target.name + PlaneSuffix, target.name,
@@ -670,21 +673,11 @@ namespace M3trik.Unitytk.ShadowPlane
                                    $"left out of its map: {string.Join(", ", meshes.Skipped)}.", "info", target);
         }
 
+        // The gathered meshes' world box, tight: every vertex.
         static Bounds WorldBounds(Gathered meshes)
         {
-            bool any = false;
-            var bounds = new Bounds();
-            foreach (Part part in meshes.Parts)
-            {
-                Matrix4x4 toWorld = part.Transform.localToWorldMatrix;
-                foreach (Vector3 v in part.Mesh.vertices)
-                {
-                    Vector3 p = toWorld.MultiplyPoint3x4(v);
-                    if (!any) bounds = new Bounds(p, Vector3.zero);
-                    else bounds.Encapsulate(p);
-                    any = true;
-                }
-            }
+            SceneBounds.TryOfMeshes(meshes.Parts.Select(part => (part.Mesh, part.Transform.localToWorldMatrix)), out Bounds bounds,
+                                    everyVertex: true);
             return bounds;
         }
 

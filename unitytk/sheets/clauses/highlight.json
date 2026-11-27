@@ -1,0 +1,13 @@
+{
+  "behavior": "highlight",
+  "order": 61,
+  "description": "Targets are highlighted while the step runs.",
+  "detect": [
+    "^highlight(?:ed|s)?\\s+(?P<targets>.+)$",
+    "^(?P<targets>.+?)\\s+(?:appears?|are|is)\\s+highlighted\\b.*$"
+  ],
+  "roles": [
+    "shows",
+    "plural"
+  ]
+}

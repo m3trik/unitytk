@@ -1,0 +1,11 @@
+{
+  "behavior": "marker",
+  "order": 69,
+  "description": "The destination marker goes away.",
+  "detect": [
+    "^(?:the\\s+)?destination\\s+(?:marker|circle|ring)\\s+(?:fades\\s+(?:away|out)|disappears)$"
+  ],
+  "settings": {
+    "markerShow": "Hide"
+  }
+}

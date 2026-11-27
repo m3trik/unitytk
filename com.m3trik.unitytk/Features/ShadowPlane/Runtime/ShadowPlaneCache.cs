@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using M3trik.Unitytk.Kernel;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -13,8 +14,8 @@ namespace M3trik.Unitytk.ShadowPlane
     /// a rect of its slot sized at <see cref="TexelInMapPixels"/> map pixels a
     /// texel, by the shader's SHADOWPLANECACHE pass; every staged plane goes
     /// through ONE command buffer per frame -- flushed as the frame's first camera
-    /// renders (Camera.onPreCull in Built-in, beginContextRendering in a scriptable
-    /// pipeline), after every plane's LateUpdate, with no component of its
+    /// renders (the kernel's CameraDrawing.Rendering: Camera.onPreCull in Built-in,
+    /// beginContextRendering in a scriptable pipeline), after every plane's LateUpdate, with no component of its
     /// own -- stalest first, within <see cref="TexelsPerFrame"/>. A plane the budget defers keeps the placement
     /// it was marched at, so its image and its position never disagree; one with
     /// no cache yet marches per pixel until its turn. The WebXR viewer's
@@ -85,8 +86,7 @@ namespace M3trik.Unitytk.ShadowPlane
             if (!_hooked)
             {
                 _hooked = true;
-                Camera.onPreCull += _ => FlushOncePerFrame();
-                RenderPipelineManager.beginContextRendering += (_, __) => FlushOncePerFrame();
+                CameraDrawing.Rendering += FlushOncePerFrame;
             }
         }
 
@@ -132,6 +132,8 @@ namespace M3trik.Unitytk.ShadowPlane
             _cols = 0;
             if (_cmd != null) _cmd.Release();
             _cmd = null;
+            if (_hooked) CameraDrawing.Rendering -= FlushOncePerFrame;
+            _hooked = false;
             Shader.SetGlobalTexture(ID_ShadowCache, (Texture)null);
         }
 

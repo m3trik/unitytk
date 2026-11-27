@@ -1,0 +1,13 @@
+{
+  "behavior": "return",
+  "order": 40,
+  "description": "A holdable goes back to where it rests (its table).",
+  "detect": [
+    "^return\\s+(?:the\\s+)?(?P<targets>.+?)\\s+to\\s+(?:the\\s+)?table(?:\\s+when\\s+.+)?$",
+    "^(?:the\\s+)?(?P<targets>.+?)\\s+returns?\\s+to\\s+(?:the\\s+)?table(?:\\s+when\\s+.+)?$"
+  ],
+  "roles": [
+    "releases",
+    "plural"
+  ]
+}

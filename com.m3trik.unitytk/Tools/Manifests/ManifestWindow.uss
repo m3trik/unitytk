@@ -1,0 +1,276 @@
+/* The Manifest window's own look, over the manifest windows' (EditorLook.uss), whose colour variables it reads:
+   red an error, sand a warning, blue what a build has to do, green what is built, amber what this project
+   changed, teal what the delivery's own build made, grey what is off or locked. */
+
+/* The manifest's own row (picker, New, Setup, help, menu): a toolbar, as the view row under it. */
+.manifest__bar {
+    height: 22px;
+}
+
+.manifest__source {
+    margin-left: 4px;
+    opacity: 0.7;
+    white-space: normal;
+}
+
+/* -- the table ---------------------------------------------------------------------------- */
+
+.manifest .unity-multi-column-header {
+    -unity-font-style: bold;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(0, 0, 0, 0.45);
+}
+
+.manifest .unity-multi-column-header__column {
+    border-right-color: rgba(0, 0, 0, 0.25);
+}
+
+/* An object's row, under its step: set apart by a darker ground, as an opened step's are. */
+.manifest-row--object {
+    background-color: rgba(0, 0, 0, 0.22);
+}
+
+/* A step's row: a hairline above it, so each step reads as a band. */
+.manifest-row--step {
+    border-top-width: 1px;
+    border-top-color: rgba(0, 0, 0, 0.18);
+}
+
+/* The Step and Behaviors columns stand a little darker, the eye's two anchors across a row. */
+.manifest-cell--tint {
+    background-color: rgba(0, 0, 0, 0.14);
+}
+
+.manifest-cell {
+    -unity-text-align: middle-left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 8px;
+}
+
+.manifest-cell--step {
+    -unity-font-style: bold;
+}
+
+.manifest-cell--object {
+    padding-left: 12px;
+}
+
+.manifest-cell--quiet {
+    opacity: 0.6;
+}
+
+/* -- the tree's hierarchy (TreeBranches): guides and a box expander, the Shot Manifest's design, over
+   Unity's own foldout, which stays where it is, unseen and clickable; its cells 16 px, as TreeBranches.Cell. */
+
+.manifest .unity-tree-view__item-indents {
+    margin: 0;
+    padding: 0;
+}
+
+.manifest .unity-tree-view__item-indent {
+    width: 16px;
+    margin: 0;
+    padding: 0;
+}
+
+.manifest .unity-tree-view__item-toggle {
+    width: 16px;
+    min-width: 16px;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+}
+
+.unitytk-branches {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    color: var(--unitytk-text);
+}
+
+/* An object's name: its own name, or (Long Names) its parents faded, cut from the start where the column is narrow,
+   before its own name in bold, which always shows whole. */
+.manifest-name {
+    overflow: hidden;
+    margin-right: 8px;
+}
+
+.manifest-name__parents,
+.manifest-name__own {
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+    -unity-text-align: middle-left;
+}
+
+.manifest-name__parents {
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -unity-text-overflow-position: start;
+    opacity: 0.55;
+}
+
+.manifest-name__own {
+    flex-shrink: 0;
+}
+
+.manifest-name__own--bold {
+    -unity-font-style: bold;
+}
+
+/* A state's mark: its glyph, in a column of its own width so the words beside it line up. */
+.manifest-mark {
+    width: 14px;
+    margin: 0 4px 0 0;
+    padding: 0;
+    flex-shrink: 0;
+    -unity-text-align: middle-center;
+}
+
+/* -- the Behaviors cell: a chip a behavior, in its state's colour; + adds one --------------- */
+
+.manifest-chips {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    overflow: hidden;
+    padding-left: 2px;
+}
+
+.manifest-chip {
+    height: 16px;
+    margin: 0 3px 0 0;
+    padding: 0 7px;
+    font-size: 11px;
+    -unity-text-align: middle-center;
+    border-width: 1px;
+    border-radius: 8px;
+    border-color: rgba(255, 255, 255, 0.14);
+    background-color: rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+}
+
+.manifest-chip:hover {
+    background-color: rgba(255, 255, 255, 0.13);
+}
+
+.manifest-chip--valid { color: var(--unitytk-valid); border-color: var(--unitytk-valid-line); }
+.manifest-chip--info { color: var(--unitytk-info); border-color: var(--unitytk-info-line); }
+.manifest-chip--warn { color: var(--unitytk-warn); border-color: var(--unitytk-warn-line); }
+.manifest-chip--error { color: var(--unitytk-error); border-color: var(--unitytk-error-line); }
+.manifest-chip--edit { color: var(--unitytk-edit); border-color: var(--unitytk-edit-line); }
+.manifest-chip--off { color: var(--unitytk-quiet); background-color: rgba(0, 0, 0, 0); }
+.manifest-chip--locked { color: var(--unitytk-quiet); }
+.manifest-chip--upstream { color: var(--unitytk-upstream); border-color: var(--unitytk-upstream-line); -unity-font-style: italic; }
+
+.manifest-chip--plus {
+    padding: 0 5px;
+    color: var(--unitytk-quiet);
+    background-color: rgba(0, 0, 0, 0);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.manifest-chip--plus:hover {
+    color: var(--unitytk-text);
+}
+
+.manifest-status--error { color: var(--unitytk-error); }
+.manifest-status--warn { color: var(--unitytk-warn); }
+.manifest-status--info { color: var(--unitytk-info); }
+.manifest-status--valid { color: var(--unitytk-valid); }
+.manifest-status--edit { color: var(--unitytk-edit); }
+.manifest-status--locked { color: var(--unitytk-quiet); }
+.manifest-status--off { color: var(--unitytk-quiet); }
+
+/* A mark is a drawn icon (a VectorIcon): its state's colour as its tint. */
+.manifest-mark.manifest-status--error { --unity-image-tint-color: var(--unitytk-error); }
+.manifest-mark.manifest-status--warn { --unity-image-tint-color: var(--unitytk-warn); }
+.manifest-mark.manifest-status--info { --unity-image-tint-color: var(--unitytk-info); }
+.manifest-mark.manifest-status--valid { --unity-image-tint-color: var(--unitytk-valid); }
+.manifest-mark.manifest-status--edit { --unity-image-tint-color: var(--unitytk-edit); }
+.manifest-mark.manifest-status--locked { --unity-image-tint-color: var(--unitytk-quiet); }
+.manifest-mark.manifest-status--off { --unity-image-tint-color: var(--unitytk-quiet); }
+
+/* -- the detail of the selection ------------------------------------------------------------ */
+
+.manifest__detail {
+    min-height: 40px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 4px;
+    background-color: rgba(0, 0, 0, 0.12);
+    border-top-width: 1px;
+    border-top-color: rgba(0, 0, 0, 0.45);
+}
+
+.manifest-detail__head {
+    -unity-font-style: bold;
+    flex-shrink: 1;
+    white-space: normal;
+}
+
+.manifest-detail__heading {
+    margin-top: 6px;
+    opacity: 0.7;
+    -unity-font-style: bold;
+}
+
+.manifest-detail__text {
+    white-space: normal;
+    margin-top: 2px;
+}
+
+/* One behavior of the selected object: a card of its own. */
+.manifest-behavior {
+    margin-top: 5px;
+    padding: 4px 6px 5px 6px;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.045);
+    border-left-width: 3px;
+    border-left-color: var(--unitytk-quiet);
+}
+
+.manifest-behavior--error { border-left-color: var(--unitytk-error); }
+.manifest-behavior--warn { border-left-color: var(--unitytk-warn); }
+.manifest-behavior--info { border-left-color: var(--unitytk-info); }
+.manifest-behavior--valid { border-left-color: var(--unitytk-valid); }
+.manifest-behavior--edit { border-left-color: var(--unitytk-edit); }
+
+.manifest-behavior__name {
+    -unity-font-style: bold;
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.manifest-behavior__about {
+    opacity: 0.65;
+    white-space: normal;
+}
+
+.manifest-part {
+    margin-top: 1px;
+    margin-left: 4px;
+}
+
+/* -- the foot ------------------------------------------------------------------------------- */
+
+.manifest__foot {
+    padding: 4px;
+    border-top-width: 1px;
+    border-top-color: rgba(0, 0, 0, 0.45);
+}
+
+.manifest__summary {
+    flex-grow: 1;
+    flex-shrink: 1;
+    -unity-text-align: middle-left;
+    overflow: hidden;
+}
+
+.manifest__build {
+    -unity-font-style: bold;
+}

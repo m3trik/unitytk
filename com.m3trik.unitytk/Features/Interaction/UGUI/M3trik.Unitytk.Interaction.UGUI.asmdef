@@ -1,0 +1,25 @@
+{
+    "name": "M3trik.Unitytk.Interaction.UGUI",
+    "rootNamespace": "",
+    "references": [
+        "M3trik.Unitytk.Interaction",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITYTK_UGUI"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.ugui",
+            "expression": "2.0.0",
+            "define": "UNITYTK_UGUI"
+        }
+    ],
+    "noEngineReferences": false
+}

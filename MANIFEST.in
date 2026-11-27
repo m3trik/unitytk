@@ -3,3 +3,4 @@ include COPYING.LESSER
 include docs/README.md
 include pyproject.toml
 recursive-include unitytk *.json
+recursive-include unitytk/sheets *.md

@@ -133,16 +133,43 @@ namespace M3trik.Unitytk.RenderEffects.Tests
 
                 string path = Folder + "/Preview.unity";
                 Assert.That(EditorSceneManager.SaveScene(scene, path), Is.True);
-                // The save writes the material asset again (measured), so it is read back by its path.
-                foreach (Renderer r in new Renderer[] { renderer, hiddenRenderer })
-                {
-                    Assert.That(AssetDatabase.GetAssetPath(r.sharedMaterial), Is.EqualTo(asset), $"{r.name}: given back before the save");
-                    Assert.That(r.forceRenderingOff, Is.False, $"{r.name}: shown");
-                }
+                // Given back for the save (the kernel's SaveSuspension), shown again once it is written.
+                Assert.That(renderer.sharedMaterial, Is.Not.SameAs(material), "shown on its twin again");
+                Assert.That(AssetDatabase.GetAssetPath(renderer.sharedMaterial), Is.Empty, "the twin, never the asset");
+                Assert.That(hiddenRenderer.forceRenderingOff, Is.True, "shown hidden again");
                 string guid = AssetDatabase.AssetPathToGUID(asset);
                 string[] slots = MaterialSlots(File.ReadAllText(path));
                 Assert.That(slots, Has.Length.EqualTo(2), "two renderers, one slot each");
                 Assert.That(slots, Has.All.Contains("guid: " + guid), "the saved scene references the original alone");
+            }
+            finally
+            {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+        }
+
+        [Test]
+        public void A_scene_saved_right_after_a_prefab_is_written_shows_its_effects_again()
+        {
+            if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets", Path.GetFileName(Folder));
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            try
+            {
+                string asset = Folder + "/Lamp_MAT.mat";
+                var material = new Material(Shader.Find(_stage.Host.LitShader)) { name = "Lamp_MAT" };
+                Assert.That(MaterialWriter.Write(material, new LitSurface(), _stage.Host), Is.True);
+                AssetDatabase.CreateAsset(material, asset);
+                var (fade, renderer, _) = Faded("Lamp", 0.5f, material);
+                fade.Apply();
+                Assert.That(renderer.sharedMaterial, Is.Not.SameAs(material), "shown on its twin");
+
+                // The prefab's write gives it back, to show again later; the scene's save, asked before that
+                // comes, holds nothing to give back and must keep what the first gave back.
+                PrefabUtility.SaveAsPrefabAsset(fade.gameObject, Folder + "/Lamp.prefab");
+                Assert.That(RenderEffectsPreview.Showing(fade), Is.False, "given back for the prefab's write");
+                Assert.That(EditorSceneManager.SaveScene(scene, Folder + "/AfterPrefab.unity"), Is.True);
+                Assert.That(RenderEffectsPreview.Showing(fade), Is.True, "shown again once the scene is written");
+                Assert.That(AssetDatabase.GetAssetPath(renderer.sharedMaterial), Is.Empty, "on its twin, never the asset");
             }
             finally
             {

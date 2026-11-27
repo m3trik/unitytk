@@ -194,9 +194,9 @@ class TempProjectsTest(unittest.TestCase):
         self.assertFalse(os.path.exists(new))
 
     def test_sweep_all_leaves_a_hand_made_scratch_dir_alone(self):
-        """Only ``<prefix>_<hex-tag>`` entries are allocations. A hand-made
-        reproduction dir under temp_tests/ is somebody's working file, not a
-        leftover -- age says nothing about whether it is owned."""
+        """Only ``<prefix>_<hex-tag>`` entries are allocations. A folder a person
+        put in the base is no leftover of a run -- age says nothing about whether
+        it is owned (scratch belongs in temp_tests/, the scratch sweep's)."""
         probe = os.path.join(self.base, "vis_probe")
         os.makedirs(probe)
         with open(os.path.join(probe, "repro.py"), "w") as fh:
@@ -212,13 +212,14 @@ class TempProjectsTest(unittest.TestCase):
         with mock.patch.object(TempProjects, "BASE", missing):
             self.assertEqual(TempProjects.sweep_all(), [])
 
-    def test_base_defaults_to_repo_temp_tests(self):
-        """The default base is the in-repo scratch dir, not the system temp.
-
-        These artifacts are deliberately durable and large; the repo lives on a
-        roomy drive while C: is routinely full, and .gitignore covers this path.
+    def test_base_defaults_to_the_repos_own_folder_for_them(self):
+        """The default base is an in-repo folder of its own, not the system temp
+        and not temp_tests/, the hand-kept scratch the runner's blind age sweep
+        reads: a Unity project there would be removed and never leave the Hub's
+        list. These artifacts are deliberately durable and large; the repo lives
+        on a roomy drive while C: is routinely full, and .gitignore covers it.
         """
-        expected = os.path.join(os.path.dirname(base_test.__file__), "temp_tests")
+        expected = os.path.join(os.path.dirname(base_test.__file__), "temp_unity")
         self.assertEqual(
             os.path.normcase(os.path.normpath(DEFAULT_BASE)),
             os.path.normcase(os.path.normpath(expected)),

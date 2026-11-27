@@ -191,7 +191,7 @@ class UnityTestRunner:
         temp dir, and so did every child it launched. Every sibling runner
         does this; ``conftest.py`` calls this for a bare ``pytest``, which never
         runs this runner. The integration suites' Unity projects are
-        unaffected: they live under ``tests/temp_tests/``
+        unaffected: they live under ``tests/temp_unity/``
         (:class:`base_test.TempProjects`), not in the temp dir, and so does
         the run's owned project (:meth:`base_test.TempProjects.owned`), whose
         path the sandbox's root would make too deep for URP.
@@ -210,6 +210,12 @@ class UnityTestRunner:
         except Exception as error:  # noqa: BLE001
             print(f"[WARN] test sandbox unavailable ({error}); runs use real TEMP.")
             return None
+        try:
+            # What sat untouched for two weeks in tests/temp_tests goes: a step of its own, so a sweep that fails is said
+            # as that, never as an isolation that did not happen.
+            TestSandbox.sweep_scratch(os.path.dirname(os.path.abspath(__file__)))
+        except Exception as error:  # noqa: BLE001
+            print(f"[WARN] scratch sweep failed ({error}); tests/temp_tests left as it is.")
         from base_test import TempProjects
 
         TempProjects.owned()
@@ -218,7 +224,7 @@ class UnityTestRunner:
 
     @staticmethod
     def reclaim_scratch() -> list:
-        """Reclaim stale scratch runs under ``tests/temp_tests/``, all prefixes,
+        """Reclaim stale runs under ``tests/temp_unity/``, all prefixes,
         and the Hub entries of the projects they held.
 
         The integration suites keep their generated Unity project on purpose

@@ -62,11 +62,11 @@ namespace M3trik.Unitytk.ArticulatedRig
         public enum GrabRotation
         {
             /// <summary>The link follows the grabbing hand's rotation (an XR controller).</summary>
-            Hand,
+            Hand = 0,
             /// <summary>The link keeps the rig-space rotation it had when taken (a mouse).</summary>
-            Keep,
+            Keep = 1,
             /// <summary>Position only: the solver chooses the rotation.</summary>
-            Free,
+            Free = 2,
         }
 
         /// <summary>A part a hand takes hold of, and the joint it rides.</summary>

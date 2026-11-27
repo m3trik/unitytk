@@ -169,17 +169,29 @@ namespace M3trik.Unitytk.Kernel
             {
                 bool glowing = (state & TwinState.Glowing) != 0;
                 if (glowing && Has(twin, table.EmissionMap)) twin.SetTexture(table.EmissionMap, null);
-                if (table.EmissionKeyword != null)
-                {
-                    // Built-in's and URP's turns emission on; HDRP's samples the map, set aside by a glow.
-                    if (!table.EmissionKeywordForMapOnly) twin.EnableKeyword(table.EmissionKeyword);
-                    else if (glowing) twin.DisableKeyword(table.EmissionKeyword);
-                }
+                SwitchEmission(twin, table, Has(twin, table.EmissionMap) && twin.GetTexture(table.EmissionMap) != null);
                 twin.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 if (!Has(twin, table.EmissionColor))
                     losses?.Add($"{shader} has no emission colour the {host.Name} pipeline's table names: an added glow or emission is not shown");
             }
             return twin;
+        }
+
+        /// <summary>
+        /// Switch <paramref name="material"/>'s emission on as <paramref name="table"/>'s Lit reads it: its keyword on
+        /// where emission needs one at all (Built-in's and URP's), or only where it samples a map
+        /// (<see cref="LitTable.EmissionKeywordForMapOnly"/>, HDRP's: off where <paramref name="mapped"/> is not), so
+        /// every writer of an emission (a material's, a twin's glow, a plain glowing part's) keeps the one rule.
+        /// Its colour and lightmap flags are the caller's.
+        /// </summary>
+        /// <param name="material">The material.</param>
+        /// <param name="table">Its pipeline's Lit (null: nothing switched).</param>
+        /// <param name="mapped">Whether it has an emission map bound.</param>
+        public static void SwitchEmission(Material material, LitTable table, bool mapped)
+        {
+            if (material == null || table?.EmissionKeyword == null) return;
+            if (!table.EmissionKeywordForMapOnly || mapped) material.EnableKeyword(table.EmissionKeyword);
+            else material.DisableKeyword(table.EmissionKeyword);
         }
 
         /// <summary>
@@ -351,8 +363,7 @@ namespace M3trik.Unitytk.Kernel
                 return;
             }
             SetMap(material, table.EmissionMap, surface.emissionMap, mapped);
-            if (table.EmissionKeyword != null && (!table.EmissionKeywordForMapOnly || surface.emissionMap != null))
-                material.EnableKeyword(table.EmissionKeyword);
+            SwitchEmission(material, table, surface.emissionMap != null);
             material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
         }
 

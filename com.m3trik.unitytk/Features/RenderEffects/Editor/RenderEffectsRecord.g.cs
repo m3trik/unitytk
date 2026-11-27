@@ -98,8 +98,8 @@ public static partial class RenderEffectsRecord
         }
 
         /// <summary>
-        /// One material whose emission is animated: the channel names it, the curve (a weight
-        /// 0..1) rides the transport.
+        /// One material whose emission is animated: the channels name it, each curve rides the
+        /// transport (a weight 0..1; a tint channel 0 or more).
         /// </summary>
         public sealed class Material
         {
@@ -109,8 +109,17 @@ public static partial class RenderEffectsRecord
             /// ':' joins.
             /// </summary>
             public string material;
-            /// <summary>The material's animated channels: 'emission', its emission's weight 0..1.</summary>
+            /// <summary>
+            /// The material's animated channels: 'emission', its emission's weight 0..1;
+            /// 'tint_r', 'tint_g', 'tint_b', the tint its emission colour is multiplied by (the
+            /// three together, linear RGB).
+            /// </summary>
             public List<string> channels;
+            /// <summary>
+            /// The emission's named states (a tint and a weight each), for a runtime that
+            /// switches them by name; absent when it has none.
+            /// </summary>
+            public List<State> states;
             /// <summary>
             /// The emission's colour at weight 1, linear RGB; absent: the material's own
             /// emissive colour.
@@ -121,19 +130,58 @@ public static partial class RenderEffectsRecord
             /// glow brighter than white); absent: the material's own.
             /// </summary>
             public double? emission_strength;
+            /// <summary>
+            /// The tint the delivered material shows, linear RGB: its emission is colour x
+            /// strength x tint x weight, so a runtime reads its resting weight off the material
+            /// over that; absent: white (no tint).
+            /// </summary>
+            public double[] tint;
 
             /// <summary>One read off a parsed JSON value; null when it is not an object.</summary>
             public static Material Read(object value)
             {
                 if (!(value is IDictionary<string, object> o)) return null;
                 Wire.Require(o, "Material", "material", "channels");
-                Wire.NotNull(o, "Material", "material", "channels", "emission_color", "emission_strength");
+                Wire.NotNull(o, "Material", "material", "channels", "states", "emission_color", "emission_strength", "tint");
                 return new Material
                 {
                     material = Wire.Str(o, "material"),
                     channels = Wire.Strs(o, "channels"),
+                    states = Wire.Objs(o, "states", State.Read),
                     emission_color = Wire.Nums(o, "emission_color", 3),
                     emission_strength = Wire.Num(o, "emission_strength"),
+                    tint = Wire.Nums(o, "tint", 3),
+                };
+            }
+        }
+
+        /// <summary>
+        /// One named state of a material's emission: the tint and the weight a runtime sets
+        /// when it switches to it.
+        /// </summary>
+        public sealed class State
+        {
+            /// <summary>The state's name, as a runtime switches to it.</summary>
+            public string name;
+            /// <summary>
+            /// The colour the material's emission colour (or map) is multiplied by in this
+            /// state, linear RGB; white keeps the material's own.
+            /// </summary>
+            public double[] tint;
+            /// <summary>The emission's weight in this state, 0..1 (0: off).</summary>
+            public double? weight;
+
+            /// <summary>One read off a parsed JSON value; null when it is not an object.</summary>
+            public static State Read(object value)
+            {
+                if (!(value is IDictionary<string, object> o)) return null;
+                Wire.Require(o, "State", "name", "tint", "weight");
+                Wire.NotNull(o, "State", "name", "tint", "weight");
+                return new State
+                {
+                    name = Wire.Str(o, "name"),
+                    tint = Wire.Nums(o, "tint", 3),
+                    weight = Wire.Num(o, "weight"),
                 };
             }
         }

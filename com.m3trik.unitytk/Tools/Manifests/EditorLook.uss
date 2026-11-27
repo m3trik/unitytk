@@ -1,0 +1,142 @@
+/* The manifest windows' look (EditorLook): a dark, muted panel style. A status is a shape first and a colour
+   second: red an error, sand a warning, blue what a build has to do, green what is done, amber what this
+   project changed, teal what the delivery's own build made, grey what is off or locked. Every colour is a
+   variable here, once; a window's own sheet and the rules below read them. */
+
+.unitytk {
+    --unitytk-error: #D4908F;
+    --unitytk-warn: #D4B878;
+    --unitytk-info: #88B8D0;
+    --unitytk-valid: #9CC69B;
+    --unitytk-edit: #E0A040;
+    --unitytk-upstream: rgb(126, 196, 182);
+    --unitytk-quiet: #888888;
+    /* each status's outline: its colour, see-through */
+    --unitytk-error-line: rgba(212, 144, 143, 0.65);
+    --unitytk-warn-line: rgba(212, 184, 120, 0.6);
+    --unitytk-info-line: rgba(136, 184, 208, 0.55);
+    --unitytk-valid-line: rgba(156, 198, 155, 0.45);
+    --unitytk-edit-line: rgba(224, 160, 64, 0.7);
+    --unitytk-upstream-line: rgba(126, 196, 182, 0.55);
+    --unitytk-menu: rgb(51, 51, 51);
+    --unitytk-border: rgb(40, 40, 40);
+    --unitytk-separator: rgb(70, 70, 70);
+    --unitytk-text: rgb(220, 220, 220);
+    --unitytk-text-bright: rgb(255, 255, 255);
+    --unitytk-text-disabled: rgb(150, 150, 150);
+    --unitytk-hover: rgba(100, 130, 150, 0.88);
+    --unitytk-checked: rgba(165, 135, 100, 0.88);
+    --unitytk-checked-line: rgba(165, 135, 100, 1);
+    --unitytk-box: rgb(42, 42, 42);
+    --unitytk-box-line: rgb(110, 110, 110);
+}
+
+/* A toolbar button that opens a menu: its arrow says so. */
+.unitytk-menu-button {
+    padding-right: 4px;
+}
+
+/* -- the window's menus (WindowMenu): a dark menu, never the system's white one --- */
+
+.window-menu__overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.window-menu {
+    position: absolute;
+    min-width: 160px;
+    padding: 2px 0;
+    background-color: var(--unitytk-menu);
+    border-width: 1px;
+    border-color: var(--unitytk-border);
+    border-radius: 2px;
+}
+
+.window-menu__item {
+    flex-direction: row;
+    align-items: center;
+    height: 20px;
+    padding: 0 10px 0 4px;
+    color: var(--unitytk-text);
+}
+
+.window-menu__item:hover {
+    background-color: var(--unitytk-hover);
+    color: var(--unitytk-text-bright);
+}
+
+.window-menu__item--disabled,
+.window-menu__item--disabled:hover {
+    background-color: rgba(0, 0, 0, 0);
+    color: var(--unitytk-text-disabled);
+}
+
+.window-menu__text {
+    flex-grow: 1;
+    padding: 0;
+    margin: 0;
+    -unity-text-align: middle-left;
+}
+
+.window-menu__check {
+    width: 13px;
+    height: 13px;
+    margin: 0 6px 0 2px;
+    padding: 0;
+    font-size: 10px;
+    -unity-text-align: middle-center;
+    color: rgba(0, 0, 0, 0);
+    --unity-image-tint-color: rgba(0, 0, 0, 0);  /* the drawn check (a VectorIcon), hidden while off */
+}
+
+.window-menu__check--on {
+    color: var(--unitytk-text);
+    --unity-image-tint-color: var(--unitytk-text);
+}
+
+.window-menu__check--box {
+    border-width: 1px;
+    border-color: var(--unitytk-box-line);
+    border-radius: 2px;
+    background-color: var(--unitytk-box);
+}
+
+.window-menu__check--box.window-menu__check--on {
+    background-color: var(--unitytk-checked);
+    border-color: var(--unitytk-checked-line);
+    color: var(--unitytk-text-bright);
+    --unity-image-tint-color: var(--unitytk-text-bright);
+}
+
+.window-menu__hint {
+    margin: 0 0 0 18px;
+    padding: 0;
+    font-size: 10px;
+    -unity-text-align: middle-right;
+    color: var(--unitytk-text-disabled);
+}
+
+.window-menu__item:hover .window-menu__hint {
+    color: var(--unitytk-text);
+}
+
+.window-menu__separator {
+    height: 1px;
+    margin: 3px 5px 3px 10px;
+    background-color: var(--unitytk-separator);
+}
+
+.window-menu__heading {
+    height: 18px;
+    padding: 0 8px 0 25px;
+    letter-spacing: 0.5px;
+    margin: 0;
+    font-size: 10px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+    color: var(--unitytk-text-disabled);
+}

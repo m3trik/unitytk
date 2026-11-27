@@ -4,10 +4,10 @@ namespace M3trik.Unitytk.Kernel
     public enum LitAlpha
     {
         /// <summary>The alpha is ignored: the surface is opaque (glTF <c>OPAQUE</c>).</summary>
-        Opaque,
+        Opaque = 0,
         /// <summary>Cut where the alpha is below the cutoff, opaque elsewhere (glTF <c>MASK</c>).</summary>
-        Mask,
+        Mask = 1,
         /// <summary>Blended over what is behind it, sorted, with no depth write (glTF <c>BLEND</c>).</summary>
-        Blend,
+        Blend = 2,
     }
 }

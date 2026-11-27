@@ -1,0 +1,11 @@
+{
+  "behavior": "goto",
+  "order": 11,
+  "description": "A button, quoted or not, sends the sequence to a step by ID.",
+  "detect": [
+    "^selecting\\s+['\\\"]?(?P<label>[^'\\\"]+?)['\\\"]?\\s+triggers\\s+(?:step\\s+advancement\\s+to\\s+step|advancement\\s+to\\s+step|step)\\s+(?P<to>{step})$"
+  ],
+  "roles": [
+    "advances"
+  ]
+}

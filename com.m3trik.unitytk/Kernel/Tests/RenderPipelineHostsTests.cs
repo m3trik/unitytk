@@ -160,6 +160,36 @@ namespace M3trik.Unitytk.Kernel.Tests
         }
 
         [Test]
+        public void The_built_in_host_moves_standard_onto_a_shader_it_draws_and_shows_no_display_transform()
+        {
+            IRenderPipelineHost host = RenderPipelineHosts.BuiltIn;
+            Shader baked = Shader.Find("Legacy Shaders/Diffuse");  // drawn by Built-in, a _Color of its own
+            var standard = new Material(Shader.Find("Standard"));
+            var unlit = new Material(Shader.Find("Unlit/Color"));
+            try
+            {
+                standard.SetColor("_Color", new Color(0.2f, 0.4f, 0.6f, 1f));
+                standard.renderQueue = 2010;
+                Assert.That(RenderPipelineHosts.SwapLit(host, standard, baked), Is.True);
+                Assert.That(standard.shader, Is.SameAs(baked));
+                Assert.That(Vector4.Distance(standard.GetColor("_Color"), new Color(0.2f, 0.4f, 0.6f, 1f)), Is.LessThan(1e-4f), "its values kept");
+                Assert.That(standard.renderQueue, Is.EqualTo(2010), "its queue kept");
+                Assert.That(RenderPipelineHosts.SwapLit(host, standard, baked), Is.True, "on it already");
+                Assert.That(RenderPipelineHosts.SwapLit(host, unlit, baked), Is.False, "not Built-in's Lit: left as it is");
+                Assert.That(RenderPipelineHosts.SwapLit(host, unlit, null), Is.False);
+
+                Assert.That(host.DisplaySize, Is.EqualTo(0), "no colour lookup to read a table");
+                Assert.That(host.Display(Texture2D.whiteTexture, 1f, out string why, new DisplayOptions()), Is.Null);
+                Assert.That(why, Does.Contain("post-processing"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(standard);
+                Object.DestroyImmediate(unlit);
+            }
+        }
+
+        [Test]
         public void The_built_in_blend_switch_is_the_standard_inspectors_fade()
         {
             var material = new Material(Shader.Find("Standard"));

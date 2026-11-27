@@ -475,6 +475,38 @@ namespace M3trik.Unitytk.Kernel.Tests
             Assert.That(glowing.GetColor("_EmissiveColor").g, Is.GreaterThan(1f), "the emission colour slot, above 1 kept");
         }
 
+        // The one rule every writer of an emission keeps (a material's, a twin's, a plain glowing part's) had no test of its
+        // own, nor HDRP's emitting twin of a material with no map.
+        [Test]
+        public void The_emission_switch_turns_its_keyword_on_by_its_rows_rule()
+        {
+            var builtIn = Written(new LitSurface(), RenderPipelineHosts.BuiltIn);
+            Assert.That(builtIn.IsKeywordEnabled("_EMISSION"), Is.False, "premise: no emission written");
+            MaterialWriter.SwitchEmission(builtIn, LitTable.BuiltIn, false);
+            Assert.That(builtIn.IsKeywordEnabled("_EMISSION"), Is.True, "Built-in: an emission needs its keyword, mapped or not");
+
+            var host = Hdrp();
+            var hdrp = Written(new LitSurface(), host);
+            MaterialWriter.SwitchEmission(hdrp, host.Lit, true);
+            Assert.That(hdrp.IsKeywordEnabled("_EMISSIVE_COLOR_MAP"), Is.True, "HDRP: a map to sample");
+            MaterialWriter.SwitchEmission(hdrp, host.Lit, false);
+            Assert.That(hdrp.IsKeywordEnabled("_EMISSIVE_COLOR_MAP"), Is.False, "no map: its keyword off");
+            MaterialWriter.SwitchEmission(hdrp, null, true);
+            Assert.That(hdrp.IsKeywordEnabled("_EMISSIVE_COLOR_MAP"), Is.False, "no table: nothing switched");
+        }
+
+        [Test]
+        public void Hdrps_row_twins_of_a_material_with_no_emission_map_leave_its_map_keyword_off()
+        {
+            var host = Hdrp();
+            var original = Written(new LitSurface { emission = Color.white }, host);
+            var emitting = Made(MaterialWriter.Twin(original, TwinState.Emitting, host));
+            Assert.That(emitting.IsKeywordEnabled("_EMISSIVE_COLOR_MAP"), Is.False, "an emission with no map: nothing to sample");
+            Assert.That(emitting.globalIlluminationFlags, Is.EqualTo(MaterialGlobalIlluminationFlags.RealtimeEmissive));
+            var glowing = Made(MaterialWriter.Twin(original, TwinState.Glowing, host));
+            Assert.That(glowing.IsKeywordEnabled("_EMISSIVE_COLOR_MAP"), Is.False, "a glow samples no map");
+        }
+
         // -- binding a mask alone ------------------------------------------------------------
 
         [Test]

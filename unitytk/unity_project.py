@@ -18,6 +18,7 @@ them; the manifest as the Package Manager reads it (UTF-8, a BOM allowed).
 import json
 import os
 import re
+import shutil
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -94,6 +95,49 @@ class UnityProject(_UnityProjectInternal):
     URP_IMPORT_DEPTH = len(URP_PACKAGE_CACHE + URP_DEEPEST_GRAPH)
     #: The longest project root a URP project can have: MAX_PATH less that depth.
     URP_ROOT_MAX = MAX_PATH - URP_IMPORT_DEPTH
+    #: The room a new project needs on its drive: a URP one is 1.65 GB once
+    #: imported, and its package import needs more on the way. Below it the
+    #: import dies partway on ENOSPC (measured 2026-11-24 at 327 MB free).
+    ROOM_BYTES = 4 * 1024**3
+
+    class NoRoom(OSError):
+        """A drive without :attr:`ROOM_BYTES` free for a new Unity project
+        (:meth:`ensure_room`): its message names the folder, the room there and
+        where a project can be made instead."""
+
+    @classmethod
+    def ensure_room(cls, folder: "os.PathLike | str") -> None:
+        """Refuse a new project at *folder* where its drive has less than
+        :attr:`ROOM_BYTES` free, before Unity starts: below it the CLI runs a
+        while and its package import dies partway. A drive that cannot be read
+        is let through (Unity then says).
+
+        Raises:
+            UnityProject.NoRoom: The drive is short of room.
+        """
+        free = cls.free_bytes(folder)
+        if free is None or free >= cls.ROOM_BYTES:
+            return
+        raise cls.NoRoom(
+            f"no room for a Unity project at {folder}: its drive has {free / 1024**3:.1f} GB free, a project "
+            f"needs about {cls.ROOM_BYTES / 1024**3:.0f} GB -- free some, or make it on a drive that has it "
+            "(UNITYTK_PROJECTS names where the owned projects live; UNITYTK_TEMP_PROJECTS, a test run's)"
+        )
+
+    @staticmethod
+    def free_bytes(folder: "os.PathLike | str") -> Optional[int]:
+        """Free bytes on the drive of *folder*, read at its nearest existing
+        parent (it need not exist yet); ``None`` when the drive cannot be read."""
+        path = os.path.abspath(os.fspath(folder))
+        while not os.path.isdir(path):
+            parent = os.path.dirname(path)
+            if parent == path:
+                break
+            path = parent
+        try:
+            return shutil.disk_usage(path).free
+        except OSError:
+            return None
 
     @classmethod
     def package_dir(cls) -> Optional[Path]:

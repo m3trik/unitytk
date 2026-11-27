@@ -272,6 +272,30 @@ namespace M3trik.Unitytk.ShadowPlane.Tests
         }
 
         [Test]
+        public void Two_same_named_targets_are_planned_apart_by_their_paths()
+        {
+            var left = new GameObject("Left");
+            var right = new GameObject("Right");
+            var first = new GameObject("Crate");
+            var second = new GameObject("Crate");
+            first.transform.SetParent(left.transform, false);
+            second.transform.SetParent(right.transform, false);
+            Box("Crate_mesh", new Vector3(-2f, 0f, 0f), Vector3.one, first.transform);
+            Box("Crate_mesh", new Vector3(2f, 0f, 0f), Vector3.one, second.transform);
+
+            var plan = new OpContext(dryRun: true);
+            ShadowPlaneActions.Create(first, null, plan);
+            ShadowPlaneActions.Create(second, null, plan);
+            Assert.That(plan.Changes.Where(c => c.kind == "create").Select(c => c.target),
+                        Is.EqualTo(new[] { "Left/Crate/Crate_contact", "Left/Crate/Crate_shadow",
+                                           "Right/Crate/Crate_contact", "Right/Crate/Crate_shadow" }));
+            var live = new OpContext();
+            ShadowPlaneActions.Create(first, null, live);
+            Assert.That(live.Changes.Where(c => c.kind == "create").Select(c => c.target),
+                        Is.EqualTo(plan.Changes.Where(c => c.kind == "create").Select(c => c.target).Take(2)), "the run names them so too");
+        }
+
+        [Test]
         public void RebakeStale_rebakes_only_the_planes_whose_target_changed()
         {
             ShadowPlane still = Rig(Lamp(new Vector3(2f, 3f, 1f)), out _);
@@ -473,7 +497,7 @@ namespace M3trik.Unitytk.ShadowPlane.Tests
             byte[] bytes = File.ReadAllBytes(path);
             OpContext plan = Plan;
             Assert.That(ShadowPlaneActions.BakeHorizon(plane, force: true, ctx: plan), Is.True);
-            Assert.That(plan.Changes.Select(c => (c.kind, c.target)), Is.EqualTo(new[] { ("write", path), ("change", plane.name) }));
+            Assert.That(plan.Changes.Select(c => (c.kind, c.target)), Is.EqualTo(new[] { ("write", path), ("change", OpContextEdits.Label(plane.gameObject)) }));
             Assert.That(ShadowPlaneActions.BakeHorizon(plane, force: true), Is.True);
             Assert.That(AssetDatabase.GetAssetPath(plane.horizonMap), Is.EqualTo(path), "its own map, written over");
             Assert.That(File.ReadAllBytes(path), Is.EqualTo(bytes), "the same target: the same bytes");
@@ -536,23 +560,28 @@ namespace M3trik.Unitytk.ShadowPlane.Tests
         }
 
         [Test]
-        public void The_preview_gives_the_placement_back_before_a_save()
+        public void A_saved_scene_holds_the_planes_own_transform_and_the_preview_places_it_again()
         {
             ShadowPlane plane = Rig(Lamp(new Vector3(2f, 3f, 1f)), out _);
             var was = new Vector3(0.25f, 0f, -0.5f);
             plane.transform.localPosition = was;
+            string name = plane.name;
             var editor = UnityEditor.Editor.CreateEditor(plane);
             try
             {
-                Assert.That(plane.transform.localPosition, Is.Not.EqualTo(was), "placed by the preview");
-                EditorSceneManager.SaveScene(Active);
-                Assert.That(ShadowPlanePreview.Showing(plane), Is.False, "released as the scene saves");
-                Assert.That(plane.transform.localPosition, Is.EqualTo(was), "the scene saved its own transform");
+                Vector3 placed = plane.transform.localPosition;
+                Assert.That(placed, Is.Not.EqualTo(was), "placed by the preview");
+                Assert.That(EditorSceneManager.SaveScene(Active), Is.True);
+                Assert.That(ShadowPlanePreview.Showing(plane), Is.True, "the inspector is open: it shows on");
+                Assert.That(plane.transform.localPosition, Is.EqualTo(placed), "placed again once the scene is written");
             }
             finally
             {
                 Object.DestroyImmediate(editor);
             }
+            EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            ShadowPlane saved = Object.FindObjectsByType<ShadowPlane>(FindObjectsSortMode.None).Single(p => p.name == name);
+            Assert.That(saved.transform.localPosition, Is.EqualTo(was), "the scene saved its own transform");
         }
 
         [Test]

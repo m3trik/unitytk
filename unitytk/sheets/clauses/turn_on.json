@@ -1,0 +1,8 @@
+{
+  "behavior": "turn_on",
+  "order": 91,
+  "description": "Targets turn on (a light).",
+  "detect": [
+    "^(?P<targets>.+?)\\s+turns\\s+on$"
+  ]
+}

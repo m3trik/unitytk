@@ -1,8 +1,8 @@
 {
   "name": "com.m3trik.unitytk",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "displayName": "unitytk",
-  "description": "Unity import automation for DCC deliveries and a production toolset, used alike by people (menus) and agents (code run in an editor the tooling keeps): render effects (fades, highlights, visibility and animated emission), materials, animation audio, shot metadata, externally baked lightmaps, shadow planes and grabbable articulated rigs, driven by the data_export carrier's records.",
+  "description": "Unity import automation for DCC deliveries and a production toolset, used alike by people (menus) and agents (code run in an editor the tooling keeps): render effects (fades, highlights, visibility, animated emission and indicator lights), materials, looks, animation audio, shots, externally baked lightmaps, shadow planes, LOD groups and grabbable articulated rigs, driven by the data_export carrier's records; and the parts a step-by-step task is built of (interaction, steps, panels, viewpoints, indicators and placement), the Manifest window that builds one from a sheet, and the Tasks kit.",
   "unity": "6000.3",
   "license": "MIT",
   "documentationUrl": "https://github.com/m3trik/unitytk",
@@ -47,6 +47,11 @@
       "displayName": "Shots",
       "description": "A box moving through three shots: one clip per shot, named after it, and the ShotList that gives each clip its description and section; the demo scene plays the shots in order and shows the playing shot's description.",
       "path": "Samples~/Shots"
+    },
+    {
+      "displayName": "Tasks",
+      "description": "A cabinet task from a studio's sequence sheet and its delivery: unlock two latches with a key, open the door, take a bolt out with a wrench, press a button and answer a question, each step built by the Tasks kit from the sheet's rows (highlights, arrows, viewpoints, selections, clips, choices). The demo scene puts a desktop rig in it, a camera that looks about with the right mouse button and clicks to select, and plays it.",
+      "path": "Samples~/Tasks"
     }
   ]
 }

@@ -102,6 +102,7 @@ dmypy.json
 *.swo
 
 tests/temp_tests/
+tests/temp_unity/
 tests/test_output/
 
 # dotnet test projects build to the temp root (Directory.Build.props); a build without it must not track output.
