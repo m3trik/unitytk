@@ -48,7 +48,8 @@ _SELF = os.path.basename(__file__)
 
 
 def _source_files(*suffixes, exclude=()):
-    """Yield tracked source paths under the repo, skipping generated trees.
+    """Yield the repo's source paths a commit would hold (tracked, or new and
+    not ignored: never a test project's ``Library``), skipping generated trees.
 
     Args:
         suffixes (str): File extensions to yield.
@@ -57,11 +58,34 @@ def _source_files(*suffixes, exclude=()):
             its own docstring.
     """
     skip = {_SELF, *exclude}
+    for path in _committable_paths():
+        name = os.path.basename(path)
+        if name.endswith(suffixes) and name not in skip:
+            yield path
+
+
+def _committable_paths():
+    """Every file a commit would hold, from git; outside a repository (an
+    unpacked sdist) every file, :data:`_SKIP_DIRS` left out."""
+    import subprocess
+
+    try:
+        listed = subprocess.run(
+            ["git", "-C", REPO_ROOT, "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            capture_output=True, text=True, encoding="utf-8", check=True,
+        ).stdout.split("\0")
+    except (OSError, subprocess.CalledProcessError):
+        listed = None
+    if listed is not None:
+        for rel in listed:
+            path = os.path.normpath(os.path.join(REPO_ROOT, rel))
+            if rel and not _SKIP_DIRS.intersection(rel.split("/")) and os.path.isfile(path):
+                yield path
+        return
     for dirpath, dirnames, filenames in os.walk(REPO_ROOT):
         dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
         for name in filenames:
-            if name.endswith(suffixes) and name not in skip:
-                yield os.path.join(dirpath, name)
+            yield os.path.join(dirpath, name)
 
 
 def _run_case(case_cls):
@@ -678,6 +702,27 @@ def _client_denylist():
         return None
     finally:
         sys.path.remove(scripts)
+
+
+class SourceFilesTest(unittest.TestCase):
+    """The scans read the source a commit would hold: never a test project's
+    copy of a package (an integration suite's ``Library``, git-ignored), which
+    is someone else's code."""
+
+    def test_a_file_git_ignores_is_no_source_and_the_packages_own_is(self):
+        import pythontk as ptk
+
+        store = ptk.TempArtifacts(
+            "unitytk_source_probe", policy="scoped", dir=os.path.join(REPO_ROOT, "tests", "temp_unity")
+        )
+        self.addCleanup(store.cleanup)
+        probe = os.path.join(store.dir_path(), "Library", "PackageCache", "Probe.cs")
+        os.makedirs(os.path.dirname(probe))
+        open(probe, "w").close()
+        found = {os.path.normcase(os.path.normpath(p)) for p in _source_files(".cs")}
+        self.assertNotIn(os.path.normcase(os.path.normpath(probe)), found)
+        own = os.path.join(REPO_ROOT, "com.m3trik.unitytk", "Kernel", "Runtime", "CameraDrawing.cs")
+        self.assertIn(os.path.normcase(os.path.normpath(own)), found)
 
 
 class PublicHygieneTest(unittest.TestCase):

@@ -1,6 +1,8 @@
 # unitytk — Changelog
 
 ## 2026
+- **2026-11-27 -- The source scans read what a commit would hold (`tests/test_base_test.py` `_source_files`).** They walked the disk minus `temp_tests`, so once the integration suites' projects moved to `tests/temp_unity` the hygiene scan read a live project's `Library/PackageCache` (Unity's own UGUI source) and failed the receipt; the files are git's tracked and new, not ignored ones (the walk stays for a checkout with no repository).
+  - Test(s): `test_base_test.SourceFilesTest.test_a_file_git_ignores_is_no_source_and_the_packages_own_is` (red first).
 - **2026-11-27 -- A test's temporary folder is handed out in its canonical spelling (`tests/base_test.py` `create_temp_dir`).** Sheet settings and a sheet's sync resolve the paths they read, which on Windows expands an 8.3 name; a CI runner's TEMP is one (`RUNNER~1`), so three tests expecting the folder as spelt failed there alone.
   - Test(s): `test_sheet_settings.SheetSettingsTestCase.test_the_settings_read_their_files_beside_them`, `test_sheet_sync.SheetSyncTestCase` (2), each red then green under a `PYTHONTK_TEMP_ROOT` spelt in 8.3 names.
 - **2026-11-27 -- A test's relative-link project is made in a folder its store makes (`tests/test_unity_host.py`).** It minted its folder inside `tests/temp_tests`, which only the integration suite's projects had made before they moved to `tests/temp_unity`, so a fresh checkout (CI) failed it with FileNotFoundError; a scoped `ptk.TempArtifacts` there now makes the folder and removes it.
