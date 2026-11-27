@@ -267,10 +267,13 @@ class TestUnityHost(UnityTkTestCase):
             _write_manifest(self.project, {"dependencies": {"com.m3trik.unitytk": spec}})
             self.assertIsNone(UnityHost.kernel_source(str(self.project)), spec)
         # A relative link reads from the project's Packages/: a project on the
-        # checkout's drive (a relative path never crosses one).
-        near = Path(tempfile.mkdtemp(dir=Path(__file__).resolve().parent / "temp_tests"))
-        self.addCleanup(lambda: __import__("shutil").rmtree(near, ignore_errors=True))
-        project = _project(near / "Rel")
+        # checkout's drive (a relative path never crosses one), in a folder the
+        # store makes, whether or not the scratch folder is there yet.
+        store = ptk.TempArtifacts(
+            "unitytk_relative_link", policy="scoped", dir=str(Path(__file__).resolve().parent / ptk.TestSandbox.SCRATCH)
+        )
+        self.addCleanup(store.cleanup)
+        project = _project(Path(store.dir_path()) / "Rel")
         relative = os.path.relpath(ProjectBuilder.package_dir(), project / "Packages")
         _write_manifest(project, {"dependencies": {"com.m3trik.unitytk": "file:" + relative.replace(os.sep, "/")}})
         self.assertEqual(UnityHost.kernel_source(str(project)), "local", "a relative link reads from Packages/")
