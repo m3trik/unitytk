@@ -842,6 +842,8 @@ class UnityTkTestCase(unittest.TestCase):
 
         store = ptk.TempArtifacts("unitytk_test", policy="scoped")
         self.addCleanup(store.cleanup)
-        tmp = store.dir_path()
+        # Its canonical spelling: code that resolves a path (Windows expands an 8.3 name, as a
+        # CI runner's TEMP is) then names it as a test spelling it as given expects.
+        tmp = os.path.realpath(store.dir_path())
         self.temp_dirs.append(tmp)
         return tmp

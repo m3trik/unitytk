@@ -1,6 +1,8 @@
 # unitytk — Changelog
 
 ## 2026
+- **2026-11-27 -- A test's temporary folder is handed out in its canonical spelling (`tests/base_test.py` `create_temp_dir`).** Sheet settings and a sheet's sync resolve the paths they read, which on Windows expands an 8.3 name; a CI runner's TEMP is one (`RUNNER~1`), so three tests expecting the folder as spelt failed there alone.
+  - Test(s): `test_sheet_settings.SheetSettingsTestCase.test_the_settings_read_their_files_beside_them`, `test_sheet_sync.SheetSyncTestCase` (2), each red then green under a `PYTHONTK_TEMP_ROOT` spelt in 8.3 names.
 - **2026-11-27 -- A test's relative-link project is made in a folder its store makes (`tests/test_unity_host.py`).** It minted its folder inside `tests/temp_tests`, which only the integration suite's projects had made before they moved to `tests/temp_unity`, so a fresh checkout (CI) failed it with FileNotFoundError; a scoped `ptk.TempArtifacts` there now makes the folder and removes it.
   - Test(s): `test_unity_host.TestUnityHost.test_a_link_elsewhere_or_another_version_is_no_kernel`, run with no scratch folder present.
 - **2026-11-27 -- The shadow-plane cache's atlas goes with the last plane it served (`Features/ShadowPlane/Runtime/ShadowPlaneCache.cs` `Release`).** Its atlas, command buffer and per-camera listening were freed only before a script reload, so a scene unloaded (or every plane switched off) left a player holding the atlas and listening to each camera for nothing; the last plane's release now frees them, and the next caching plane makes an atlas again.
