@@ -45,7 +45,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             var view = new GameObject("VIEW_FRONT").transform;
             view.SetParent(_root.transform);
             view.SetPositionAndRotation(new Vector3(0f, 0f, 2f), Quaternion.identity);  // in front of the door, looking on past it
-            string json = "{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
+            string json = "{\"version\": 3, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
                 "{\"behavior\": \"travel\", \"text\": \"The user is brought to VIEW_FRONT\", \"targets\": [\"CABINET|DOOR_GRP\"], " +
                 "\"fields\": {\"where\": [\"VIEW_FRONT\"]}}]}]}";
             var plan = SheetPlan.Read(json, "test plan", out string refusal);
@@ -124,7 +124,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         [Test]
         public void A_projects_own_verbs_build_in_the_roles_of_the_kits()
         {
-            string json = "{\"version\": 2, \"steps\": [" +
+            string json = "{\"version\": 3, \"steps\": [" +
                 "{\"id\": \"A01\", \"actions\": [" +
                 "{\"behavior\": \"test_walk\", \"text\": \"The user walks up to the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}," +
                 "{\"behavior\": \"list\", \"text\": \"A list is shown\"}]}," +

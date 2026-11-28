@@ -20,7 +20,7 @@ namespace M3trik.Unitytk.Manifests
     public static partial class SheetPlan
     {
         /// <summary>A sheet plan's schema version: the one read.</summary>
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         /// <summary>A sheet plan's declared shape (SheetPlan).</summary>
         public static class Shape
@@ -28,7 +28,7 @@ namespace M3trik.Unitytk.Manifests
             /// <summary>A sheet plan: the steps a sheet writes, each row a behavior on the delivery's nodes.</summary>
             public sealed class Payload
             {
-                /// <summary>The plan's schema version (SheetPlan.VERSION): 2.</summary>
+                /// <summary>The plan's schema version (SheetPlan.VERSION): 3.</summary>
                 public int? version;
                 /// <summary>What the plan was read from.</summary>
                 public PlanSource source;

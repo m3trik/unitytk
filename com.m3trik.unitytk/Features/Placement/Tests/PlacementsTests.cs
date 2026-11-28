@@ -204,7 +204,7 @@ namespace M3trik.Unitytk.Placement.Tests
             Placements.Place(node, "travel/A01", Part, Spot, null, new OpContext());
             var plan = new OpContext(dryRun: true);
             Placements.Place(node, "travel/B01", Part, Spot, null, plan);
-            Assert.That(plan.Changes.Select(c => (c.kind, c.action)), Is.EqualTo(new[] { ("change", "place it as 'teleport/B01'") }), "no move: it is there");
+            Assert.That(plan.Changes.Select(c => (c.kind, c.action)), Is.EqualTo(new[] { ("change", "place it as 'travel/B01'") }), "no move: it is there");
             var live = new OpContext();
             PlacedSpot spot = Placements.Place(node, "travel/B01", Part, Spot, null, live);
             Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(plan.Changes.Select(c => (c.kind, c.target, c.action))));

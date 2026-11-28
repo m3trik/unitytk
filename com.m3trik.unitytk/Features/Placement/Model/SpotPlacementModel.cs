@@ -121,10 +121,10 @@ namespace M3trik.Unitytk.Placement
         public const double Near = 0.02;
         /// <summary>A camera's room in free space, as a radius in metres.</summary>
         public const double Free = 0.05;
-        /// <summary>Metres between an arrow's tip and its part.</summary>
+        /// <summary>Metres between a pointer's tip and its part.</summary>
         public const double Gap = 0.04;
-        /// <summary>An arrow's length, tip to tail, in metres.</summary>
-        public const double Arrow = 0.13;
+        /// <summary>A pointer's length, tip to tail, in metres.</summary>
+        public const double Pointer = 0.13;
         /// <summary>A picture's vertical field of view, in degrees.</summary>
         public const double ViewAngle = 30.0;
         /// <summary>The room around a picture's part (1: it just fits).</summary>
@@ -487,7 +487,7 @@ namespace M3trik.Unitytk.Placement
         /// <param name="eyes">Where the person's eyes are (null: those of <see cref="Stand"/>'s spot).</param>
         /// <param name="owners">What is the target (null: nothing).</param>
         /// <param name="gap">Metres between the tip and the part (null: <see cref="Gap"/>).</param>
-        /// <param name="length">Metres tip to tail (null: <see cref="Arrow"/>).</param>
+        /// <param name="length">Metres tip to tail (null: <see cref="Pointer"/>).</param>
         /// <param name="travel">How far it bobs away from the part along its axis, in metres.</param>
         /// <returns>Whether any spot is free and seen.</returns>
         public bool Point(Box target, out Vec tip, out Vec aim, Box? delivery = null, Vec? eyes = null,
@@ -496,7 +496,7 @@ namespace M3trik.Unitytk.Placement
             Frame(out Vec up, out _, out Vec h2);
             double u = Unit;
             int ui = Up;
-            double off = (gap ?? Gap) * u, size = (length ?? Arrow) * u;
+            double off = (gap ?? Gap) * u, size = (length ?? Pointer) * u;
             Vec centre = Centre(target), extents = Extents(target);
             Vec from = eyes ?? EyesFor(target, delivery, owners);
             Vec level = Flat(from - centre);

@@ -57,7 +57,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
 
         static SheetPlan.Shape.Payload Plan(string actions)
         {
-            var plan = SheetPlan.Read("{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" + actions + "]}]}",
+            var plan = SheetPlan.Read("{\"version\": 3, \"steps\": [{\"id\": \"A01\", \"actions\": [" + actions + "]}]}",
                                          "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
             return plan;
@@ -96,7 +96,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                                      "\"targets\": [\"Box\"], \"clip\": \"Intro\"}";
             const string wrenchBox = "{\"behavior\": \"use\", \"text\": \"Selecting the box with wrench in hand triggers Box Outro animation\", " +
                                      "\"targets\": [\"Box\"], \"clip\": \"Outro\", \"fields\": {\"with\": \"WRENCH_GRP\"}}";
-            var plan = SheetPlan.Read("{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" + selectBox + "]}, " +
+            var plan = SheetPlan.Read("{\"version\": 3, \"steps\": [{\"id\": \"A01\", \"actions\": [" + selectBox + "]}, " +
                                       "{\"id\": \"A02\", \"actions\": [" + TakeWrench + "," + wrenchBox + "]}]}", "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
             var ctx = new OpContext();
@@ -180,7 +180,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         public void A_task_extension_the_kit_does_not_read_is_said_once_to_the_run_however_many_rows_use_the_tool()
         {
             var plan = SheetPlan.Read(
-                "{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" + TakeWrench + "," + UseBox + "," + UseBox + "]}], " +
+                "{\"version\": 3, \"steps\": [{\"id\": \"A01\", \"actions\": [" + TakeWrench + "," + UseBox + "," + UseBox + "]}], " +
                 "\"extensions\": {\"task\": {\"tools\": {\"WRENCH_GRP\": {\"tip\": [0, 0, 0.1]}}}}}", "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
             var ctx = new OpContext();
@@ -211,7 +211,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             const string ShowSign = "{\"behavior\": \"highlight\", \"text\": \"Highlight the sign\", \"targets\": [\"SIGN\"]}";
             new GameObject("SIGN").transform.SetParent(_instance.transform);  // a part the task only points out
             var plan = SheetPlan.Read(
-                "{\"version\": 2, \"steps\": [" +
+                "{\"version\": 3, \"steps\": [" +
                 "{\"id\": \"A01\", \"actions\": [" + ShowSign + "," + ShowBox + "," + Next + "]}," +
                 "{\"id\": \"A02\", \"actions\": [" + TakeWrench + "," + Next + "]}," +
                 "{\"id\": \"A03\", \"actions\": [" + ShowBox + "," + UseBox + "]}]}",
@@ -254,7 +254,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         public void A_built_task_runs_step_by_step_as_its_sheet_says()
         {
             var plan = SheetPlan.Read(
-                "{\"version\": 2, \"steps\": [" +
+                "{\"version\": 3, \"steps\": [" +
                 "{\"id\": \"A01\", \"name\": \"Wrench the box\", \"actions\": [" + TakeWrench + "," + UseBox + "," + BackInHand + "," +
                 "{\"behavior\": \"advance\", \"text\": \"Auto Advance\"}]}," +
                 "{\"id\": \"A02\", \"name\": \"Send it back\", \"actions\": [" +

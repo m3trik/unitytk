@@ -24,7 +24,7 @@ namespace M3trik.Unitytk.Tools.Manifests.Tests
         const string PrefabPath = "Assets/ManifestWindowTests delivery.prefab";
 
         const string Json =
-            "{\"version\": 2, \"source\": {\"sheet\": \"test.csv\", \"delivery\": \"delivery.fbx\"}, \"steps\": [" +
+            "{\"version\": 3, \"source\": {\"sheet\": \"test.csv\", \"delivery\": \"delivery.fbx\"}, \"steps\": [" +
             "{\"id\": \"S01\", \"name\": \"One\", \"section\": \"A\", \"section_title\": \"Access\", \"actions\": [" +
             "{\"behavior\": \"test_part\", \"text\": \"Part A\", \"targets\": [\"A\"]}]}," +
             "{\"id\": \"S02\", \"name\": \"Two\", \"actions\": [" +
@@ -215,7 +215,7 @@ namespace M3trik.Unitytk.Tools.Manifests.Tests
             // read as a build with errors.
             Object.DestroyImmediate(_manifest.plan);
             _manifest.plan = new TextAsset(
-                "{\"version\": 2, \"source\": {\"sheet\": \"test.csv\", \"delivery\": \"delivery.fbx\"}, \"steps\": [" +
+                "{\"version\": 3, \"source\": {\"sheet\": \"test.csv\", \"delivery\": \"delivery.fbx\"}, \"steps\": [" +
                 "{\"id\": \"S01\", \"name\": \"One\", \"actions\": [" +
                 "{\"behavior\": \"test_part\", \"text\": \"Part A\", \"targets\": [\"A\"], \"fields\": {\"value\": \"note\"}}]}]}")
             { hideFlags = HideFlags.HideAndDontSave };

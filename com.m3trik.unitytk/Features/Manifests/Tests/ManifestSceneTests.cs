@@ -103,8 +103,8 @@ namespace M3trik.Unitytk.Manifests.Tests
             // One rule for every kit: a row's "size" is the member named as its behavior's size, where there is one.
             Assert.That(ManifestBehaviors.Mark("test_look").Settings, Is.EqualTo(new[] { "test_look.size", "test_look.solid" }),
                         "a behavior naming none of its own takes each field of its group, by its path");
-            Assert.That((ManifestBehaviors.Mark("test_look").RowSettings, ManifestBehaviors.Mark("test_look").Suffix),
-                        Is.EqualTo((new[] { "test_look.size" }, new[] { "test_look.solid" })), "a name with no dot is its group's field");
+            Assert.That(ManifestBehaviors.Mark("test_look").RowSettings, Is.EqualTo(new[] { "test_look.size" }), "a name with no dot is its group's field");
+            Assert.That(ManifestBehaviors.Mark("test_look").Suffix, Is.EqualTo(new[] { "test_look.solid" }));
             Assert.That(ManifestBehaviors.Mark("test_part").Settings, Is.EqualTo(new[] { "box" }), "a kit's flat settings stay as they are named");
             Assert.That((ManifestBehaviors.SettingName("test_look", "size"), ManifestBehaviors.SettingName("test_part", "size")),
                         Is.EqualTo(("test_look.size", "size")));

@@ -43,7 +43,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
 
         static SheetPlan.Shape.Payload Plan(string actions)
         {
-            string json = "{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" + actions + "]}], " +
+            string json = "{\"version\": 3, \"steps\": [{\"id\": \"A01\", \"actions\": [" + actions + "]}], " +
                           "\"issues\": [\"no step plays the take Z99\"]}";
             var plan = SheetPlan.Read(json, "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
@@ -104,7 +104,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         [Test]
         public void What_the_kit_cannot_fit_place_or_follow_is_raised_by_its_code()
         {
-            string json = "{\"version\": 2, \"extensions\": {\"task\": {\"tools\": {\"LID\": {\"tip\": [0, 1]}}, \"pace\": 2}}, " +
+            string json = "{\"version\": 3, \"extensions\": {\"task\": {\"tools\": {\"LID\": {\"tip\": [0, 1]}}, \"pace\": 2}}, " +
                           "\"steps\": [{\"id\": \"A01\", \"actions\": [" +
                           "{\"behavior\": \"play\", \"text\": \"Door open Animation plays\", \"clip\": \"A01\"}," +
                           "{\"behavior\": \"travel\", \"text\": \"The user is brought to face the lid\", \"targets\": [\"CABINET|LID\"]}]}]}";
@@ -212,7 +212,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         }
 
         // A task of every placard-, ring- and press-built behavior, each step its own.
-        const string Task = "{\"version\": 2, \"steps\": [" +
+        const string Task = "{\"version\": 3, \"steps\": [" +
             "{\"id\": \"A01\", \"actions\": [" +
             "{\"behavior\": \"use\", \"text\": \"Holding the door plays A01\", \"targets\": [\"CABINET|DOOR_GRP\"], \"clip\": \"A01\", \"settings\": {\"trigger\": \"hold\"}}," +
             "{\"behavior\": \"list\", \"text\": \"A list is shown: Door open, Lid checked\", \"fields\": {\"label\": \"Door open\\nLid checked\"}}]}," +
@@ -345,7 +345,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         [Test]
         public void A_travel_to_a_viewpoint_the_delivery_lacks_is_unresolved_and_the_build_goes_on()
         {
-            string json = "{\"version\": 2, \"steps\": [" +
+            string json = "{\"version\": 3, \"steps\": [" +
                           "{\"id\": \"A01\", \"actions\": [{\"behavior\": \"highlight\", \"text\": \"The door is highlighted\", \"targets\": [\"CABINET|DOOR_GRP\"]}]}," +
                           "{\"id\": \"A02\", \"actions\": [{\"behavior\": \"travel\", \"text\": \"The user is brought to VIEW_GONE\", " +
                           "\"fields\": {\"where\": [\"CABINET|VIEW_GONE\"]}, \"settings\": {\"ring\": \"step\"}}]}]}";
@@ -581,7 +581,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 "\"fields\": {\"with\": \"CABINET|LID\"}, \"clip\": \"A01\"}";
             SheetPlan.Shape.Payload Two(string set)
             {
-                string json = "{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" + Rows.Replace("SET", set) + "]}, " +
+                string json = "{\"version\": 3, \"steps\": [{\"id\": \"A01\", \"actions\": [" + Rows.Replace("SET", set) + "]}, " +
                               "{\"id\": \"A02\", \"actions\": [{\"behavior\": \"highlight\", \"text\": \"The door is highlighted\", " +
                               "\"targets\": [\"CABINET|DOOR_GRP\"]}]}]}";
                 var read = SheetPlan.Read(json, "test plan", out string refusal);
@@ -624,7 +624,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         public void A_list_goes_from_the_placard_as_the_step_its_span_names_starts()
         {
             // The real task's list, done with at its section's end, ran over the buttons of every page after it.
-            string json = "{\"version\": 2, \"steps\": [" +
+            string json = "{\"version\": 3, \"steps\": [" +
                           "{\"id\": \"A01\", \"actions\": [{\"behavior\": \"list\", \"text\": \"A list is shown, until A02\", " +
                           "\"fields\": {\"label\": \"Door, Lid\"}, \"settings\": {\"until\": \"A02\"}}]}, " +
                           "{\"id\": \"A02\", \"actions\": [{\"behavior\": \"note\", \"text\": \"The list goes\"}]}, " +
@@ -647,7 +647,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(sequence.Find("A03").activates.Contains(during), "until=step: while its step runs");
             Assert.That(placard.GetComponentsInChildren<M3trik.Unitytk.Panels.PlacardList>(true).Length, Is.EqualTo(2), "no row to take one away");
 
-            var before = SheetPlan.Read("{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [{\"behavior\": \"list\", " +
+            var before = SheetPlan.Read("{\"version\": 3, \"steps\": [{\"id\": \"A01\", \"actions\": [{\"behavior\": \"list\", " +
                                         "\"text\": \"A list is shown, until A01\", \"fields\": {\"label\": \"Door\"}, \"settings\": {\"until\": \"A01\"}}]}]}",
                                         "test plan", out refusal);
             Assert.That(ManifestsActions.Assess(before, _scene).rows.Single().problems.Single(), Does.Contain("its until 'A01' is no later step than A01"));
@@ -677,7 +677,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             disc.name = "VIEW_FRONT";
             disc.transform.SetParent(_root.transform.Find("CABINET"));
             var scene = new ManifestScene(_root, new AnimationClip[0]);
-            string json = "{\"version\": 2, \"steps\": [" +
+            string json = "{\"version\": 3, \"steps\": [" +
                 "{\"id\": \"A01\", \"fields\": {\"voice\": \"one two three four five six seven eight nine ten\", \"placard\": \"Look at the door\"}, \"actions\": [" +
                 "{\"behavior\": \"highlight\", \"text\": \"Highlight the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}," +
                 "{\"behavior\": \"travel\", \"text\": \"The user is brought to VIEW_FRONT\", \"fields\": {\"where\": [\"CABINET|VIEW_FRONT\"]}}," +
@@ -708,7 +708,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         public void A_step_that_offers_no_choice_goes_on_by_itself_unless_its_advance_is_turned_off()
         {
             // "Do we really need an advance behavior, isn't that just the default?" Added: 2026-11-23
-            string json = "{\"version\": 2, \"steps\": [" +
+            string json = "{\"version\": 3, \"steps\": [" +
                 "{\"id\": \"A01\", \"fields\": {\"voice\": \"Look at the door.\"}, \"actions\": [" +
                 "{\"behavior\": \"highlight\", \"text\": \"Highlight the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}]}," +
                 "{\"id\": \"A02\", \"actions\": [" +
@@ -752,7 +752,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             var voice = AudioClip.Create("grab_the_keys", 24000 * 2, 1, 24000, false);
             var player = M3trik.Unitytk.AnimationAudio.AnimationAudioActions.AddPlayer(_root) ? _root.GetComponent<M3trik.Unitytk.AnimationAudio.AnimationAudioPlayer>() : null;
             var scene = new ManifestScene(_root, new AnimationClip[0]) { FindAsset = (path, type) => path == "narration/grab_the_keys.wav" ? voice : null };
-            var plan = SheetPlan.Read("{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"fields\": {\"voice\": \"Grab the keys.\", " +
+            var plan = SheetPlan.Read("{\"version\": 3, \"steps\": [{\"id\": \"A01\", \"fields\": {\"voice\": \"Grab the keys.\", " +
                                       "\"sound\": \"narration/grab_the_keys.wav\"}, \"actions\": [{\"behavior\": \"advance\", \"text\": \"Auto Advance\"}]}]}",
                                       "task", out string refusal);
             Assert.That(refusal, Is.Null);
@@ -791,7 +791,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             {
                 FindAsset = (path, type) => path == "narration/a01.wav" ? keys : path == "narration/a02.wav" ? door : null,
             };
-            var plan = SheetPlan.Read("{\"version\": 2, \"steps\": [" +
+            var plan = SheetPlan.Read("{\"version\": 3, \"steps\": [" +
                                       "{\"id\": \"A01\", \"fields\": {\"voice\": \"Grab the keys.\", \"sound\": \"narration/a01.wav\"}, \"actions\": [" + Advance + "]}," +
                                       "{\"id\": \"A02\", \"fields\": {\"voice\": \"Open the door.\", \"sound\": \"narration/a02.wav\"}, \"actions\": [" + Advance + "]}]}",
                                       "task", out string refusal);
@@ -823,7 +823,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         {
             var voice = AudioClip.Create("open_the_door", 24000 * 6, 1, 24000, false);  // six seconds
             var scene = new ManifestScene(_root, new AnimationClip[0]) { FindAsset = (path, type) => path == "narration/a01.wav" ? voice : null };
-            string json = "{\"version\": 2, \"steps\": [" +
+            string json = "{\"version\": 3, \"steps\": [" +
                 "{\"id\": \"A01\", \"fields\": {\"voice\": \"Open the door.\", \"sound\": \"narration/a01.wav\"}, \"actions\": [" +
                 "{\"behavior\": \"advance\", \"text\": \"Auto Advance\"}]}," +
                 "{\"id\": \"A02\", \"fields\": {\"voice\": \"Close it.\", \"sound\": \"narration/missing.wav\"}, \"actions\": [" +
@@ -1316,7 +1316,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             anchored.anchorPattern = "^UI_";  // the task names its anchors (none by default)
             anchored.picture.anchor = "^UI_PIP";  // and its picture's screen
             var scene = new ManifestScene(_root, new AnimationClip[0]).Use(anchored);
-            string json = "{\"version\": 2, \"steps\": [" +
+            string json = "{\"version\": 3, \"steps\": [" +
                 "{\"id\": \"A01\", \"actions\": [" +
                 "{\"behavior\": \"picture\", \"text\": \"A picture shows DOOR_GRP, captioned 'The door behind the lid'\", " +
                 "\"targets\": [\"CABINET|DOOR_GRP\"], \"fields\": {\"label\": \"The door behind the lid\"}}]}," +

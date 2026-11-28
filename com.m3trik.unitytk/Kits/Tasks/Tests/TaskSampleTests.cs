@@ -302,7 +302,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(Node("DOOR_GRP").GetComponent<Target>().enabled, Is.True);
             Assert.That(Node("LATCH_UPPER_GRP").GetComponent<Target>().enabled, Is.False, "A01's targets are A01's alone");
 
-            Assert.That(Page().text, Is.EqualTo("Select the door to open it"), "A02's placard row says it, in place of its voice line");
+            Assert.That(Page().text, Is.EqualTo("Select the door to open it"), "A02's placard text says it, in place of its voice line");
             Select("DOOR_GRP");
             Play(2f);
             _sequence.Tick(60f);  // a step going on by itself runs long enough to be read
@@ -324,7 +324,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(_sequence.Current.id, Is.EqualTo("B03"), "the button's selection completed B02");
             Assert.That(Page().choices, Is.EqualTo(new[] { "YES", "NO" }), "the buttons its sheet names, a row saying what each does");
             Press("NO");
-            Assert.That(_sequence.Current.id, Is.EqualTo("B03_5"));
+            Assert.That(_sequence.Current.id, Is.EqualTo("B03A"));
             Press("Try Again");
             Press("YES");
             Assert.That(_sequence.Current.id, Is.EqualTo("B04"));

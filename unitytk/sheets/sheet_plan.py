@@ -289,10 +289,10 @@ class SheetPlan(SchemaSpec, _SheetPlanInternal):
     TYPED = True
 
     #: The plan's schema version: the one this writes and the kit reads.
-    VERSION: ClassVar[int] = 2
+    VERSION: ClassVar[int] = 3
 
     version: int = _field(
-        help="The plan's schema version (SheetPlan.VERSION): 2.",
+        help="The plan's schema version (SheetPlan.VERSION): 3.",
         required=True,
         example=2,
     )

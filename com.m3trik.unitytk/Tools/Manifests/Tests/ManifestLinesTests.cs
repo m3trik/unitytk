@@ -15,7 +15,7 @@ namespace M3trik.Unitytk.Tools.Manifests.Tests
     public class ManifestLinesTests
     {
         const string Json =
-            "{\"version\": 2, \"source\": {\"sheet\": \"test.csv\"}, \"issues\": [\"no step plays the take Z99\"], \"steps\": [" +
+            "{\"version\": 3, \"source\": {\"sheet\": \"test.csv\"}, \"issues\": [\"no step plays the take Z99\"], \"steps\": [" +
             "{\"id\": \"S01\", \"actions\": [" +
             "{\"behavior\": \"test_fade\", \"text\": \"The lid fades in\", \"targets\": [\"BOX|LID\", \"BOX|HINGE\"]}," +
             "{\"behavior\": \"unread\", \"text\": \"Something else\", \"issues\": [\"row 2 (Step Contents): no phrase reads it: write an Action\"]}]}]}";
@@ -24,7 +24,7 @@ namespace M3trik.Unitytk.Tools.Manifests.Tests
         public void Two_rows_of_one_behavior_say_what_tells_them_apart_and_every_field_the_sheet_gives()
         {
             const string choices =
-                "{\"version\": 2, \"steps\": [{\"id\": \"B03\", \"actions\": [" +
+                "{\"version\": 3, \"steps\": [{\"id\": \"B03\", \"actions\": [" +
                 "{\"behavior\": \"test_choice\", \"text\": \"Selecting YES goes to B03.5\", \"to\": \"B03_5\", \"fields\": {\"label\": \"YES\"}}," +
                 "{\"behavior\": \"test_choice\", \"text\": \"Selecting NO goes to B04\", \"to\": \"B04\", \"fields\": {\"label\": \"NO\"}}," +
                 "{\"behavior\": \"no_builder\", \"text\": \"A row no builder has\", \"fields\": {\"side_of\": \"LID\"}}]}]}";
@@ -42,7 +42,7 @@ namespace M3trik.Unitytk.Tools.Manifests.Tests
         {
             // The user: consolidate, and keep chips readable with a suffix when a behavior is set a certain way.
             const string rows =
-                "{\"version\": 2, \"steps\": [{\"id\": \"C01\", \"actions\": [" +
+                "{\"version\": 3, \"steps\": [{\"id\": \"C01\", \"actions\": [" +
                 "{\"behavior\": \"test_sign\", \"text\": \"The sign faces front\"}," +
                 "{\"behavior\": \"test_sign\", \"text\": \"The sign faces back\", \"settings\": {\"face\": \"Back\"}}," +
                 "{\"behavior\": \"test_press\", \"text\": \"Holding the button down plays its take\", \"targets\": [\"BOX|BUTTON\"], \"clip\": \"C01\", " +

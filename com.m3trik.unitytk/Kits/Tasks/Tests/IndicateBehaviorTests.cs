@@ -70,7 +70,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             var place = new GameObject("POINT_NUT").transform;
             place.SetParent(_root.transform);
             place.SetPositionAndRotation(new Vector3(0, 1.6f, -0.2f), Quaternion.LookRotation(Vector3.down));
-            string Plan(string fields) => "{\"version\": 2, \"steps\": [{\"id\": \"B11\", \"actions\": [{\"behavior\": \"indicate\", " +
+            string Plan(string fields) => "{\"version\": 3, \"steps\": [{\"id\": \"B11\", \"actions\": [{\"behavior\": \"indicate\", " +
                                           "\"text\": \"Arrow points at the nut\", \"targets\": [\"NUT\"]" + fields + "}]}, " +
                                           "{\"id\": \"C02\", \"actions\": [{\"behavior\": \"indicate\", \"text\": \"Arrow points at the nut\", " +
                                           "\"targets\": [\"NUT\"]" + fields + "}]}]}";
@@ -119,7 +119,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             lid.transform.SetParent(_root.transform);
             lid.transform.SetPositionAndRotation(new Vector3(0, 1f, 0), Quaternion.identity);
             lid.transform.localScale = Vector3.one * 0.2f;
-            var plan = SheetPlan.Read("{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [{\"behavior\": \"indicate\", " +
+            var plan = SheetPlan.Read("{\"version\": 3, \"steps\": [{\"id\": \"A01\", \"actions\": [{\"behavior\": \"indicate\", " +
                                       "\"text\": \"Arrow points at the lid\", \"targets\": [\"LID\"], " +
                                       "\"settings\": {\"style\": \"solid\", \"size\": \"0.3\", \"color\": \"#FF0000\"}}]}]}", "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
@@ -156,7 +156,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 latch.transform.SetPositionAndRotation(new Vector3(0, y, 0), Quaternion.identity);
                 latch.transform.localScale = Vector3.one * 0.05f;
             }
-            var plan = SheetPlan.Read("{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
+            var plan = SheetPlan.Read("{\"version\": 3, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
                                       "{\"behavior\": \"indicate\", \"text\": \"Arrows point at both latches\", \"targets\": [\"LATCHES_GRP\"]}]}]}",
                                       "test plan", out string refusal);
             Assert.That(refusal, Is.Null);

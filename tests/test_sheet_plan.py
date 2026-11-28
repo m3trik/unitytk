@@ -655,7 +655,7 @@ class ContractTestCase(UnityTkTestCase):
         )
         self.assertFalse(
             SheetPlan.validate(
-                {"version": 2, "steps": [], "extensions": {"kit": 3}}
+                {"version": SheetPlan.VERSION, "steps": [], "extensions": {"kit": 3}}
             ).ok,
             "an entry is an object",
         )
@@ -1624,10 +1624,10 @@ class ProjectClausesTestCase(UnityTkTestCase):
     #: test (ManifestsActionsTests.An_edited_clause_template_of_the_project_makes_its_plan_stale) holds the same bytes,
     #: which a digest reads as bytes alone, never as templates.
     FIXED_CLAUSES = {
-        "go.json": '{"behavior": "pause",\r\n "detect": ["^go on$"]}\r\n',
-        "stop.json": '{"behavior": "pause", "detect": ["^stop$"]}\n',
+        "go.json": '{"word": "button",\r\n "detect": ["^go on$"]}\r\n',
+        "stop.json": '{"word": "button", "detect": ["^stop$"]}\n',
     }
-    FIXED_DIGEST = "f359c759e73780324bc030924194ea3d354911ac3f844d9245976311fc348612"
+    FIXED_DIGEST = "4973bc23b2555913d22f2c98ab3b3fb764f5bc3334f0b12a2a421df68049af90"
 
     def test_the_digest_of_a_fixed_folder_is_the_golden_one(self):
         folder = os.path.join(self.create_temp_dir(), "clauses")

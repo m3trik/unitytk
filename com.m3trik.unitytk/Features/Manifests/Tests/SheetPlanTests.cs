@@ -12,7 +12,7 @@ namespace M3trik.Unitytk.Manifests.Tests
         public void Read_reads_a_plan_of_its_version()
         {
             var plan = SheetPlan.Read(
-                "{\"version\": 2, \"source\": {\"sheet\": \"s.csv\", \"delivery\": \"d.fbx\"}, \"steps\": [" +
+                "{\"version\": 3, \"source\": {\"sheet\": \"s.csv\", \"delivery\": \"d.fbx\"}, \"steps\": [" +
                 "{\"id\": \"A01\", \"name\": \"Open\", \"fields\": {\"voice\": \"Open it.\"}, \"actions\": [" +
                 "{\"behavior\": \"use\", \"text\": \"Selecting the door plays A01\", " +
                 "\"targets\": [\"CABINET|DOOR_GRP\"], \"clip\": \"A01\", \"fields\": {\"with\": \"TOOLS|KEY_GRP\"}}]}]}",
@@ -30,7 +30,7 @@ namespace M3trik.Unitytk.Manifests.Tests
         [TestCase("[1, 2]", "is not a sheet plan (no JSON object)")]
         [TestCase("{\"version\": 1}", "is not a sheet plan")]
         [TestCase("{\"version\": 1, \"steps\": []}", "is a version 1 plan; this editor reads 2 only")]
-        [TestCase("{\"version\": 2, \"steps\": [{\"actions\": []}]}", "is not a sheet plan")]
+        [TestCase("{\"version\": 3, \"steps\": [{\"actions\": []}]}", "is not a sheet plan")]
         public void Read_refuses_what_is_no_plan_of_its_version_whole(string json, string says)
         {
             Assert.That(SheetPlan.Read(json, "plan.json", out string refusal), Is.Null);
@@ -42,7 +42,7 @@ namespace M3trik.Unitytk.Manifests.Tests
         public void A_rows_fields_and_a_kits_extension_are_read_by_name()
         {
             var plan = SheetPlan.Read(
-                "{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
+                "{\"version\": 3, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
                 "{\"behavior\": \"indicate\", \"text\": \"Arrows point at the latches\", \"targets\": [\"A\", \"B\"], " +
                 "\"fields\": {\"where\": [\"POINTS|A\", \"\"], \"phrase\": \"the latches\"}}]}], " +
                 "\"extensions\": {\"some_kit\": {\"speed\": 2}}}", "plan.json", out string refusal);
@@ -61,7 +61,7 @@ namespace M3trik.Unitytk.Manifests.Tests
             Assert.That((action.clip, action.Field("label"), action.Field("phrase")), Is.EqualTo(("A01", "Next", (string)null)),
                         "a declared field by its name, any other in the row's fields");
             Assert.That(SheetPlan.DeclaredFields, Is.EquivalentTo(new[] { "clip", "to" }));
-            Assert.That(SheetPlan.Read("{\"version\": 2, \"steps\": [], \"extensions\": {\"kit\": 3}}", "p", out refusal), Is.Null,
+            Assert.That(SheetPlan.Read("{\"version\": 3, \"steps\": [], \"extensions\": {\"kit\": 3}}", "p", out refusal), Is.Null,
                         "a kit's entry is an object");
         }
     }

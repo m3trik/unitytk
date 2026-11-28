@@ -22,7 +22,7 @@ namespace M3trik.Unitytk.Manifests.Tests
         const string PlanPath = "Assets/ManifestsActionsTests.plan.json";
 
         const string Json =
-            "{\"version\": 2, \"source\": {\"sheet\": \"test.csv\", \"delivery\": \"delivery.fbx\"}, \"steps\": [" +
+            "{\"version\": 3, \"source\": {\"sheet\": \"test.csv\", \"delivery\": \"delivery.fbx\"}, \"steps\": [" +
             "{\"id\": \"S01\", \"name\": \"One\", \"actions\": [" +
             "{\"behavior\": \"test_part\", \"text\": \"Part A\", \"targets\": [\"A\"]}," +
             "{\"behavior\": \"test_part\", \"text\": \"Part B\", \"targets\": [\"B\"], \"fields\": {\"value\": \"trigger\"}}]}," +
@@ -278,7 +278,7 @@ namespace M3trik.Unitytk.Manifests.Tests
         {
             // A marker shown then hidden in one step: one behavior, two rows on one line; an edit or a value is one row's.
             const string twice =
-                "{\"version\": 2, \"steps\": [{\"id\": \"S01\", \"actions\": [" +
+                "{\"version\": 3, \"steps\": [{\"id\": \"S01\", \"actions\": [" +
                 "{\"behavior\": \"test_part\", \"text\": \"First\", \"targets\": [\"A\"], \"fields\": {\"value\": \"one\"}}," +
                 "{\"behavior\": \"test_part\", \"text\": \"Second\", \"targets\": [\"A\"], \"fields\": {\"value\": \"trigger\"}}]}]}";
             var plan = SheetPlan.Read(twice, "test", out _);
@@ -677,10 +677,10 @@ namespace M3trik.Unitytk.Manifests.Tests
         // it: test_sheet_plan.py's ProjectClausesTestCase holds the same pair, so the two readers agree on one golden value.
         static readonly (string name, string text)[] FixedClauses =
         {
-            ("go.json", "{\"behavior\": \"pause\",\r\n \"detect\": [\"^go on$\"]}\r\n"),
-            ("stop.json", "{\"behavior\": \"pause\", \"detect\": [\"^stop$\"]}\n"),
+            ("go.json", "{\"word\": \"button\",\r\n \"detect\": [\"^go on$\"]}\r\n"),
+            ("stop.json", "{\"word\": \"button\", \"detect\": [\"^stop$\"]}\n"),
         };
-        const string FixedClausesDigest = "f359c759e73780324bc030924194ea3d354911ac3f844d9245976311fc348612";
+        const string FixedClausesDigest = "4973bc23b2555913d22f2c98ab3b3fb764f5bc3334f0b12a2a421df68049af90";
 
         [Test]
         public void A_manifest_reads_its_sheet_again_by_running_the_readers_command_and_says_what_came_of_it()
@@ -1043,7 +1043,7 @@ namespace M3trik.Unitytk.Manifests.Tests
                 return scene.Source("S01");
             }
             string row(string extra) =>
-                "{\"version\": 2, \"steps\": [{\"id\": \"S01\", \"actions\": [{\"behavior\": \"test_part\", \"text\": \"Part A\", \"targets\": [\"A\"]" +
+                "{\"version\": 3, \"steps\": [{\"id\": \"S01\", \"actions\": [{\"behavior\": \"test_part\", \"text\": \"Part A\", \"targets\": [\"A\"]" +
                 extra + "}]}]}";
             string plain = Source(row(""));
             Assert.That(Source(row(", \"to\": \"S02\"")), Is.Not.EqualTo(plain), "the step it goes to");
@@ -1057,7 +1057,7 @@ namespace M3trik.Unitytk.Manifests.Tests
         public void An_assessment_finds_only_the_fields_a_behavior_says_name_nodes_or_takes()
         {
             const string rows =
-                "{\"version\": 2, \"steps\": [{\"id\": \"S01\", \"actions\": [" +
+                "{\"version\": 3, \"steps\": [{\"id\": \"S01\", \"actions\": [" +
                 "{\"behavior\": \"test_part\", \"text\": \"Its with is a word\", \"targets\": [\"A\"], \"fields\": {\"with\": \"no node\"}}," +
                 "{\"behavior\": \"test_part\", \"text\": \"Its anchor is a node\", \"targets\": [\"A\"], \"fields\": {\"anchor\": \"NOPE\"}}," +
                 "{\"behavior\": \"test_part\", \"text\": \"It plays a take\", \"targets\": [\"A\"], \"clip\": \"Z99\"}]}]}";
@@ -1072,7 +1072,7 @@ namespace M3trik.Unitytk.Manifests.Tests
         public void A_setting_no_field_of_its_kit_holds_is_said_and_never_shares_a_name_with_a_rows_field()
         {
             const string rows =
-                "{\"version\": 2, \"steps\": [{\"id\": \"S01\", \"actions\": [" +
+                "{\"version\": 3, \"steps\": [{\"id\": \"S01\", \"actions\": [" +
                 "{\"behavior\": \"test_part\", \"text\": \"Part A\", \"targets\": [\"A\"], \"settings\": {\"sise\": 2}}]}]}";
             var build = new OpContext();
             ManifestAssessment built = ManifestsActions.Build(SheetPlan.Read(rows, "test", out _), _scene, build);

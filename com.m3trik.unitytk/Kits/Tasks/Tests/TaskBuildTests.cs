@@ -231,7 +231,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             string[] kept = _task.tunes.Where(t => t.step == "B01").SelectMany(t => t.values).Select(v => v.name).ToArray();
             Assert.That(kept, Is.SupersetOf(new[] { "use.start", "use.speed" }), "kept as the row's own");
             Assert.That(kept, Has.No.Member("use.stop"), "what was not changed is not kept");
-            Assert.That(_task.tunes.Where(t => t.step == "B01").Select(t => (t.target, t.behavior, t.row)), Is.EqualTo(new[] { ("", "use", 3) }),
+            Assert.That(_task.tunes.Where(t => t.step == "B01").Select(t => (t.target, t.behavior, t.row)), Is.EqualTo(new[] { ("", "use", 4) }),
                         "under the row itself, never its object: the take is the row's whatever objects it names");
             var settled = new OpContext(dryRun: true);
             ManifestsActions.Build(_task, settled);
@@ -255,19 +255,19 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             // them for its first object alone: a value set on any other did nothing. The clip player keeps one entry a take.
             const string bolt = "CABINET|BOLT_GRP";
             string[] take = { "use.speed", "use.start", "use.stop" };
-            string[] offered = ManifestsActions.Offered(_task, "B01", bolt, "use", 3);
+            string[] offered = ManifestsActions.Offered(_task, "B01", bolt, "use", 4);
             Assert.That(offered, Is.Not.Empty, "an object of a use row is offered settings of its own");
             Assert.That(offered.Intersect(take), Is.Empty, "but never its row's take");
-            Assert.That(ManifestsActions.Offered(_task, "B01", bolt, "use", 3, wholeRow: true), Is.EquivalentTo(take), "its row is");
+            Assert.That(ManifestsActions.Offered(_task, "B01", bolt, "use", 4, wholeRow: true), Is.EquivalentTo(take), "its row is");
             Assert.That(offered, Does.Contain("use.trigger"), "how one object plays it stays its own");
-            Assert.That(ManifestsActions.Offered(_task, "B01", "", "play", 4), Is.EquivalentTo(new[] { "play.after", "play.speed", "play.start", "play.stop" }),
+            Assert.That(ManifestsActions.Offered(_task, "B01", "", "play", 5), Is.EquivalentTo(new[] { "play.after", "play.speed", "play.start", "play.stop" }),
                         "a Play row, which names no object, is offered its own");
             var refused = new OpContext();
-            Assert.That(ManifestsActions.SetTune(_task, "B01", bolt, "use", "use.speed", "3", refused, 3), Is.False);
+            Assert.That(ManifestsActions.SetTune(_task, "B01", bolt, "use", "use.speed", "3", refused, 4), Is.False);
             Assert.That(refused.Issues.Select(i => i.code), Is.EqualTo(new[] { ManifestsActions.SettingCode }), "refused for one object, and said");
 
             var own = new OpContext();
-            Assert.That(ManifestsActions.SetTune(_task, "B01", "", "use", "use.speed", "2", own, 3), Is.True);
+            Assert.That(ManifestsActions.SetTune(_task, "B01", "", "use", "use.speed", "2", own, 4), Is.True);
             Assert.That(ManifestsActions.SetTune(_task, "B01", "", "play", "play.speed", "3", own), Is.True, "every Play row of the step");
             Assert.That(own.Issues, Is.Empty);
             ManifestsActions.Build(_task, new OpContext());
@@ -279,10 +279,10 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(again.Changes.Select(c => $"{c.kind} {c.target}: {c.action}"), Is.Empty, "a second build changes nothing");
 
             // An object whose row is its own (a take of its own) keeps its take as its own: it is that row.
-            Assert.That(ManifestsActions.SetRowField(_task, "B01", bolt, "use", "clip", "B01_1", row: 3), Is.True);
-            Assert.That(ManifestsActions.Offered(_task, "B01", bolt, "use", 3), Is.SupersetOf(take), "its row is the object's own");
-            Assert.That(ManifestsActions.Offered(_task, "B01", bolt, "use", 3, wholeRow: true), Is.Empty);
-            Assert.That(ManifestsActions.SetTune(_task, "B01", bolt, "use", "use.speed", "4", row: 3), Is.True);
+            Assert.That(ManifestsActions.SetRowField(_task, "B01", bolt, "use", "clip", "B01_1", row: 4), Is.True);
+            Assert.That(ManifestsActions.Offered(_task, "B01", bolt, "use", 4), Is.SupersetOf(take), "its row is the object's own");
+            Assert.That(ManifestsActions.Offered(_task, "B01", bolt, "use", 4, wholeRow: true), Is.Empty);
+            Assert.That(ManifestsActions.SetTune(_task, "B01", bolt, "use", "use.speed", "4", row: 4), Is.True);
             ManifestsActions.Build(_task, new OpContext());
             Assert.That(Player().Find("B01_1").speed, Is.EqualTo(4f), "its own row's take, at its own speed");
         }
@@ -618,7 +618,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 var manifest = ScriptableObject.CreateInstance<Manifest>();
                 manifest.settings.Add(settings);
                 made.AddRange(new Object[] { root, settings, manifest });
-                var plan = SheetPlan.Read("{\"version\": 2, \"source\": {\"sheet\": \"" + name + ".csv\"}, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
+                var plan = SheetPlan.Read("{\"version\": 3, \"source\": {\"sheet\": \"" + name + ".csv\"}, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
                                           "{\"behavior\": \"travel\", \"text\": \"The user is brought to face the door\", \"targets\": [\"DOOR_GRP\"]}]}]}",
                                           name, out string refusal);
                 Assert.That(refusal, Is.Null);

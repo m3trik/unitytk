@@ -41,7 +41,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
 
         static SheetPlan.Shape.Payload Plan(string steps)
         {
-            var plan = SheetPlan.Read("{\"version\": 2, \"steps\": [" + steps + "]}", "test plan", out string refusal);
+            var plan = SheetPlan.Read("{\"version\": 3, \"steps\": [" + steps + "]}", "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
             return plan;
         }

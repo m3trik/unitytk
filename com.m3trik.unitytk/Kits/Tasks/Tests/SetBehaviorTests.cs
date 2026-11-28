@@ -28,7 +28,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
 
         static SheetPlan.Shape.Payload Plan(string state, string target = "SOLENOID_LED")
         {
-            var plan = SheetPlan.Read("{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
+            var plan = SheetPlan.Read("{\"version\": 3, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
                                       $"{{\"behavior\": \"set\", \"text\": \"The solenoid LED turns {state}\", \"targets\": [\"{target}\"], " +
                                       $"\"settings\": {{\"state\": \"{state}\"}}}}]}}]}}", "test plan", out string refusal);
             Assert.That(refusal, Is.Null);

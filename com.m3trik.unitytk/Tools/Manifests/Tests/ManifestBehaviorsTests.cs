@@ -20,13 +20,13 @@ namespace M3trik.Unitytk.Tools.Manifests.Tests
         const string PrefabPath = "Assets/ManifestBehaviorsTests delivery.prefab";
 
         const string Both =
-            "{\"version\": 2, \"extensions\": {\"test\": {\"root\": \"Feature Kit Root\"}, \"tool_test\": {\"holder\": \"Tool Kit Holder\"}}, " +
+            "{\"version\": 3, \"extensions\": {\"test\": {\"root\": \"Feature Kit Root\"}, \"tool_test\": {\"holder\": \"Tool Kit Holder\"}}, " +
             "\"steps\": [{\"id\": \"S01\", \"actions\": [" +
             "{\"behavior\": \"test_part\", \"text\": \"Part A\", \"targets\": [\"A\"]}," +
             "{\"behavior\": \"test_sign\", \"text\": \"The sign faces back\", \"settings\": {\"face\": \"Back\"}}]}]}";
 
         const string FeatureOnly =
-            "{\"version\": 2, \"steps\": [{\"id\": \"S01\", \"actions\": [{\"behavior\": \"test_part\", \"text\": \"Part A\", \"targets\": [\"A\"]}]}]}";
+            "{\"version\": 3, \"steps\": [{\"id\": \"S01\", \"actions\": [{\"behavior\": \"test_part\", \"text\": \"Part A\", \"targets\": [\"A\"]}]}]}";
 
         static int _ownKit, _named, _withContext, _misnamed;  // the setups below, run
 

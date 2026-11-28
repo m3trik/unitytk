@@ -35,11 +35,11 @@ namespace M3trik.Unitytk.Placement
         /// <summary>How far from what a person works on with their hands they stand, in metres: within an arm's reach of it.</summary>
         public const float DefaultReach = 0.6f;
 
-        /// <summary>How far an arrow's tip stays from the part, in metres.</summary>
+        /// <summary>How far a pointer's tip stays from the part, in metres.</summary>
         public const float DefaultGap = (float)SpotPlacementModel.Gap;
 
-        /// <summary>How long an arrow is, tip to tail, in metres.</summary>
-        public const float DefaultArrowLength = (float)SpotPlacementModel.Arrow;
+        /// <summary>How long a pointer is, tip to tail, in metres.</summary>
+        public const float DefaultPointerLength = (float)SpotPlacementModel.Pointer;
 
         /// <summary>The most items <see cref="Items"/> parts a part into: past it, many things are pointed at as one.</summary>
         public const int MostItems = 4;
@@ -238,7 +238,7 @@ namespace M3trik.Unitytk.Placement
         /// <param name="travel">How far it moves away from the part along its axis (a bob): the room it needs is its whole sweep.</param>
         /// <returns>Whether any spot is free and seen.</returns>
         public static bool Point(Bounds part, Transform partRoot, Vector3 eyes, out Pose pose,
-                                 float gap = DefaultGap, float length = DefaultArrowLength,
+                                 float gap = DefaultGap, float length = DefaultPointerLength,
                                  int layers = Physics.DefaultRaycastLayers, float travel = 0f)
         {
             Physics.SyncTransforms();
