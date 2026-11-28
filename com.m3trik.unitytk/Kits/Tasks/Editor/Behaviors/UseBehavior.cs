@@ -10,8 +10,8 @@ namespace M3trik.Unitytk.Kits.Tasks
     /// <c>use</c> ("Selecting the bolt with the wrench in hand plays B01_1"): each target a target requiring the row's With
     /// in hand (made holdable) where it names one, playing the row's clip as its <see cref="UseSettings.trigger"/> says,
     /// selectable while its step runs; the step awaits the clip's end. Select (the usual): a click plays it. Hold: held
-    /// pressed, it plays while held and pauses as it is let go (or plays back to its start, <see cref="UseSettings.rewind"/>).
-    /// A <see cref="UseSettings.hold"/> above 0, held or selected, is a timed press: held that long, it plays. Near: bringing
+    /// pressed, it plays while held and pauses as it is let go (or plays back to its start, <see cref="UseSettings.rewind"/>);
+    /// with a <see cref="UseSettings.hold"/> above 0, a timed press: held that long, it plays. Near: bringing
     /// what the hand holds within reach of the target (<see cref="SelectNear"/>: a controller's hand moving it there), or a
     /// click with it in hand, plays it, and what the clip moves into place stays there, out of the hand
     /// (<see cref="UseSettings.stays"/>; off: it comes back to the hand, as a tool does). A With the clip moves is lent to it
@@ -74,12 +74,10 @@ namespace M3trik.Unitytk.Kits.Tasks
                 // onto that part's own pivot and axes, as its rig has it, or where a person moved its spot.
                 Clips.Trigger(node, action.clip, step, scene, with, own, ctx);
                 bool near = own.trigger == UseTrigger.Near && with != null;  // its check holds back a near trigger with nothing in hand
-                if (near)
-                {
-                    if (own.hold > 0f)
-                        ctx.Raise(ManifestsActions.NoteCode, $"{step.id}: '{node.name}' is set off by what the hand brings, held no time: its hold is unused");
-                    Interactions.SetLeaves(scene.Root, scene.Clip(action.clip), with, own.stays, ctx);  // fitted, it stays: never back to the hand
-                }
+                if (own.trigger != UseTrigger.Hold && own.hold > 0f)
+                    ctx.Raise(ManifestsActions.NoteCode, $"{step.id}: '{node.name}' is set off by a {(own.trigger == UseTrigger.Near ? "near" : "select")} " +
+                                                         "trigger, which holds nothing: its hold is unused (trigger=hold for a timed press)");
+                if (near) Interactions.SetLeaves(scene.Root, scene.Clip(action.clip), with, own.stays, ctx);  // fitted, it stays: never back to the hand
                 scene.EnableDuring(step.id, node, node.GetComponent<Target>(), ctx);
                 if (near) scene.EnableDuring(step.id, node, Interactions.AddSelectNear(node, ctx: ctx), ctx);
             }

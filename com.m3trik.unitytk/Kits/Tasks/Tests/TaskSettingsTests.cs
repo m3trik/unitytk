@@ -1,5 +1,5 @@
+using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using M3trik.Unitytk.Kernel;
 using M3trik.Unitytk.Manifests;
 using NUnit.Framework;
@@ -101,16 +101,16 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             var settings = ScriptableObject.CreateInstance<TaskSettings>();
             try
             {
-                Assert.That(settings.pipAnchorPattern, Is.Empty, "no screen named by default: a task names its own");
+                Assert.That(settings.picture.anchor, Is.Empty, "no screen named by default: a task names its own");
                 settings.anchorPattern = "UI_(";
-                settings.pipAnchorPattern = "UI_(";  // the same text in two settings: each is said
+                settings.picture.anchor = "UI_(";  // the same text in two settings: each is said
                 settings.rig = TaskRig.None;
                 var scene = new ManifestScene(_root, new AnimationClip[0]).Use(settings);
                 var live = new OpContext();
                 ManifestsActions.Build(Plan(Highlight), scene, live);
-                Assert.That(TaskKit.PipAnchor(scene, live), Is.Null, "a pattern that does not parse matches nothing");
+                Assert.That(TaskKit.PictureAnchor(scene, live), Is.Null, "a pattern that does not parse matches nothing");
                 Assert.That(live.Issues.Where(i => i.code == TaskKit.PatternCode).Select(i => i.message.Split(' ')[2]),
-                            Is.EqualTo(new[] { "anchorPattern", "pipAnchorPattern" }), "each said once, by its name");
+                            Is.EqualTo(new[] { "anchorPattern", "picture.anchor" }), "each said once, by its name");
                 Assert.That(_root.transform.Find("CABINET/UI_SCREEN").GetComponent<Renderer>().enabled, Is.True, "no mesh hidden by it");
             }
             finally
@@ -125,15 +125,41 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             // The window offered these on every row and object (Settings for 'X'), and the build read them for the whole task
             // alone: a value set on one row did nothing. The task's own, one for every row, are set in its Setup.
             string[] Offered(string behavior) => ManifestBehaviors.Mark(behavior)?.Settings ?? new string[0];
-            Assert.That(Offered("teleport"), Has.None.EqualTo(nameof(TaskSettings.standOff)).And.None.EqualTo(nameof(TaskSettings.viewAngle)),
-                        "where a spot is searched for: the task's, and a person moves the spot itself");
+            Assert.That(Offered("travel"), Is.EquivalentTo(new[] { "travel.when", "travel.ring" }),
+                        "its word's own; where a spot is searched for (standOff, viewAngle) is the task's, and a person moves the spot itself");
             Assert.That(Offered("advance"), Is.Empty, "how long a step runs: the task's pace");
             Assert.That(ManifestBehaviors.SettingsOf("advance"), Is.Null, "so it offers no settings at all");
-            Assert.That(Offered("number_pad"), Is.Empty, "the key pad's keys: the task's");
-            Assert.That(Offered("pip"), Has.None.EqualTo(nameof(TaskSettings.pipStyle)).And.None.EqualTo(nameof(TaskSettings.pipAnchorPattern)),
-                        "where the picture comes up: the task's one screen");
-            Assert.That(Offered("pip"), Does.Contain(nameof(TaskSettings.pipFieldOfView)), "the angle of a picture's own camera is its row's");
-            Assert.That(Offered("turn_on"), Is.EqualTo(new[] { nameof(TaskSettings.highlightColor) }), "a steady glow's colour is its row's");
+            Assert.That(Offered("answer"), Is.Empty, "the key pad's keys: the task's");
+            Assert.That(Offered("picture"), Is.EquivalentTo(new[] { "picture.until", "picture.fieldOfView" }),
+                        "where the picture comes up (its style, its anchor) is the task's one screen; its span and its own camera's angle are its row's");
+            Assert.That(Offered("highlight"), Is.EqualTo(new[] { "highlight.style", "highlight.color", "highlight.loop", "highlight.cue" }),
+                        "a word with a group of its own offers each of its fields, in their order");
+            Assert.That(ManifestBehaviors.Mark("use").RowSettings, Is.EquivalentTo(new[] { "use.speed", "use.start", "use.stop" }),
+                        "its take's speed and stretch, its row's as a whole, named by their paths");
+            Assert.That(ManifestBehaviors.Mark("button").Suffix, Is.EqualTo(new[] { "button.when" }), "and what its chip says");
+        }
+
+        [Test]
+        public void A_rows_settings_by_the_sheets_names_go_over_its_words_own_and_an_objects_own_over_those()
+        {
+            // A sheet's row says "size=0.3" on an indicate row: the kit reads indicate.size; the window keeps an object's own under that name.
+            var row = new SheetPlan.Shape.PlanAction
+            {
+                behavior = "indicate", text = "Arrow points at the door", targets = new List<string> { "CABINET|DOOR_GRP" },
+                settings = new Dictionary<string, object> { ["size"] = "0.3", ["style"] = "solid" },
+            };
+            var scene = new ManifestScene(_root, new AnimationClip[0]) { Manifest = _manifest };
+            TaskSettings own = scene.Settings<TaskSettings>("A01", "CABINET|DOOR_GRP", row);
+            Assert.That((own.indicate.size, own.indicate.style), Is.EqualTo((0.3f, IndicateStyle.Solid)), "the row's, under its word's own settings");
+            Assert.That(own.highlight.color, Is.EqualTo(scene.Settings<TaskSettings>().highlight.color), "another word's stay the task's");
+            Assert.That(ManifestBehaviors.SettingName("indicate", "size"), Is.EqualTo("indicate.size"), "the name the row's setting has");
+            Assert.That(ManifestBehaviors.SettingName("take", "size"), Is.EqualTo("size"), "a word with no group of its own: as it is");
+
+            Assert.That(ManifestsActions.SetTune(_manifest, "A01", "CABINET|DOOR_GRP", "indicate", "indicate.size", "0.5"), Is.True);
+            Assert.That(ManifestsActions.SetTune(_manifest, "A01", "CABINET|DOOR_GRP", "indicate", "size", "0.5"), Is.False,
+                        "an object's own value is kept by its setting's whole name");
+            var tuned = new ManifestScene(_root, new AnimationClip[0]) { Manifest = _manifest };
+            Assert.That(tuned.Settings<TaskSettings>("A01", "CABINET|DOOR_GRP", row).indicate.size, Is.EqualTo(0.5f), "an object's own over its row's");
         }
 
         [Test]
@@ -145,22 +171,8 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 Assert.That(Refusals.Readable("KEY_GRP", defaults.nameSuffixes), Is.EqualTo("key"), "a group's suffix is not said");
                 Assert.That(Refusals.Readable("KEY_PART", defaults.nameSuffixes), Is.EqualTo("key part"));
                 Assert.That(Refusals.Readable("KEY_PART", new[] { "part" }), Is.EqualTo("key"), "a project's own suffix");
-                Assert.That(ButtonsBehavior.Labels("YES and NO", defaults.labelSeparators), Is.EqualTo(new[] { "YES", "NO" }));
-                Assert.That(ButtonsBehavior.Labels("'A', B or C", defaults.labelSeparators), Is.EqualTo(new[] { "A", "B", "C" }));
-                Assert.That(ButtonsBehavior.Labels("YES / NO then MAYBE", new[] { "/", "then" }), Is.EqualTo(new[] { "YES", "NO", "MAYBE" }),
-                            "a project's own marks and words");
-                Assert.That(ButtonsBehavior.Labels("Sand or Soil", new[] { "and" }), Is.EqualTo(new[] { "Sand or Soil" }), "a word only where it stands alone");
-                var row = new SheetPlan.Shape.PlanAction { behavior = "pip", text = "PiP screen shows the bolt." };
-                Assert.That(PipBehavior.Caption(row, new Regex(defaults.captionPattern, RegexOptions.IgnoreCase)), Is.EqualTo("The bolt"));
-                Assert.That(PipBehavior.Caption(new SheetPlan.Shape.PlanAction { text = "Close-up: the lid" }, new Regex(@"close-up:\s*(?<what>.+)", RegexOptions.IgnoreCase)), Is.EqualTo("The lid"),
-                            "a project's own wording");
-                Assert.That(PipBehavior.Caption(row, null), Is.EqualTo("PiP screen shows the bolt."), "no pattern: the row's own words");
-                // A row written in cells says only its object's name: a real task's pictures were captioned with a node's name ("DOOR_GRP").
-                var cells = new SheetPlan.Shape.PlanAction { behavior = "pip", text = "A picture shows DOOR_GRP, until A02" };
-                Assert.That(PipBehavior.Caption(cells, new Regex(defaults.captionPattern, RegexOptions.IgnoreCase), fromWords: false), Is.EqualTo(""),
-                            "its Label alone: with none, no caption");
-                cells.fields = new System.Collections.Generic.Dictionary<string, object> { ["label"] = "The cabinet door" };
-                Assert.That(PipBehavior.Caption(cells, null, fromWords: false), Is.EqualTo("The cabinet door"));
+                Assert.That(Lists.Items("Door open\nBolt out"), Is.EqualTo(new[] { "Door open", "Bolt out" }), "a list's Label: an item a line");
+                Assert.That(Lists.Items("'Door open', Bolt out; Lid on"), Is.EqualTo(new[] { "Door open", "Bolt out", "Lid on" }), "or split at commas and semicolons");
             }
             finally
             {

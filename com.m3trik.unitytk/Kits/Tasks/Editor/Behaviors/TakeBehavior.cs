@@ -7,9 +7,9 @@ using M3trik.Unitytk.Steps;
 namespace M3trik.Unitytk.Kits.Tasks
 {
     /// <summary>
-    /// <c>take</c> ("Selecting the key places it in hand"): each target made holdable and a
+    /// <c>take</c> ("Selecting the key takes it in hand"): each target made holdable and a
     /// target taken into the selecting hand when selected, selectable while its step runs; the
-    /// step waits for it (a Next it offers comes once the tool is in hand).
+    /// step waits for it (a button of it that goes on comes once it is in hand).
     /// </summary>
     [TaskBehavior("take", ActsOn = true, Holds = true, About = "Selecting the object takes it into the hand.")]
     internal sealed class TakeBehavior : IManifestBehavior

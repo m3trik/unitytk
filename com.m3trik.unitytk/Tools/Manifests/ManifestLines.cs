@@ -371,7 +371,7 @@ namespace M3trik.Unitytk.Tools.Manifests
             token.tooltip += $"\n{whose}: " + string.Join("; ", said);
         }
 
-        // A setting's name or a choice ("HoldToPlay") in plain lower-case words ("hold to play").
+        // A setting's name or a choice ("TimedHold") in plain lower-case words ("timed hold").
         static string Words(string name) => ObjectNames.NicifyVariableName(name).ToLowerInvariant();
 
         // What the sheet's row gives its behavior, a "Label: value" line a field (the contract's take and jump, then the row's

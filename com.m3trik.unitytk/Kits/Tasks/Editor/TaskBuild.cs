@@ -65,13 +65,13 @@ namespace M3trik.Unitytk.Kits.Tasks
         // picture was a third arrow). Every arrow the task shows, the kit's and the delivery's own it was given.
         static void HideCues(ManifestScene scene, OpContext ctx)
         {
-            GameObject made = SceneRoots.Find(TaskKit.PipName(scene));
+            GameObject made = SceneRoots.Find(TaskKit.PictureName(scene));
             PipView view = made == null ? null : made.GetComponent<PipView>();
             if (view == null)
             {
                 // A dry run's first build: the picture is planned with its rows, and so is what it leaves out, where a row
                 // of the plan points something out.
-                PlannedObject planned = PanelsActions.PlannedPip(TaskKit.PipName(scene), ctx);
+                PlannedObject planned = PanelsActions.PlannedPip(TaskKit.PictureName(scene), ctx);
                 if (planned != null && PointsOut(scene)) PanelsActions.SetHidden(planned, ctx);
                 return;
             }
@@ -146,9 +146,9 @@ namespace M3trik.Unitytk.Kits.Tasks
             bool chooses = false;
             foreach (var action in step.actions)
             {
-                TaskBehaviorAttribute traits = TaskBehaviors.Traits(action.behavior);
+                TaskBehaviorAttribute traits = TaskBehaviors.Traits(action, step);
                 if (traits.GoesOn) return true;
-                IStepGate gate = TaskBehaviors.Gate(action.behavior);
+                IStepGate gate = TaskBehaviors.Gate(action, step);
                 if (gate != null && gate.AtStart(action, step, scene)) continue;
                 chooses |= traits.Chooses;
             }
@@ -190,7 +190,7 @@ namespace M3trik.Unitytk.Kits.Tasks
             TaskSettings settings = manifest.Settings<TaskSettings>();
             foreach (string name in new[]
                      {
-                         TaskKit.ViewpointsName(plan, settings), TaskKit.PipName(plan, settings),
+                         TaskKit.ViewpointsName(plan, settings), TaskKit.PictureName(plan, settings),
                          TaskKit.PlacardName(plan, settings), TaskKit.DebugName(plan, settings),
                      })
                 roots.Add(SceneRoots.Find(name));

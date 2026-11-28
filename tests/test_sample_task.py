@@ -71,8 +71,9 @@ class SampleTaskTestCase(UnityTkTestCase):
 
     def test_the_kits_node_fields_are_every_node_the_reading_binds(self):
         """The Tasks kit's rows' node fields (``TaskBehaviorAttribute``'s default ``NodeFields``, which a
-        manifest's assessment finds as it finds targets) restate the built-in clause templates' node groups and the
-        reading's hand and arrows: a group left out there is a node name never checked (a teleport's ``side_of``)."""
+        manifest's assessment finds as it finds targets) restate the built-in clause templates' node groups, the
+        reading's hand and the row's ``where``: a group left out there is a node name never checked (a travel's
+        ``side_of``)."""
         import re
 
         from unitytk.sheets import ClauseBook, ReadingSpec
@@ -94,13 +95,11 @@ class SampleTaskTestCase(UnityTkTestCase):
         node_fields = {fields[name] for name in re.findall(r"Fields\.(\w+)", declared)}
         reading = ReadingSpec.load("interactive")
         bound = {g for _, spec in ClauseBook.load_templates() for g in spec.nodes or []}
-        # And each node a cell row's word binds (a teleport's `faces`: what its row says the user is brought to face).
-        celled = {name for cases in (reading.words or {}).values() for case in cases for name in case.get("nodes") or {}}
-        self.assertEqual(node_fields, bound | celled | {reading.hand, reading.arrows})
+        self.assertEqual(node_fields, bound | {reading.hand, ptk.ManifestActions.WHERE})
 
     def test_the_kits_traits_that_restate_a_clause_role_say_the_same(self):
         """Two of the Tasks kit's traits mean what a clause role means: ``GoesOn`` the role ``continues`` (the step goes
-        on by itself), ``Teleports`` the role ``destination`` (the user is brought to the row's place). The kit keeps them
+        on by itself), ``Travels`` the role ``destination`` (the user is brought to the row's place). The kit keeps them
         for a row the manifest adds, which no clause template reads; held here to the built-in templates' roles."""
         import re
 
@@ -110,7 +109,7 @@ class SampleTaskTestCase(UnityTkTestCase):
         source = "\n".join(p.read_text(encoding="utf-8") for p in sorted(behaviors.glob("*.cs")))
         marks = re.findall(r'\[TaskBehavior\("(\w+)"(.*?)\)\]', source, re.S)
         book = ClauseBook()
-        for trait, role in (("GoesOn", "continues"), ("Teleports", "destination")):
+        for trait, role in (("GoesOn", "continues"), ("Travels", "destination")):
             with self.subTest(trait=trait):
                 self.assertEqual(
                     {name for name, rest in marks if re.search(rf"\b{trait} = true\b", rest)},

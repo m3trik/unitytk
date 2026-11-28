@@ -204,15 +204,18 @@ class ClauseBook(_ClauseBookInternal):
         return self._specs.get(name)
 
     def digest(self) -> str:
-        """The SHA-256 (hex) of the project's own template files it read (:attr:`folder`), as a reader with
-        the folder in hand makes it again: a line per ``*.json`` file in name order, its name and its own
-        SHA-256 (its bytes, CRLF read as LF) apart by a space, joined by newlines, UTF-8. Empty where it read
-        none: the built-in ones are the reader's own, read again with it."""
+        """The digest of the project's own template files it read (:attr:`folder`, :meth:`folder_digest`). Empty where
+        it read none: the built-in ones are the reader's own, read again with it."""
+        return self.folder_digest(self.folder)
+
+    @staticmethod
+    def folder_digest(folder: Union[str, Path, None]) -> str:
+        """The SHA-256 (hex) of *folder*'s template files, as a reader with the folder in hand makes it again: a line
+        per ``*.json`` file in name order, its name and its own SHA-256 (its bytes, CRLF read as LF) apart by a space,
+        joined by newlines, UTF-8; their bytes alone, never what they say. Empty for none."""
         from unitytk.sheets.sheet_plan import SheetPlan
 
-        files = (
-            sorted(self.folder.glob("*.json"), key=lambda p: p.name) if self.folder else []
-        )
+        files = sorted(Path(folder).glob("*.json"), key=lambda p: p.name) if folder and Path(folder).is_dir() else []
         lines = "\n".join(f"{p.name} {SheetPlan.digest(str(p))}" for p in files)
         return hashlib.sha256(lines.encode("utf-8")).hexdigest() if lines else ""
 

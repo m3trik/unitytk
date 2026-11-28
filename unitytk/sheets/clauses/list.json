@@ -6,7 +6,12 @@
     "^(?:an?\\s+)?checklist\\s+appears\\s+on\\s+(?:the\\s+)?placard(?:\\s+screen)?\\s*:\\s*(?P<label>.+)$",
     "^(?:an?\\s+)?checklist\\s+appears\\s+on\\s+(?:the\\s+)?placard.*$"
   ],
+  "span": {
+    "word": "list",
+    "setting": "until"
+  },
   "roles": [
-    "lists"
+    "lists",
+    "opens"
   ]
 }

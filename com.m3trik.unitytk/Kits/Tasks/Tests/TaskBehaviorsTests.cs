@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using M3trik.Unitytk.Kernel;
 using M3trik.Unitytk.Manifests;
@@ -7,10 +8,10 @@ using UnityEngine;
 namespace M3trik.Unitytk.Kits.Tasks.Tests
 {
     /// <summary>
-    /// <see cref="TaskBehaviors"/>: the task knows a behavior by its traits and the interfaces its builder
+    /// <see cref="TaskBehaviors"/>: the task knows a behavior by its traits, refined per row, and the interfaces its builder
     /// implements, never by its name, so a project's own verb takes each role the kit's do (<see cref="TestRolesBehavior"/>,
-    /// <see cref="TestGateBehavior"/>): its viewpoint placed and marked, its gate's button held back, its step going on,
-    /// its tick listed, its question gone to, its part sent home unfaded.
+    /// <see cref="TestGateBehavior"/>): its viewpoint placed, its gate's button held back, its step going on, its tick
+    /// listed, its part sent home shown.
     /// </summary>
     public class TaskBehaviorsTests
     {
@@ -45,8 +46,8 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             view.SetParent(_root.transform);
             view.SetPositionAndRotation(new Vector3(0f, 0f, 2f), Quaternion.identity);  // in front of the door, looking on past it
             string json = "{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
-                "{\"behavior\": \"teleport\", \"text\": \"The user is brought to VIEW_FRONT\", \"targets\": [\"VIEW_FRONT\"], " +
-                "\"fields\": {\"faces\": \"CABINET|DOOR_GRP\"}}]}]}";
+                "{\"behavior\": \"travel\", \"text\": \"The user is brought to VIEW_FRONT\", \"targets\": [\"CABINET|DOOR_GRP\"], " +
+                "\"fields\": {\"where\": [\"VIEW_FRONT\"]}}]}]}";
             var plan = SheetPlan.Read(json, "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
             var scene = new ManifestScene(_root, new AnimationClip[0]);
@@ -75,36 +76,68 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         [Test]
         public void A_behavior_is_known_by_its_traits_its_partner_and_its_gate()
         {
-            Assert.That(TaskBehaviors.Traits("teleport").Teleports && TaskBehaviors.Traits("test_walk").Teleports, "the kit's teleport and a project's own");
+            Assert.That(TaskBehaviors.Traits("travel").Travels && TaskBehaviors.Traits("test_walk").Travels, "the kit's travel and a project's own");
             Assert.That(TaskBehaviors.Traits("advance").GoesOn && TaskBehaviors.Traits("return").Returns);
             Assert.That(TaskBehaviors.With(t => t.GoesOn), Does.Contain("advance").And.Contain("test_go_on"));
-            Assert.That(TaskBehaviors.Pairs("check", "checklist") && TaskBehaviors.Pairs("checklist", "check"), "a pair goes both ways");
-            Assert.That(TaskBehaviors.Pairs("test_tick", "checklist") && TaskBehaviors.Pairs("quiz", "test_question"), "a project's own pairs by naming its partner");
-            Assert.That(TaskBehaviors.Pairs("check", "test_tick") || TaskBehaviors.Pairs("check", "check"), Is.False, "two ticks pair with no list");
-            Assert.That(TaskBehaviors.Gate("pause") != null && TaskBehaviors.Gate("test_gate") != null, "the gates");
-            Assert.That(TaskBehaviors.Gate("select"), Is.Null);
+            Assert.That(TaskBehaviors.Pairs("tick", "list") && TaskBehaviors.Pairs("list", "tick"), "a pair goes both ways");
+            Assert.That(TaskBehaviors.Pairs("test_tick", "list"), "a project's own pairs by naming its partner");
+            Assert.That(TaskBehaviors.Pairs("tick", "test_tick") || TaskBehaviors.Pairs("tick", "tick"), Is.False, "two ticks pair with no list");
+            var gate = Row("test_gate", "Done", null);
+            var select = new SheetPlan.Shape.PlanAction { behavior = "select", text = "Selecting the door", targets = new List<string> { "CABINET|DOOR_GRP" } };
+            var step = Step(gate, select);
+            Assert.That(TaskBehaviors.Gate(gate, step), Is.Not.Null, "a project's own gate");
+            Assert.That(TaskBehaviors.Gate(select, step), Is.Null);
         }
+
+        [Test]
+        public void A_buttons_traits_and_gate_are_its_rows_by_its_cells()
+        {
+            // One word for every choice a page offers: what a button is, its To says.
+            var next = Row("button", "Next", "next");
+            var on = Step(next);
+            Assert.That(TaskBehaviors.Traits(next, on).EndsStep && TaskBehaviors.Traits(next, on).Offers && TaskBehaviors.Traits(next, on).Chooses,
+                        "a button that goes on: offered, chosen, the step ended");
+            Assert.That(TaskBehaviors.Gate(next, on), Is.Not.Null, "and its step waits on it");
+            var elsewhere = Row("button", "Again", "A01");
+            Assert.That(TaskBehaviors.Traits(elsewhere, Step(elsewhere)).EndsStep, Is.True, "one that goes to a step ends its own");
+            Assert.That(TaskBehaviors.Gate(elsewhere, Step(elsewhere)), Is.Null, "and holds it for nothing");
+
+            var right = Row("button", "Wrench", "next");
+            var wrong = Row("button", "Hammer", "retry");
+            var question = Step(right, wrong);
+            Assert.That(TaskBehaviors.Traits(right, question).EndsStep || TaskBehaviors.Traits(wrong, question).EndsStep, Is.False,
+                        "a question's answers end nothing: a wrong one stays");
+            Assert.That(TaskBehaviors.Traits(right, question).Offers && TaskBehaviors.Traits(wrong, question).Offers, "both on the page");
+            Assert.That(TaskBehaviors.Gate(right, question), Is.Null, "the right answer is no gate");
+            Assert.That(TaskBehaviors.Traits("button").EndsStep, Is.True, "what the word declares, before a row refines it");
+        }
+
+        static SheetPlan.Shape.PlanAction Row(string behavior, string label, string to)
+            => new SheetPlan.Shape.PlanAction
+            {
+                behavior = behavior, text = $"Selecting '{label}'", to = to, fields = new Dictionary<string, object> { ["label"] = label },
+            };
+
+        static SheetPlan.Shape.PlanStep Step(params SheetPlan.Shape.PlanAction[] rows)
+            => new SheetPlan.Shape.PlanStep { id = "A02", actions = rows.ToList() };
 
         [Test]
         public void A_projects_own_verbs_build_in_the_roles_of_the_kits()
         {
             string json = "{\"version\": 2, \"steps\": [" +
                 "{\"id\": \"A01\", \"actions\": [" +
-                "{\"behavior\": \"marker\", \"text\": \"Destination circle fades in\"}," +
-                "{\"behavior\": \"test_walk\", \"text\": \"The user walks up to the door\", \"fields\": {\"facing\": \"CABINET|DOOR_GRP\"}}," +
-                "{\"behavior\": \"checklist\", \"text\": \"Checklist appears on placard with blank check boxes\"}]}," +
+                "{\"behavior\": \"test_walk\", \"text\": \"The user walks up to the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}," +
+                "{\"behavior\": \"list\", \"text\": \"A list is shown\"}]}," +
                 "{\"id\": \"A02\", \"actions\": [" +
                 "{\"behavior\": \"select\", \"text\": \"Selecting the door completes the step\", \"targets\": [\"CABINET|DOOR_GRP\"]}," +
                 "{\"behavior\": \"test_gate\", \"text\": \"Selecting 'Done' goes on\", \"fields\": {\"label\": \"Done\"}}]}," +
                 "{\"id\": \"A03\", \"actions\": [" +
-                "{\"behavior\": \"goto\", \"text\": \"Selecting 'Again' triggers step A01\", \"fields\": {\"label\": \"Again\"}, \"to\": \"A01\"}," +
+                "{\"behavior\": \"button\", \"text\": \"Selecting 'Again' goes to step A01\", \"fields\": {\"label\": \"Again\"}, \"to\": \"A01\"}," +
                 "{\"behavior\": \"test_go_on\", \"text\": \"Go on by itself\"}]}," +
                 "{\"id\": \"A04\", \"actions\": [" +
-                "{\"behavior\": \"test_tick\", \"text\": \"Tick 'Door checked'\", \"fields\": {\"label\": \"Door checked\"}}," +
-                "{\"behavior\": \"quiz\", \"text\": \"Selecting 'Take Quiz' triggers advancement to the quiz\", \"fields\": {\"label\": \"Take Quiz\"}}]}," +
+                "{\"behavior\": \"test_tick\", \"text\": \"Tick 'Door checked'\", \"fields\": {\"label\": \"Door checked\"}}]}," +
                 "{\"id\": \"A05\", \"actions\": [" +
-                "{\"behavior\": \"test_question\", \"text\": \"Is the door shut?\", \"fields\": {\"label\": \"Yes\"}}," +
-                "{\"behavior\": \"fade_out\", \"text\": \"The lid fades away\", \"targets\": [\"CABINET|LID\"]}," +
+                "{\"behavior\": \"hide\", \"text\": \"The lid disappears\", \"targets\": [\"CABINET|LID\"]}," +
                 "{\"behavior\": \"test_send_home\", \"text\": \"The lid goes home\", \"targets\": [\"CABINET|LID\"]}]}]}";
             var plan = SheetPlan.Read(json, "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
@@ -122,15 +155,13 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(again.Changes, Is.Empty, "a second build plans nothing");
 
             Transform view = GameObject.Find(TaskKit.ViewpointsName(plan)).transform.Find(TaskKit.ViewpointName("A01"));
-            Assert.That(view.GetComponent<Placement.PlacedSpot>().key, Is.EqualTo("teleport/A01"), "its viewpoint placed by the kit, before any row");
-            Assert.That(view.GetComponentInChildren<Indicators.Marker>(true), Is.Not.Null, "a marker naming no place marks where it brings the user");
+            Assert.That(view.GetComponent<Placement.PlacedSpot>().key, Is.EqualTo("travel/A01"), "its viewpoint placed by the kit, before any row");
             var sequence = GameObject.Find("Task").GetComponent<Steps.Sequence>();
             Assert.That(sequence.Find("A02").Choice("Done").waits, Is.True, "its gate's button offered once the door is selected");
             Assert.That(sequence.Find("A03").autoAdvance, Is.True, "its row says the step goes on, though it offers a choice");
             Transform placard = GameObject.Find("Placard").transform;
-            Assert.That(placard.Find(TaskKit.ChecklistName("A01")).GetComponent<Panels.PlacardList>().items, Is.EqualTo(new[] { "Door checked" }),
-                        "a blank checklist lists its ticks");
-            Assert.That(sequence.Find("A04").Choice("Take Quiz").to, Is.EqualTo("A05"), "the quiz: the first step holding its partner's row");
+            Assert.That(placard.Find(TaskKit.ListName("A01")).GetComponent<Panels.PlacardList>().items, Is.EqualTo(new[] { "Door checked" }),
+                        "a list with no items lists its ticks");
             Assert.That(_root.transform.Find("CABINET/LID").GetComponent<RenderEffects.FadeTo>(), Is.Null, "sent home, it goes back shown");
             Assert.That(live.Issues.Select(i => i.code), Does.Contain(TaskKit.FadeReturnedCode));
         }

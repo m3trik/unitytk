@@ -115,35 +115,35 @@ class DeliveryIndexMergedTestCase(UnityTkTestCase):
         self.assertEqual((plan.steps[0].actions[0].targets, plan.issues), (["CABINET|DOOR_GRP"], []))
         self.assertEqual(SheetCheck.check(sheet=sheet, delivery=glb)["items"], [])
 
-    def test_an_authored_arrow_is_found_by_the_part_it_points_at_its_steps_first(self):
+    def test_an_authored_pointer_is_found_by_the_part_it_points_at_its_steps_first(self):
         index = DeliveryIndex(
             [
                 "CABINET",
                 "CABINET|DOOR_GRP",
                 "CABINET|KEY_GRP",
-                "ARROWS",
-                "ARROWS|DOOR_ARROW_GRP",
-                "ARROWS|DOOR_ARROW_GRP|DOOR_ARROW",
-                "ARROWS|A01_KEY_ARROW",
-                "ARROWS|B01_KEY_ARROW",
+                "POINTS",
+                "POINTS|DOOR_POINT_GRP",
+                "POINTS|DOOR_POINT_GRP|DOOR_POINT",
+                "POINTS|A01_KEY_POINT",
+                "POINTS|B01_KEY_POINT",
             ]
         )
-        arrow = "^(?P<part>.+)_ARROW$"
+        point = "^(?P<part>.+)_POINT$"
         self.assertEqual(
-            index.arrows_at("CABINET|DOOR_GRP", arrow),
-            ["ARROWS|DOOR_ARROW_GRP"],
+            index.pointers_at("CABINET|DOOR_GRP", point),
+            ["POINTS|DOOR_POINT_GRP"],
             "the chain's top",
         )
         self.assertEqual(
-            index.arrows_at("CABINET|DOOR_GRP"),
+            index.pointers_at("CABINET|DOOR_GRP"),
             [],
-            "no pattern stated: no arrow is known",
+            "no pattern stated: no pointer is known",
         )
-        stepped = r"^(?P<step>[A-Z]+\d+(?:_\d+)?)_(?P<part>.+?)_ARROW$"
+        stepped = r"^(?P<step>[A-Z]+\d+(?:_\d+)?)_(?P<part>.+?)_POINT$"
         self.assertEqual(
-            index.arrows_at("CABINET|KEY_GRP", stepped, "B01"), ["ARROWS|B01_KEY_ARROW"]
+            index.pointers_at("CABINET|KEY_GRP", stepped, "B01"), ["POINTS|B01_KEY_POINT"]
         )
-        self.assertEqual(index.arrows_at("CABINET|LID", arrow), [])
+        self.assertEqual(index.pointers_at("CABINET|LID", point), [])
 
     def test_a_projects_build_suffixes_group_its_nodes_into_objects(self):
         index = DeliveryIndex(
@@ -210,10 +210,10 @@ class SheetSettingsTestCase(UnityTkTestCase):
 
     def test_the_plan_reads_the_tasks_patterns_and_renamed_nodes(self):
         steps = {s.id: s.actions[0] for s in self.task.plan().steps}
-        teleport = steps["A01"]
+        travel = steps["A01"]
         self.assertEqual(
-            (teleport.targets, teleport.field("facing"), teleport.issues),
-            (["VIEWS|USER_POS_1"], "CABINET|DOOR_GRP", []),
+            (travel.field("where"), travel.targets, travel.issues),
+            (["VIEWS|USER_POS_1"], ["CABINET|DOOR_GRP"], []),
             "USER_POS_ is this task's viewpoint",
         )
         self.assertEqual(
@@ -281,7 +281,7 @@ class SheetSettingsTestCase(UnityTkTestCase):
         ) as fh:
             json.dump(
                 {
-                    "behavior": "go_back",
+                    "word": "button",
                     "detect": [
                         "^selecting\\s+'(?P<label>[^']+)'\\s+triggers\\s+step\\s+(?P<to>{step})$"
                     ],
@@ -293,7 +293,7 @@ class SheetSettingsTestCase(UnityTkTestCase):
         plan = self.task.plan()
         back = plan.steps[2].actions[0]
         self.assertEqual(
-            (back.behavior, back.field("label"), back.to), ("go_back", "Back", "A05")
+            (back.behavior, back.field("label"), back.to), ("button", "Back", "A05")
         )
         self.assertTrue(
             plan.source.clauses_digest and plan.source.clauses_digest != before
@@ -316,7 +316,7 @@ class SheetSettingsTestCase(UnityTkTestCase):
     def test_the_name_rules_are_validated_and_a_suffix_list_reaches_the_reading(self):
         self.task.names = {"suffixes": ["MSH"], "viewpoint": "^(VIEW_|USER_POS_)"}
         self.assertEqual(self.task.reading().names["suffixes"], ["MSH"])
-        for names in ({"suffixes": "MSH"}, {"viewpoint": "("}, {"arrows": "^A_"}):
+        for names in ({"suffixes": "MSH"}, {"viewpoint": "("}, {"arrow": "^A_"}):
             with self.subTest(names=names):
                 with open(self.path, "w", encoding="utf-8") as fh:
                     json.dump({"version": 1, "sheet": "task.csv", "names": names}, fh)

@@ -11,7 +11,7 @@ using UnityEngine;
 namespace M3trik.Unitytk.Kits.Tasks.Tests
 {
     /// <summary>
-    /// The <c>take</c>, <c>use</c> and <c>hold</c> builders on an imported delivery (a box keyed
+    /// The <c>take</c> and <c>use</c> builders on an imported delivery (a box keyed
     /// over two takes, Intro and Outro): a plan built into its instance, then played by a hand
     /// as a person would, and held to the kernel's three checks.
     /// </summary>
@@ -63,10 +63,11 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             return plan;
         }
 
-        const string TakeWrench = "{\"behavior\": \"take\", \"text\": \"Selecting the wrench places it in hand\", \"targets\": [\"WRENCH_GRP\"]}";
+        const string TakeWrench = "{\"behavior\": \"take\", \"text\": \"Selecting the wrench takes it in hand\", \"targets\": [\"WRENCH_GRP\"]}";
         const string UseBox = "{\"behavior\": \"use\", \"text\": \"Selecting the box with wrench in hand triggers Box Intro animation\", " +
-                              "\"targets\": [\"Box\"], \"clip\": \"Intro\", \"fields\": {\"tool\": \"WRENCH_GRP\"}}";
-        const string HoldWrench = "{\"behavior\": \"hold\", \"text\": \"Wrench returns to hand\", \"targets\": [\"WRENCH_GRP\"]}";
+                              "\"targets\": [\"Box\"], \"clip\": \"Intro\", \"fields\": {\"with\": \"WRENCH_GRP\"}}";
+        // What a sentence sheet said of a tool after its use: implied by the use's With, a note.
+        const string BackInHand = "{\"behavior\": \"note\", \"text\": \"Wrench returns to hand\"}";
 
         // A persistent call runs in a player only (Unity's default); an Edit Mode test runs it here.
         static void Live(UnityEngine.Events.UnityEventBase when)
@@ -82,7 +83,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         {
             var scene = new ManifestScene(_instance);
             Assert.That(scene.ClipNames, Is.EqualTo(new[] { "Intro", "Outro" }), "the takes, found on the model asset");
-            var assessment = ManifestsActions.Assess(Plan(TakeWrench + "," + UseBox + "," + HoldWrench), scene);
+            var assessment = ManifestsActions.Assess(Plan(TakeWrench + "," + UseBox + "," + BackInHand), scene);
             Assert.That(assessment.rows.Select(r => r.state), Is.All.EqualTo(ManifestAssessment.State.Ready));
         }
 
@@ -94,7 +95,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             const string selectBox = "{\"behavior\": \"use\", \"text\": \"Selecting the box triggers Box Intro animation\", " +
                                      "\"targets\": [\"Box\"], \"clip\": \"Intro\"}";
             const string wrenchBox = "{\"behavior\": \"use\", \"text\": \"Selecting the box with wrench in hand triggers Box Outro animation\", " +
-                                     "\"targets\": [\"Box\"], \"clip\": \"Outro\", \"fields\": {\"tool\": \"WRENCH_GRP\"}}";
+                                     "\"targets\": [\"Box\"], \"clip\": \"Outro\", \"fields\": {\"with\": \"WRENCH_GRP\"}}";
             var plan = SheetPlan.Read("{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" + selectBox + "]}, " +
                                       "{\"id\": \"A02\", \"actions\": [" + TakeWrench + "," + wrenchBox + "]}]}", "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
@@ -111,7 +112,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         public void Rows_that_ask_the_same_of_a_target_say_nothing()
         {
             const string wrenchBox = "{\"behavior\": \"use\", \"text\": \"Selecting the box with wrench in hand triggers Box Outro animation\", " +
-                                     "\"targets\": [\"Box\"], \"clip\": \"Outro\", \"fields\": {\"tool\": \"WRENCH_GRP\"}}";
+                                     "\"targets\": [\"Box\"], \"clip\": \"Outro\", \"fields\": {\"with\": \"WRENCH_GRP\"}}";
             var ctx = new OpContext();
             ManifestsActions.Build(Plan(TakeWrench + "," + UseBox + "," + wrenchBox), new ManifestScene(_instance), ctx);
             Assert.That(ctx.Issues, Is.Empty);
@@ -120,7 +121,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         [Test]
         public void A_built_plan_plays_as_its_sheet_says()
         {
-            var plan = Plan(TakeWrench + "," + UseBox + "," + HoldWrench);
+            var plan = Plan(TakeWrench + "," + UseBox + "," + BackInHand);
             ManifestsActions.Build(plan, new ManifestScene(_instance), new OpContext());
             // A selection's signal is named by its node's path under the delivery, never by the delivery's own name: a
             // re-export under a new (dated) file name renamed every signal, and each step then awaited the old one too.
@@ -205,7 +206,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         [Test]
         public void A_next_after_a_take_waits_for_it_and_a_part_only_pointed_out_glows_steady()
         {
-            const string Next = "{\"behavior\": \"pause\", \"text\": \"Selecting 'Next' triggers step advancement\", \"fields\": {\"label\": \"Next\"}}";
+            const string Next = "{\"behavior\": \"button\", \"text\": \"Selecting 'Next' goes on\", \"fields\": {\"label\": \"Next\"}, \"to\": \"next\"}";
             const string ShowBox = "{\"behavior\": \"highlight\", \"text\": \"Highlight the box\", \"targets\": [\"Box\"]}";
             const string ShowSign = "{\"behavior\": \"highlight\", \"text\": \"Highlight the sign\", \"targets\": [\"SIGN\"]}";
             new GameObject("SIGN").transform.SetParent(_instance.transform);  // a part the task only points out
@@ -254,12 +255,12 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         {
             var plan = SheetPlan.Read(
                 "{\"version\": 2, \"steps\": [" +
-                "{\"id\": \"A01\", \"name\": \"Wrench the box\", \"actions\": [" + TakeWrench + "," + UseBox + "," + HoldWrench + "," +
+                "{\"id\": \"A01\", \"name\": \"Wrench the box\", \"actions\": [" + TakeWrench + "," + UseBox + "," + BackInHand + "," +
                 "{\"behavior\": \"advance\", \"text\": \"Auto Advance\"}]}," +
                 "{\"id\": \"A02\", \"name\": \"Send it back\", \"actions\": [" +
                 "{\"behavior\": \"use\", \"text\": \"Selecting the box with wrench in hand triggers Box Outro animation\", \"targets\": [\"Box\"], " +
-                "\"clip\": \"Outro\", \"fields\": {\"tool\": \"WRENCH_GRP\"}}," +
-                "{\"behavior\": \"pause\", \"text\": \"Selecting 'Next' triggers step advancement\", \"fields\": {\"label\": \"Next\"}}]}]}",
+                "\"clip\": \"Outro\", \"fields\": {\"with\": \"WRENCH_GRP\"}}," +
+                "{\"behavior\": \"button\", \"text\": \"Selecting 'Next' goes on\", \"fields\": {\"label\": \"Next\"}, \"to\": \"next\"}]}]}",
                 "task", out string refusal);
             Assert.That(refusal, Is.Null);
             var ctx = new OpContext();
@@ -292,7 +293,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         [Test]
         public void A_build_plans_what_it_then_does_is_one_undo_step_and_converges()
         {
-            var plan = Plan(TakeWrench + "," + UseBox + "," + HoldWrench);
+            var plan = Plan(TakeWrench + "," + UseBox + "," + BackInHand);
             var dry = new OpContext(dryRun: true);
             ManifestsActions.Build(plan, new ManifestScene(_instance), dry);
             Assert.That(_instance.GetComponent<ClipPlayer>() == null && _wrench.GetComponent<Holdable>() == null, "a dry run builds nothing");

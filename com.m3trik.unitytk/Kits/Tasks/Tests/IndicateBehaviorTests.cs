@@ -41,12 +41,12 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             }
             Assert.That(IndicateBehavior.IsArrow(Child("Indicator A01"), "A01") && IndicateBehavior.IsArrow(Child("Indicator A01 LATCH_UPPER_GRP"), "A01"),
                         "named as a build named them before");
-            Assert.That(IndicateBehavior.IsArrow(Child("ARROW_A01_LATCH", "indicate/A01/CABINET|LATCH"), "A01"),
+            Assert.That(IndicateBehavior.IsArrow(Child("POINT_A01_LATCH", "indicate/A01/CABINET|LATCH"), "A01"),
                         "named as every tool names a row's own helper: known by the key it was placed under");
             Assert.That(IndicateBehavior.IsArrow(Child("Indicator A015"), "A01") || IndicateBehavior.IsArrow(Child("Indicator A02"), "A01")
-                        || IndicateBehavior.IsArrow(Child("ARROW_A02_LATCH", "indicate/A02/CABINET|LATCH"), "A01"), Is.False,
+                        || IndicateBehavior.IsArrow(Child("POINT_A02_LATCH", "indicate/A02/CABINET|LATCH"), "A01"), Is.False,
                         "another step's arrow is not this step's");
-            Assert.That(IndicateBehavior.IsArrow(Child("ARROW_A01_LATCH", "where/CABINET|ARROW_A01_LATCH"), "A01"), Is.False,
+            Assert.That(IndicateBehavior.IsArrow(Child("POINT_A01_LATCH", "where/CABINET|POINT_A01_LATCH"), "A01"), Is.False,
                         "a helper the delivery brought is none of the kit's");
         }
 
@@ -67,7 +67,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Cube("FLOOR", new Vector3(0, -0.05f, 0), new Vector3(20, 0.1f, 20));
             Cube("BOX", new Vector3(0, 1f, 0), Vector3.one);
             GameObject nut = Cube("NUT", new Vector3(0, 1f, 0), Vector3.one * 0.02f);
-            var place = new GameObject("ARROW_NUT").transform;
+            var place = new GameObject("POINT_NUT").transform;
             place.SetParent(_root.transform);
             place.SetPositionAndRotation(new Vector3(0, 1.6f, -0.2f), Quaternion.LookRotation(Vector3.down));
             string Plan(string fields) => "{\"version\": 2, \"steps\": [{\"id\": \"B11\", \"actions\": [{\"behavior\": \"indicate\", " +
@@ -83,7 +83,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(nut.GetComponentsInChildren<Indicators.Indicator>(true).Select(a => a.GetComponent<RenderEffects.EffectExempt>() != null), Is.All.True,
                         "an arrow under a part is left out of the part's fades and highlights");
 
-            var named = SheetPlan.Read(Plan(", \"fields\": {\"arrows\": [\"ARROW_NUT\"]}"), "test plan", out refusal);
+            var named = SheetPlan.Read(Plan(", \"fields\": {\"where\": [\"POINT_NUT\"]}"), "test plan", out refusal);
             Assert.That(refusal, Is.Null);
             var dry = new OpContext(dryRun: true);
             ManifestsActions.Build(named, new ManifestScene(_root), dry);
@@ -101,6 +101,38 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
 
             var again = new OpContext();
             ManifestsActions.Build(named, new ManifestScene(_root), again);
+            Assert.That(again.Changes, Is.Empty, "a second build changes nothing");
+        }
+
+        [Test]
+        public void An_arrows_style_size_and_colour_are_its_rows_settings_by_the_sheets_names()
+        {
+            // indicate's style, size and color, as a row's Settings cell gives them: under the word's own settings.
+            _root = new GameObject("cabinet_2026");
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            floor.name = "FLOOR";
+            floor.transform.SetParent(_root.transform);
+            floor.transform.SetPositionAndRotation(new Vector3(0, -0.05f, 0), Quaternion.identity);
+            floor.transform.localScale = new Vector3(20, 0.1f, 20);
+            var lid = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            lid.name = "LID";
+            lid.transform.SetParent(_root.transform);
+            lid.transform.SetPositionAndRotation(new Vector3(0, 1f, 0), Quaternion.identity);
+            lid.transform.localScale = Vector3.one * 0.2f;
+            var plan = SheetPlan.Read("{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [{\"behavior\": \"indicate\", " +
+                                      "\"text\": \"Arrow points at the lid\", \"targets\": [\"LID\"], " +
+                                      "\"settings\": {\"style\": \"solid\", \"size\": \"0.3\", \"color\": \"#FF0000\"}}]}]}", "test plan", out string refusal);
+            Assert.That(refusal, Is.Null);
+            var dry = new OpContext(dryRun: true);
+            ManifestsActions.Build(plan, new ManifestScene(_root), dry);
+            var live = new OpContext();
+            ManifestsActions.Build(plan, new ManifestScene(_root), live);
+            Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(dry.Changes.Select(c => (c.kind, c.target, c.action))));
+            Assert.That(live.Issues.Where(i => i.code == ManifestsActions.NoteCode), Is.Empty, "every setting is one of the word's");
+            Indicators.Indicator arrow = lid.GetComponentInChildren<Indicators.Indicator>(true);
+            Assert.That((arrow.flat, arrow.size, arrow.color), Is.EqualTo((false, 0.3f, Color.red)), "solid, 0.3 m, red");
+            var again = new OpContext(dryRun: true);
+            ManifestsActions.Build(plan, new ManifestScene(_root), again);
             Assert.That(again.Changes, Is.Empty, "a second build changes nothing");
         }
 
@@ -130,7 +162,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(refusal, Is.Null);
 
             var apart = ScriptableObject.CreateInstance<TaskSettings>();
-            apart.arrowMerge = 0f;  // an arrow at each
+            apart.indicate.merge = 0f;  // an arrow at each
             try
             {
                 ManifestsActions.Build(plan, new ManifestScene(_root).Use(apart), new OpContext());

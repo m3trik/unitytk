@@ -237,7 +237,7 @@ class SheetSyncTestCase(UnityTkTestCase):
         (self.source / "older").mkdir()
         write_delivery(
             str(self.source / "older" / "cabinet.fbx"),
-            nodes=[("ARROWS", "Null")],
+            nodes=[("POINTS", "Null")],
             takes=[],
         )
         settings = json.loads(self.settings.read_text(encoding="utf-8"))

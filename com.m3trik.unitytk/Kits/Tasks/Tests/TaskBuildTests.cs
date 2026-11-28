@@ -103,10 +103,10 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That((glow.pulse, glow.color), Is.EqualTo((false, M3trik.Unitytk.RenderEffects.Highlight.DefaultColor)),
                         "by default: steady where the user only looks (they act on each latch, not on the pair), in the delivery's own highlight colour");
             var own = new OpContext();
-            ManifestsActions.SetTune(_task, "A01", latches, "highlight", nameof(TaskSettings.highlightStyle), "pulse", own);  // as a sheet writes it
-            ManifestsActions.SetTune(_task, "A01", latches, "highlight", nameof(TaskSettings.highlightColor), "#3399FF", own);
-            ManifestsActions.SetTune(_task, "B01", bolt, "fade_out", nameof(TaskSettings.fadeSeconds), "2.5", own);
-            ManifestsActions.SetTune(_task, "B01", "", "play", nameof(TaskSettings.playSpeed), "2", own);
+            ManifestsActions.SetTune(_task, "A01", latches, "highlight", "highlight.style", "pulse", own);  // as a sheet writes it
+            ManifestsActions.SetTune(_task, "A01", latches, "highlight", "highlight.color", "#3399FF", own);
+            ManifestsActions.SetTune(_task, "B01", bolt, "hide", "hide.fade", "2.5", own);
+            ManifestsActions.SetTune(_task, "B01", "", "play", "play.speed", "2", own);
             Assert.That(own.Issues.Select(i => i.message), Is.Empty);
             ManifestsActions.Build(_task, new OpContext());
 
@@ -229,8 +229,8 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                         Is.EqualTo(new[] { "B01 use" }), "said on its row, which a build keeps them for");
             ManifestsActions.Build(_task, new OpContext());
             string[] kept = _task.tunes.Where(t => t.step == "B01").SelectMany(t => t.values).Select(v => v.name).ToArray();
-            Assert.That(kept, Is.SupersetOf(new[] { nameof(TaskSettings.playFrom), nameof(TaskSettings.playSpeed) }), "kept as the row's own");
-            Assert.That(kept, Has.No.Member(nameof(TaskSettings.playUntil)), "what was not changed is not kept");
+            Assert.That(kept, Is.SupersetOf(new[] { "use.start", "use.speed" }), "kept as the row's own");
+            Assert.That(kept, Has.No.Member("use.stop"), "what was not changed is not kept");
             Assert.That(_task.tunes.Where(t => t.step == "B01").Select(t => (t.target, t.behavior, t.row)), Is.EqualTo(new[] { ("", "use", 3) }),
                         "under the row itself, never its object: the take is the row's whatever objects it names");
             var settled = new OpContext(dryRun: true);
@@ -251,26 +251,24 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         [Test]
         public void A_rows_take_is_set_on_the_row_never_on_one_of_its_objects_and_reaches_its_clip()
         {
-            // A Use or Place row offered its take's window and speed on every object it names (Settings for 'X'), and the build
-            // read them for its first object alone: a value set on any other did nothing. The clip player keeps one entry a take.
+            // A Use row offered its take's window and speed on every object it names (Settings for 'X'), and the build read
+            // them for its first object alone: a value set on any other did nothing. The clip player keeps one entry a take.
             const string bolt = "CABINET|BOLT_GRP";
-            string[] take = { nameof(TaskSettings.playSpeed), nameof(TaskSettings.playFrom), nameof(TaskSettings.playUntil) };
-            foreach (string behavior in new[] { "use", "place" })
-            {
-                string[] offered = ManifestsActions.Offered(_task, "B01", bolt, behavior, 3);
-                Assert.That(offered, Is.Not.Empty, $"an object of a {behavior} row is offered settings of its own");
-                Assert.That(offered.Intersect(take), Is.Empty, "but never its row's take");
-                Assert.That(ManifestsActions.Offered(_task, "B01", bolt, behavior, 3, wholeRow: true), Is.EquivalentTo(take), "its row is");
-            }
-            Assert.That(ManifestsActions.Offered(_task, "B01", bolt, "use", 3), Does.Contain(nameof(TaskSettings.useTrigger)), "how one object plays it stays its own");
-            Assert.That(ManifestsActions.Offered(_task, "B01", "", "play", 4), Is.EquivalentTo(take), "a Play row, which names no object, is offered its own");
+            string[] take = { "use.speed", "use.start", "use.stop" };
+            string[] offered = ManifestsActions.Offered(_task, "B01", bolt, "use", 3);
+            Assert.That(offered, Is.Not.Empty, "an object of a use row is offered settings of its own");
+            Assert.That(offered.Intersect(take), Is.Empty, "but never its row's take");
+            Assert.That(ManifestsActions.Offered(_task, "B01", bolt, "use", 3, wholeRow: true), Is.EquivalentTo(take), "its row is");
+            Assert.That(offered, Does.Contain("use.trigger"), "how one object plays it stays its own");
+            Assert.That(ManifestsActions.Offered(_task, "B01", "", "play", 4), Is.EquivalentTo(new[] { "play.after", "play.speed", "play.start", "play.stop" }),
+                        "a Play row, which names no object, is offered its own");
             var refused = new OpContext();
-            Assert.That(ManifestsActions.SetTune(_task, "B01", bolt, "use", nameof(TaskSettings.playSpeed), "3", refused, 3), Is.False);
+            Assert.That(ManifestsActions.SetTune(_task, "B01", bolt, "use", "use.speed", "3", refused, 3), Is.False);
             Assert.That(refused.Issues.Select(i => i.code), Is.EqualTo(new[] { ManifestsActions.SettingCode }), "refused for one object, and said");
 
             var own = new OpContext();
-            Assert.That(ManifestsActions.SetTune(_task, "B01", "", "use", nameof(TaskSettings.playSpeed), "2", own, 3), Is.True);
-            Assert.That(ManifestsActions.SetTune(_task, "B01", "", "play", nameof(TaskSettings.playSpeed), "3", own), Is.True, "every Play row of the step");
+            Assert.That(ManifestsActions.SetTune(_task, "B01", "", "use", "use.speed", "2", own, 3), Is.True);
+            Assert.That(ManifestsActions.SetTune(_task, "B01", "", "play", "play.speed", "3", own), Is.True, "every Play row of the step");
             Assert.That(own.Issues, Is.Empty);
             ManifestsActions.Build(_task, new OpContext());
             M3trik.Unitytk.Interaction.ClipPlayer Player() => ManifestsActions.Placed(_task.delivery).GetComponent<M3trik.Unitytk.Interaction.ClipPlayer>();
@@ -284,7 +282,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(ManifestsActions.SetRowField(_task, "B01", bolt, "use", "clip", "B01_1", row: 3), Is.True);
             Assert.That(ManifestsActions.Offered(_task, "B01", bolt, "use", 3), Is.SupersetOf(take), "its row is the object's own");
             Assert.That(ManifestsActions.Offered(_task, "B01", bolt, "use", 3, wholeRow: true), Is.Empty);
-            Assert.That(ManifestsActions.SetTune(_task, "B01", bolt, "use", nameof(TaskSettings.playSpeed), "4", row: 3), Is.True);
+            Assert.That(ManifestsActions.SetTune(_task, "B01", bolt, "use", "use.speed", "4", row: 3), Is.True);
             ManifestsActions.Build(_task, new OpContext());
             Assert.That(Player().Find("B01_1").speed, Is.EqualTo(4f), "its own row's take, at its own speed");
         }
@@ -361,15 +359,15 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             // that the next build keeps a person's angle as the row's, and a scene built anew gives it again, was never seen.
             _settings.debugTools = false;
             const string door = "CABINET|DOOR_GRP";
-            Assert.That(ManifestsActions.SetAssigned(_task, "A02", door, "pip", true, new OpContext()), Is.True, "a picture of the door, added here");
+            Assert.That(ManifestsActions.SetAssigned(_task, "A02", door, "picture", true, new OpContext()), Is.True, "a picture of the door, added here");
             ManifestsActions.Build(_task, new OpContext());
-            string pip = TaskKit.PipName(ManifestsActions.Plan(_task, out _), _settings);
-            Camera Lens() => GameObject.Find(pip).transform.Find("A02").GetComponent<M3trik.Unitytk.Panels.PipShot>().from.GetComponent<Camera>();
+            string picture = TaskKit.PictureName(ManifestsActions.Plan(_task, out _), _settings);
+            Camera Lens() => GameObject.Find(picture).transform.Find("A02").GetComponent<M3trik.Unitytk.Panels.PipShot>().from.GetComponent<Camera>();
             Assert.That(Lens().fieldOfView, Is.EqualTo(M3trik.Unitytk.Panels.PipView.DefaultFieldOfView).Within(1e-4f), "premise: the view's");
             Lens().fieldOfView = 35f;  // as its inspector sets it
 
             ManifestsActions.Build(_task, new OpContext());
-            Assert.That(_task.TuneOf("A02", door, "pip")?.Get(nameof(TaskSettings.pipFieldOfView)), Is.EqualTo("35"), "kept as the row's own");
+            Assert.That(_task.TuneOf("A02", door, "picture")?.Get("picture.fieldOfView"), Is.EqualTo("35"), "kept as the row's own");
             Assert.That(Lens().fieldOfView, Is.EqualTo(35f).Within(1e-4f), "and the camera keeps it");
             var settled = new OpContext(dryRun: true);
             ManifestsActions.Build(_task, settled);
@@ -621,7 +619,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 manifest.settings.Add(settings);
                 made.AddRange(new Object[] { root, settings, manifest });
                 var plan = SheetPlan.Read("{\"version\": 2, \"source\": {\"sheet\": \"" + name + ".csv\"}, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
-                                          "{\"behavior\": \"teleport\", \"text\": \"User is teleported facing the door\", \"fields\": {\"facing\": \"DOOR_GRP\"}}]}]}",
+                                          "{\"behavior\": \"travel\", \"text\": \"The user is brought to face the door\", \"targets\": [\"DOOR_GRP\"]}]}]}",
                                           name, out string refusal);
                 Assert.That(refusal, Is.Null);
                 var scene = new ManifestScene(root) { Manifest = manifest };
@@ -635,13 +633,13 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             try
             {
                 PlacedSpot spotA = Spot(a.scene), spotB = Spot(b.scene);
-                Assert.That((spotA.key, spotB.key), Is.EqualTo(("teleport/A01", "teleport/A01")), "one key in both tasks");
+                Assert.That((spotA.key, spotB.key), Is.EqualTo(("travel/A01", "travel/A01")), "one key in both tasks");
                 spotA.transform.position += Vector3.right * 0.5f;  // a person moves each
                 spotB.transform.position += Vector3.forward * 1f;
                 new TaskBuild().Keep(a.manifest, a.scene, new OpContext());
                 Placements.Tuning kept = TaskScene.Kept(a.manifest, out _);
                 Assert.That(b.manifest.moved, Is.Empty, "b's manifest untouched");
-                Assert.That(kept.spots.Select(s => s.key), Is.EqualTo(new[] { "teleport/A01" }));
+                Assert.That(kept.spots.Select(s => s.key), Is.EqualTo(new[] { "travel/A01" }));
                 Assert.That(Vector3.Distance(kept.spots[0].position, spotA.Relative.position), Is.LessThan(1e-4f), "task a's own spot, not b's");
             }
             finally

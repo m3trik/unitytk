@@ -75,8 +75,9 @@ OWN_ROLES = {
     "buttons": "its `label` names the buttons on the step's page (split at the reading's `separators`): "
     "each one a choice a row of the step offers (an `advances` row of that label), and the page not "
     "empty; the row is kept as a note",
-    "opens": "it shows what the next row of its `span`'s word holds as that span (`step`), until a "
-    "`closes` row ends it; the row is kept as a note",
+    "opens": "it shows a thing its `span` says how long lasts, until a `closes` row ends it: the row's own "
+    "where it is of the span's word; else the next row of that word's, given the span `step` (until its "
+    "step ends), the row kept as a note",
     "closes": "it ends the span (its `span`) of the latest row of the span's word still showing: as its "
     "own step starts (`step` where that is the row's own step); the row is kept as a note",
 }

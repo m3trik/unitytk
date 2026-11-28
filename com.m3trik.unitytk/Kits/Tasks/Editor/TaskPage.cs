@@ -9,9 +9,9 @@ using UnityEngine;
 namespace M3trik.Unitytk.Kits.Tasks
 {
     /// <summary>
-    /// What a step's page on the task's placard says and offers, as its rows fill it: its text (a row's quote,
-    /// else the sheet's placard column; on a page made for its buttons alone, or every page where the task asks for
-    /// one each, <see cref="TaskSettings.pages"/>, its voice line), a button per label a row offers
+    /// What a step's page on the task's placard says and offers, as its rows fill it: its text (the sheet's placard
+    /// column; on a page made for its buttons alone, or every page where the task asks for one each,
+    /// <see cref="TaskSettings.pages"/>, its voice line), a button per label a row offers
     /// (<see cref="TaskBehaviorAttribute.Offers"/>), what choosing a label says where it does not go on, and
     /// whether it shows the task's number keys. A row's behavior fills it through <see cref="ITaskPageContent"/>.
     /// </summary>
@@ -25,7 +25,7 @@ namespace M3trik.Unitytk.Kits.Tasks
             Text = text;
         }
 
-        /// <summary>What the page says (its placard text: a row's quote, else the sheet's placard column).</summary>
+        /// <summary>What the page says (its placard text: the sheet's placard column, unless a row says otherwise).</summary>
         public string Text { get; set; }
 
         /// <summary>Whether the page shows the task's number keys (<see cref="TaskSettings.numberKeys"/>).</summary>
@@ -33,7 +33,7 @@ namespace M3trik.Unitytk.Kits.Tasks
 
         /// <summary>
         /// Whether a row of the step puts something on the placard besides its page (a list, a tick, what a part
-        /// selected without its tool says): the task gets its placard though no step has a page.
+        /// selected without what it needs in hand says): the task gets its placard though no step has a page.
         /// </summary>
         public bool OnPlacard { get; set; }
 
@@ -113,14 +113,14 @@ namespace M3trik.Unitytk.Kits.Tasks
             foreach (var action in step.actions)
             {
                 if (ManifestBehaviors.Find(action.behavior) is ITaskPageContent content) content.Fill(action, step, page, scene);
-                if (TaskBehaviors.Traits(action.behavior).Offers) page.Offer(action.Field(TaskKit.Fields.Label));
+                if (TaskBehaviors.Traits(action, step).Offers) page.Offer(action.Field(TaskKit.Fields.Label));
             }
             return page;
         }
 
         // A step that asks the user to act (take a tool, select or use a part) and also holds on a gate's button
         // (IStepGate, as it finishes): its button waits for the step to complete, shown then, so the user never goes
-        // on without the tool a later step needs. Only an acting row the run builds (assessed ready) makes the step
+        // on without what a later step needs in hand. Only an acting row the run builds (assessed ready) makes the step
         // wait: one held back (a node the scene lacks) gives it nothing to wait for, as a dry run and its live run know alike.
         static void HoldNextBack(SheetPlan.Shape.PlanStep step, string title, string placard, ManifestScene scene, OpContext ctx)
         {
@@ -129,13 +129,13 @@ namespace M3trik.Unitytk.Kits.Tasks
             bool acts = false;
             for (int i = 0; assessed != null && i < step.actions.Count && i < assessed.rows.Count; i++)
                 acts |= step.actions[i] != null && assessed.rows[i].state == ManifestAssessment.State.Ready
-                        && TaskBehaviors.Traits(step.actions[i].behavior).ActsOn;
+                        && TaskBehaviors.Traits(step.actions[i], step).ActsOn;
             if (!acts) return;
             Steps.Step made = StepsActions.AddStep(scene.Sequence(), step.id, title, ctx);
             foreach (var action in step.actions)
             {
                 string label = action == null ? null : action.Field(TaskKit.Fields.Label);
-                IStepGate gate = action == null ? null : TaskBehaviors.Gate(action.behavior);
+                IStepGate gate = TaskBehaviors.Gate(action, step);
                 if (gate == null || string.IsNullOrEmpty(label)) continue;
                 if (gate.AtStart(action, step, scene)) continue;  // its button starts the step: offered at once
                 StepsActions.WaitToOffer(scene.Sequence(), step.id, label, ctx);
@@ -146,17 +146,17 @@ namespace M3trik.Unitytk.Kits.Tasks
         }
 
         // What step's rows show the user or ask them to act on (every node a row names but a place,
-        // and the tools its rows use), each once: what its page keeps clear of.
+        // and what its rows have in hand), each once: what its page keeps clear of.
         static IEnumerable<Transform> Shown(SheetPlan.Shape.PlanStep step, ManifestScene scene)
         {
             var seen = new HashSet<Transform>();
             if (step.actions == null) yield break;
             foreach (var action in step.actions)
             {
-                if (TaskBehaviors.Traits(action.behavior).Places) continue;
+                if (TaskBehaviors.Traits(action, step).Places) continue;
                 var paths = new List<string>();
                 if (action.targets != null) paths.AddRange(action.targets);
-                if (!string.IsNullOrEmpty(action.Field(TaskKit.Fields.Tool))) paths.Add(action.Field(TaskKit.Fields.Tool));
+                if (!string.IsNullOrEmpty(action.Field(TaskKit.Fields.With))) paths.Add(action.Field(TaskKit.Fields.With));
                 foreach (string path in paths)
                 {
                     Transform node = scene.Node(path);

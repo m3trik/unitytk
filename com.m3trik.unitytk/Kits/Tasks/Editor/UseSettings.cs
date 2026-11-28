@@ -11,12 +11,13 @@ namespace M3trik.Unitytk.Kits.Tasks
     public sealed class UseSettings : ClipSettings
     {
         [Tooltip("What sets the take off. Select: a click (the usual). Hold: the object held pressed (with Hold 0 it plays while " +
-                 "held: let go, it stops). Near: what the hand holds brought to it, or a click with it in hand, which leaves what " +
-                 "the take moves in place. Set it for one object in the Manifest window: the chip's Settings for that object.")]
+                 "held: let go, it stops; above 0, a press held that long plays it). Near: what the hand holds brought to it, or a " +
+                 "click with it in hand, which leaves what the take moves in place. Set it for one object in the Manifest window: " +
+                 "the chip's Settings for that object.")]
         public UseTrigger trigger = UseTrigger.Select;
 
-        [Tooltip("Seconds a press is held before the take plays (a timed press, with Select or Hold); 0: none (with Hold, it " +
-                 "plays while held).")]
+        [Tooltip("With Hold: seconds a press is held before the take plays (a timed press); 0: it plays while held. Select and " +
+                 "Near hold nothing.")]
         [Min(0f)]
         public float hold;
 

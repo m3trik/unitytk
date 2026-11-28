@@ -107,7 +107,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             string json = "{\"version\": 2, \"extensions\": {\"task\": {\"tools\": {\"LID\": {\"tip\": [0, 1]}}, \"pace\": 2}}, " +
                           "\"steps\": [{\"id\": \"A01\", \"actions\": [" +
                           "{\"behavior\": \"play\", \"text\": \"Door open Animation plays\", \"clip\": \"A01\"}," +
-                          "{\"behavior\": \"teleport\", \"text\": \"The user is teleported facing the lid\", \"fields\": {\"facing\": \"CABINET|LID\"}}]}]}";
+                          "{\"behavior\": \"travel\", \"text\": \"The user is brought to face the lid\", \"targets\": [\"CABINET|LID\"]}]}]}";
             var plan = SheetPlan.Read(json, "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
             var settings = ScriptableObject.CreateInstance<TaskSettings>();
@@ -126,7 +126,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                             "a settings file's tool table, which the kit no longer reads, is said with where its adjustment goes");
                 Assert.That(Said(TaskKit.ExtensionCode, "holds 'pace', which the kit does not read"), "and anything else it holds");
                 Assert.That(Said(TaskKit.FollowsNothingCode, "plays after no clip of its step"), "a play row with nothing to follow");
-                Assert.That(Said(TaskKit.SpotCode, "no spot on the floor sees 'LID'"), "no spot sees what the teleport faces: said");
+                Assert.That(Said(TaskKit.SpotCode, "no spot on the floor sees 'LID'"), "no spot sees what the travel faces: said");
             }
             finally
             {
@@ -141,7 +141,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         {
             // The select row names a node the scene lacks: held back, it builds nothing for its step to wait on.
             var plan = Plan("{\"behavior\": \"select\", \"text\": \"Selecting the hatch\", \"targets\": [\"CABINET|HATCH\"]}," +
-                            "{\"behavior\": \"pause\", \"text\": \"Selecting 'Next' triggers step advancement\", \"fields\": {\"label\": \"Next\"}}");
+                            "{\"behavior\": \"button\", \"text\": \"Selecting 'Next' goes on\", \"fields\": {\"label\": \"Next\"}, \"to\": \"next\"}");
             var settings = ScriptableObject.CreateInstance<TaskSettings>();
             settings.rig = TaskRig.None;
             try
@@ -181,8 +181,8 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(ManifestBehaviors.Mark("highlight").NamesObjects, Is.True);
             var offered = ManifestsActions.Assignable(_scene, "CABINET|DOOR_GRP");
             Assert.That(offered, Does.Contain("indicate").And.Contain("select"));
-            Assert.That(offered, Does.Not.Contain("advance").And.Not.Contain("note").And.Not.Contain("number_pad"),
-                        "going on, a note, a number pad: nothing an object is given");
+            Assert.That(offered, Does.Not.Contain("advance").And.Not.Contain("note").And.Not.Contain("answer").And.Not.Contain("button"),
+                        "going on, a note, a keyed-in answer, a button: nothing an object is given");
         }
 
         [Test]
@@ -211,35 +211,32 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(again.Changes, Is.Empty);
         }
 
-        // A task of every placard-, marker- and press-built behavior, each step its own.
+        // A task of every placard-, ring- and press-built behavior, each step its own.
         const string Task = "{\"version\": 2, \"steps\": [" +
             "{\"id\": \"A01\", \"actions\": [" +
-            "{\"behavior\": \"use\", \"text\": \"Pressing and holding the door plays Door open animation\", \"targets\": [\"CABINET|DOOR_GRP\"], \"clip\": \"A01\", \"settings\": {\"useTrigger\": \"HoldToPlay\"}}," +
-            "{\"behavior\": \"marker\", \"text\": \"Destination circle fades in\"}," +
-            "{\"behavior\": \"checklist\", \"text\": \"A checklist appears on the placard: Door open, Lid checked\", \"fields\": {\"label\": \"Door open, Lid checked\"}}]}," +
+            "{\"behavior\": \"use\", \"text\": \"Holding the door plays A01\", \"targets\": [\"CABINET|DOOR_GRP\"], \"clip\": \"A01\", \"settings\": {\"trigger\": \"hold\"}}," +
+            "{\"behavior\": \"list\", \"text\": \"A list is shown: Door open, Lid checked\", \"fields\": {\"label\": \"Door open\\nLid checked\"}}]}," +
             "{\"id\": \"A015\", \"actions\": [" +
-            "{\"behavior\": \"show\", \"text\": \"Highlighted lid appears in place\", \"targets\": [\"CABINET|LID\"]}," +
-            "{\"behavior\": \"quiz\", \"text\": \"Selecting 'Take Quiz' triggers advancement to the quiz\", \"fields\": {\"label\": \"Take Quiz\"}}]}," +
+            "{\"behavior\": \"show\", \"text\": \"The lid appears\", \"targets\": [\"CABINET|LID\"]}," +
+            "{\"behavior\": \"button\", \"text\": \"Selecting 'Take Quiz' goes to step Q01\", \"fields\": {\"label\": \"Take Quiz\"}, \"to\": \"Q01\"}]}," +
             "{\"id\": \"A02\", \"actions\": [" +
-            "{\"behavior\": \"teleport\", \"text\": \"The user is teleported to VIEW_FRONT\", \"targets\": [\"CABINET|VIEW_FRONT\"]}," +
-            "{\"behavior\": \"marker\", \"text\": \"Destination circle fades away\", \"settings\": {\"markerShow\": \"Hide\"}}," +
-            "{\"behavior\": \"check\", \"text\": \"Checklist item 'Lid checked' gets a check mark\", \"fields\": {\"label\": \"Lid checked\"}}]}," +
+            "{\"behavior\": \"travel\", \"text\": \"The user is brought to VIEW_FRONT, its ring shown until step\", " +
+            "\"fields\": {\"where\": [\"CABINET|VIEW_FRONT\"]}, \"settings\": {\"ring\": \"step\"}}," +
+            "{\"behavior\": \"tick\", \"text\": \"'Lid checked' is ticked on the list\", \"fields\": {\"label\": \"Lid checked\"}}]}," +
             "{\"id\": \"Q01\", \"actions\": [" +
-            "{\"behavior\": \"option\", \"text\": \"*Wrench\", \"fields\": {\"label\": \"Wrench\", \"value\": \"correct\"}}," +
-            "{\"behavior\": \"option\", \"text\": \"Hammer\", \"fields\": {\"label\": \"Hammer\"}}," +
-            "{\"behavior\": \"option\", \"text\": \"Pliers\", \"fields\": {\"label\": \"Pliers\"}}," +
-            "{\"behavior\": \"goto\", \"text\": \"Selecting 'Pliers' triggers step A01\", \"fields\": {\"label\": \"Pliers\"}, \"to\": \"A01\"}]}," +
+            "{\"behavior\": \"button\", \"text\": \"Selecting 'Wrench' goes on\", \"fields\": {\"label\": \"Wrench\"}, \"to\": \"next\"}," +
+            "{\"behavior\": \"button\", \"text\": \"Selecting 'Hammer' is wrong: the step stays\", \"fields\": {\"label\": \"Hammer\"}, \"to\": \"retry\"}," +
+            "{\"behavior\": \"button\", \"text\": \"Selecting 'Pliers' goes to step A01\", \"fields\": {\"label\": \"Pliers\"}, \"to\": \"A01\"}]}," +
             "{\"id\": \"D08\", \"actions\": [" +
-            "{\"behavior\": \"number_pad\", \"text\": \"A number pad appears on the placard\"}," +
-            "{\"behavior\": \"answer\", \"text\": \"Entering '1337' triggers step D10\", \"fields\": {\"value\": \"1337\"}, \"to\": \"D10\"}," +
-            "{\"behavior\": \"answer\", \"text\": \"Entering any other number triggers step Q01\", \"to\": \"Q01\", \"settings\": {\"answerKind\": \"Otherwise\"}}]}," +
+            "{\"behavior\": \"answer\", \"text\": \"Entering '1337' goes to step D10\", \"fields\": {\"label\": \"1337\"}, \"to\": \"D10\"}," +
+            "{\"behavior\": \"answer\", \"text\": \"Entering anything else goes to step Q01\", \"fields\": {\"label\": \"*\"}, \"to\": \"Q01\"}]}," +
             "{\"id\": \"D10\", \"actions\": [" +
-            "{\"behavior\": \"checklist\", \"text\": \"Checklist appears on placard with blank check boxes\"}]}," +
+            "{\"behavior\": \"list\", \"text\": \"A list is shown\"}]}," +
             "{\"id\": \"D11\", \"actions\": [" +
-            "{\"behavior\": \"check\", \"text\": \"Checklist item 'Bolts out' gets a check mark\", \"fields\": {\"label\": \"Bolts out\"}}]}]}";
+            "{\"behavior\": \"tick\", \"text\": \"'Bolts out' is ticked on the list\", \"fields\": {\"label\": \"Bolts out\"}}]}]}";
 
         [Test]
-        public void Press_marker_question_key_pad_and_checklist_rows_build_as_planned_once()
+        public void Press_ring_question_key_pad_and_list_rows_build_as_planned_once()
         {
             var view = new GameObject("VIEW_FRONT").transform;
             view.SetParent(_root.transform.Find("CABINET"));
@@ -262,32 +259,35 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             var sequence = GameObject.Find("Task").GetComponent<M3trik.Unitytk.Steps.Sequence>();
             var door = _root.transform.Find("CABINET/DOOR_GRP").GetComponent<M3trik.Unitytk.Interaction.Target>();
             Assert.That(door.onPressed.GetPersistentTarget(0), Is.InstanceOf<M3trik.Unitytk.Interaction.ClipTrigger>(), "through its step's trigger");
-            Assert.That(door.onPressed.GetPersistentMethodName(0), Is.EqualTo(nameof(M3trik.Unitytk.Interaction.ClipTrigger.Hold)));
+            Assert.That(door.onPressed.GetPersistentMethodName(0), Is.EqualTo(nameof(M3trik.Unitytk.Interaction.ClipTrigger.Hold)), "trigger=hold: held to play");
             Assert.That(door.onReleased.GetPersistentMethodName(0), Is.EqualTo(nameof(M3trik.Unitytk.Interaction.ClipTrigger.Release)));
 
             var marker = view.Find(M3trik.Unitytk.Indicators.IndicatorsActions.MarkerName).GetComponent<M3trik.Unitytk.Indicators.Marker>();
-            Assert.That(sequence.Find("A01").turnsOn, Does.Contain(marker), "at the next teleport's viewpoint, from A01 on");
-            Assert.That(sequence.Find("A02").turnsOff.Single(), Is.SameAs(marker));
+            Assert.That(sequence.Find("A02").activates, Does.Contain(marker), "its ring, while its step runs: ring=step");
+            Assert.That(sequence.Find("A02").turnsOn.Concat(sequence.Find("A02").turnsOff), Has.No.Member(marker));
 
             Transform placard = GameObject.Find("Placard").transform;
-            var list = placard.Find(TaskKit.ChecklistName("A01")).GetComponent<M3trik.Unitytk.Panels.PlacardList>();
-            Assert.That(list.items, Is.EqualTo(new[] { "Door open", "Lid checked" }));
+            var list = placard.Find(TaskKit.ListName("A01")).GetComponent<M3trik.Unitytk.Panels.PlacardList>();
+            Assert.That(list.items, Is.EqualTo(new[] { "Door open", "Lid checked" }), "an item a line");
             Assert.That(sequence.Find("A01").turnsOn, Does.Contain(list));
+            Assert.That(sequence.Find("D10").turnsOff, Does.Contain(list), "until the next list's step: it replaces it");
             var tick = list.GetComponentInChildren<M3trik.Unitytk.Panels.PlacardTick>(true);
             Assert.That((tick.item, sequence.Find("A02").ends.Single()), Is.EqualTo(("Lid checked", (Behaviour)tick)), "ticked as A02 ends");
 
             var q01 = placard.Find("Q01").GetComponent<M3trik.Unitytk.Panels.PlacardPage>();
             Assert.That(q01.choices, Is.EqualTo(new[] { "Wrench", "Hammer", "Pliers" }));
-            Assert.That(q01.replies.Select(r => (r.choice, r.text)), Is.EqualTo(new[] { ("Hammer", ScriptableObject.CreateInstance<TaskSettings>().wrongChoiceReply) }),
-                        "a wrong answer says try again; one a row sends somewhere does not");
+            Assert.That(q01.replies.Select(r => (r.choice, r.text)), Is.EqualTo(new[] { ("Hammer", ScriptableObject.CreateInstance<TaskSettings>().button.reply) }),
+                        "a wrong answer says its reply; one that goes somewhere does not");
             Assert.That(sequence.Find("Q01").Choice("Wrench").to, Is.Empty, "the right answer goes on");
             Assert.That(sequence.Find("Q01").Choice("Hammer"), Is.Null, "a wrong one stays");
+            Assert.That(sequence.Find("Q01").Choice("Pliers").to, Is.EqualTo("A01"));
 
-            Assert.That(placard.Find("D08").GetComponent<M3trik.Unitytk.Panels.PlacardPage>().keys, Is.EqualTo(ScriptableObject.CreateInstance<TaskSettings>().numberKeys));
-            var blank = placard.Find(TaskKit.ChecklistName("D10")).GetComponent<M3trik.Unitytk.Panels.PlacardList>();
-            Assert.That(blank.items, Is.EqualTo(new[] { "Bolts out" }), "a blank checklist lists the checks that follow it");
+            Assert.That(placard.Find("D08").GetComponent<M3trik.Unitytk.Panels.PlacardPage>().keys, Is.EqualTo(ScriptableObject.CreateInstance<TaskSettings>().numberKeys),
+                        "an answer puts the key pad on its page");
+            var blank = placard.Find(TaskKit.ListName("D10")).GetComponent<M3trik.Unitytk.Panels.PlacardList>();
+            Assert.That(blank.items, Is.EqualTo(new[] { "Bolts out" }), "a list with no items lists the ticks that follow it");
             Assert.That(blank.GetComponentInChildren<M3trik.Unitytk.Panels.PlacardTick>(true).item, Is.EqualTo("Bolts out"));
-            Assert.That(sequence.Find("A015").Choice("Take Quiz").to, Is.EqualTo("Q01"), "the quiz: the first step asking a question");
+            Assert.That(sequence.Find("A015").Choice("Take Quiz").to, Is.EqualTo("Q01"), "a button to the quiz: its To");
             Assert.That(placard.Find("A015").GetComponent<M3trik.Unitytk.Panels.PlacardPage>().choices, Is.EqualTo(new[] { "Take Quiz" }));
             Assert.That(_root.transform.Find("CABINET/LID").GetComponent<M3trik.Unitytk.RenderEffects.FadeTo>(), Is.Not.Null, "shown by a fade in");
             sequence.Begin();
@@ -300,26 +300,28 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         }
 
         [Test]
-        public void A_marker_with_no_place_and_a_tick_with_no_list_are_unresolved()
+        public void A_span_no_later_step_names_a_travel_that_names_nowhere_and_a_tick_with_no_list_are_unresolved()
         {
-            var plan = Plan("{\"behavior\": \"marker\", \"text\": \"Destination circle fades in\"}," +
-                            "{\"behavior\": \"check\", \"text\": \"Checklist item 'Lid' gets a check mark\", \"fields\": {\"label\": \"Lid\"}}," +
-                            "{\"behavior\": \"marker\", \"text\": \"Destination circle fades away\", \"settings\": {\"markerShow\": \"Hide\"}}");
+            var plan = Plan("{\"behavior\": \"travel\", \"text\": \"The user is brought to face the door\", \"targets\": [\"CABINET|DOOR_GRP\"], " +
+                            "\"settings\": {\"ring\": \"Z99\"}}," +
+                            "{\"behavior\": \"tick\", \"text\": \"'Lid' is ticked on the list\", \"fields\": {\"label\": \"Lid\"}}," +
+                            "{\"behavior\": \"travel\", \"text\": \"The user is brought somewhere\"}");
             ManifestAssessment assessment = ManifestsActions.Assess(plan, _scene);
             Assert.That(assessment.rows.Select(r => r.state), Is.All.EqualTo(ManifestAssessment.State.Unresolved));
-            Assert.That(assessment.rows[0].problems.Single(), Does.Contain("no teleport follows it"));
-            Assert.That(assessment.rows[1].problems.Single(), Does.Contain("no checklist before it lists 'Lid'"));
+            Assert.That(assessment.rows[0].problems.Single(), Does.Contain("its ring 'Z99' is no step of the task"));
+            Assert.That(assessment.rows[1].problems.Single(), Does.Contain("no list before it lists 'Lid'"));
+            Assert.That(assessment.rows[2].problems.Single(), Does.Contain("names neither a viewpoint nor what the user faces"));
         }
 
         [Test]
-        public void A_lamp_turned_on_glows_in_its_rows_colour()
+        public void A_lamp_highlighted_steady_glows_in_its_rows_colour()
         {
-            // A turn_on row's colour (the sheet's color, a highlight's) was read by no one: the glow kept the kit's.
+            // A lamp turned on is a highlight, style=steady: its colour the row's (the sheet's color), never the kit's.
             var lamp = GameObject.CreatePrimitive(PrimitiveType.Cube);
             lamp.name = "LAMP";
             lamp.transform.SetParent(_root.transform.Find("CABINET"));
-            var plan = Plan("{\"behavior\": \"turn_on\", \"text\": \"The lamp turns on\", \"targets\": [\"CABINET|LAMP\"], " +
-                            "\"settings\": {\"highlightColor\": \"#3399FF\"}}");
+            var plan = Plan("{\"behavior\": \"highlight\", \"text\": \"LAMP is highlighted\", \"targets\": [\"CABINET|LAMP\"], " +
+                            "\"settings\": {\"style\": \"steady\", \"color\": \"#3399FF\"}}");
             var settings = ScriptableObject.CreateInstance<TaskSettings>();
             settings.rig = TaskRig.None;
             try
@@ -341,20 +343,17 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         }
 
         [Test]
-        public void A_marker_of_a_teleport_that_cannot_be_built_is_unresolved_with_it_and_the_build_goes_on()
+        public void A_travel_to_a_viewpoint_the_delivery_lacks_is_unresolved_and_the_build_goes_on()
         {
-            // A marker took the next teleport's viewpoint whether or not that row could be built: one naming a viewpoint the
-            // delivery lacks threw as the marker was built, and the whole build stopped there.
             string json = "{\"version\": 2, \"steps\": [" +
-                          "{\"id\": \"A01\", \"actions\": [{\"behavior\": \"marker\", \"text\": \"Destination circle fades in\"}]}," +
-                          "{\"id\": \"A02\", \"actions\": [{\"behavior\": \"teleport\", \"text\": \"The user is teleported to VIEW_GONE\", " +
-                          "\"targets\": [\"CABINET|VIEW_GONE\"]}]}]}";
+                          "{\"id\": \"A01\", \"actions\": [{\"behavior\": \"highlight\", \"text\": \"The door is highlighted\", \"targets\": [\"CABINET|DOOR_GRP\"]}]}," +
+                          "{\"id\": \"A02\", \"actions\": [{\"behavior\": \"travel\", \"text\": \"The user is brought to VIEW_GONE\", " +
+                          "\"fields\": {\"where\": [\"CABINET|VIEW_GONE\"]}, \"settings\": {\"ring\": \"step\"}}]}]}";
             var plan = SheetPlan.Read(json, "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
             ManifestAssessment assessment = ManifestsActions.Assess(plan, _scene);
-            Assert.That(assessment.rows.Select(r => r.state), Is.EqualTo(new[] { ManifestAssessment.State.Unresolved, ManifestAssessment.State.Unresolved }));
-            Assert.That(assessment.rows[0].problems.Single(), Does.Contain("the teleport it marks (A02:").And.Contain("cannot be built")
-                                                                 .And.Contain("'CABINET|VIEW_GONE' is no node"));
+            Assert.That(assessment.rows.Select(r => r.state), Is.EqualTo(new[] { ManifestAssessment.State.Ready, ManifestAssessment.State.Unresolved }));
+            Assert.That(assessment.rows[1].problems.Single(), Does.Contain("'CABINET|VIEW_GONE' is no node"));
             var settings = ScriptableObject.CreateInstance<TaskSettings>();
             settings.rig = TaskRig.None;
             try
@@ -362,8 +361,8 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 var dry = new OpContext(dryRun: true);
                 Assert.DoesNotThrow(() => ManifestsActions.Build(plan, _scene.Use(settings), dry));
                 var live = new OpContext();
-                Assert.DoesNotThrow(() => ManifestsActions.Build(plan, _scene, live), "each row it cannot build is raised and left out");
-                Assert.That(live.Issues.Count(i => i.code == ManifestsActions.UnresolvedCode), Is.EqualTo(2));
+                Assert.DoesNotThrow(() => ManifestsActions.Build(plan, _scene, live), "a row it cannot build is raised and left out");
+                Assert.That(live.Issues.Count(i => i.code == ManifestsActions.UnresolvedCode), Is.EqualTo(1));
                 Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(dry.Changes.Select(c => (c.kind, c.target, c.action))));
             }
             finally
@@ -373,28 +372,32 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         }
 
         [Test]
-        public void A_place_whose_spot_is_part_of_what_it_places_is_unresolved()
+        public void A_use_brought_near_whose_spot_is_part_of_what_it_places_is_unresolved()
         {
             // Measured on a real delivery: the sheet's slot was the placed part's own body, so it rode into the hand.
             new GameObject("BODY").transform.SetParent(_root.transform.Find("CABINET/LID"));
-            var plan = Plan("{\"behavior\": \"place\", \"text\": \"Moving the lid close to its slot plays its install\", " +
-                            "\"targets\": [\"CABINET|LID|BODY\"], \"fields\": {\"tool\": \"CABINET|LID\"}, \"clip\": \"A01\"}," +
-                            "{\"behavior\": \"place\", \"text\": \"Moving the lid close to the door plays its install\", " +
-                            "\"targets\": [\"CABINET|DOOR_GRP\"], \"fields\": {\"tool\": \"CABINET|LID\"}, \"clip\": \"A01\"}");
+            var plan = Plan("{\"behavior\": \"use\", \"text\": \"Bringing the lid to its slot plays A01\", " +
+                            "\"targets\": [\"CABINET|LID|BODY\"], \"fields\": {\"with\": \"CABINET|LID\"}, \"clip\": \"A01\", \"settings\": {\"trigger\": \"near\"}}," +
+                            "{\"behavior\": \"use\", \"text\": \"Bringing the lid to the door plays A01\", " +
+                            "\"targets\": [\"CABINET|DOOR_GRP\"], \"fields\": {\"with\": \"CABINET|LID\"}, \"clip\": \"A01\", \"settings\": {\"trigger\": \"near\"}}," +
+                            "{\"behavior\": \"use\", \"text\": \"Bringing nothing to the door plays A01\", " +
+                            "\"targets\": [\"CABINET|DOOR_GRP\"], \"clip\": \"A01\", \"settings\": {\"trigger\": \"near\"}}");
             ManifestAssessment assessment = ManifestsActions.Assess(plan, new ManifestScene(_root, new[] { new AnimationClip { name = "A01" } }));
-            Assert.That(assessment.rows.Select(r => r.state), Is.EqualTo(new[] { ManifestAssessment.State.Unresolved, ManifestAssessment.State.Ready }));
-            Assert.That(assessment.rows[0].problems.Single(), Does.Contain("'BODY' is part of 'LID'").And.Contain("Repair the sheet").And.Contain("set its Take and Tool"));
+            Assert.That(assessment.rows.Select(r => r.state),
+                        Is.EqualTo(new[] { ManifestAssessment.State.Unresolved, ManifestAssessment.State.Ready, ManifestAssessment.State.Unresolved }));
+            Assert.That(assessment.rows[0].problems.Single(), Does.Contain("'BODY' is part of 'LID'").And.Contain("Repair the sheet").And.Contain("set its Take"));
+            Assert.That(assessment.rows[2].problems.Single(), Does.Contain("brings nothing").And.Contain("set its With"));
         }
 
         [Test]
-        public void A_part_a_place_row_brings_to_its_slot_stays_where_its_take_puts_it_unless_its_settings_say_otherwise()
+        public void A_part_a_use_brings_to_its_slot_stays_where_its_take_puts_it_unless_its_settings_say_otherwise()
         {
             // A filter fitted into its slot came back to the hand as its take ended, and was carried to the end of the task.
             var install = new AnimationClip { name = "A01" };
             install.SetCurve("CABINET/LID", typeof(Transform), "localPosition.x", AnimationCurve.Linear(0f, 0f, 1f, 1f));
-            var plan = Plan("{\"behavior\": \"take\", \"text\": \"Selecting the lid places it in hand\", \"targets\": [\"CABINET|LID\"]}," +
-                            "{\"behavior\": \"place\", \"text\": \"Moving the lid close to the door plays its install\", " +
-                            "\"targets\": [\"CABINET|DOOR_GRP\"], \"fields\": {\"tool\": \"CABINET|LID\"}, \"clip\": \"A01\"}");
+            var plan = Plan("{\"behavior\": \"take\", \"text\": \"Selecting the lid takes it in hand\", \"targets\": [\"CABINET|LID\"]}," +
+                            "{\"behavior\": \"use\", \"text\": \"Bringing the lid to the door plays A01\", " +
+                            "\"targets\": [\"CABINET|DOOR_GRP\"], \"fields\": {\"with\": \"CABINET|LID\"}, \"clip\": \"A01\", \"settings\": {\"trigger\": \"near\"}}");
             var settings = ScriptableObject.CreateInstance<TaskSettings>();
             settings.rig = TaskRig.None;
             try
@@ -409,10 +412,12 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 var lid = _root.transform.Find("CABINET/LID").GetComponent<M3trik.Unitytk.Interaction.Holdable>();
                 var entry = _root.GetComponent<M3trik.Unitytk.Interaction.ClipPlayer>().Find("A01");
                 Assert.That(entry.leaves, Is.EqualTo(new[] { lid }), "placed, it stays where its take puts it");
+                Assert.That(_root.transform.Find("CABINET/DOOR_GRP").GetComponent<M3trik.Unitytk.Interaction.SelectNear>(), Is.Not.Null,
+                            "brought near, it plays");
                 var again = new OpContext(dryRun: true);
                 ManifestsActions.Build(plan, scene, again);
                 Assert.That(again.Changes, Is.Empty, "a second build plans nothing");
-                settings.placedStays = false;  // a thing brought near that the hand keeps (a scanner held up to a tag)
+                settings.use.stays = false;  // a thing brought near that the hand keeps (a scanner held up to a tag)
                 ManifestsActions.Build(plan, scene, new OpContext());
                 Assert.That(entry.leaves, Is.Empty, "the setting off: it comes back to the hand as its take ends");
             }
@@ -486,9 +491,9 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         public void An_object_its_step_returns_goes_back_shown_unless_the_task_fades_it_too()
         {
             // "Keys fade away from hand", then "Return keys to table": the keys went home hidden. Added: 2026-11-23
-            const string rows = "{\"behavior\": \"fade_out\", \"text\": \"The lid fades away from hand\", \"targets\": [\"CABINET|LID\"]}," +
+            const string rows = "{\"behavior\": \"hide\", \"text\": \"The lid disappears from hand\", \"targets\": [\"CABINET|LID\"]}," +
                                 "{\"behavior\": \"return\", \"text\": \"Return the lid\", \"targets\": [\"CABINET|LID\"]}," +
-                                "{\"behavior\": \"fade_out\", \"text\": \"The door fades away\", \"targets\": [\"CABINET|DOOR_GRP\"]}";
+                                "{\"behavior\": \"hide\", \"text\": \"The door disappears\", \"targets\": [\"CABINET|DOOR_GRP\"]}";
             var live = new OpContext();
             ManifestsActions.Build(Plan(rows), _scene, live);
             Transform lid = _root.transform.Find("CABINET/LID"), door = _root.transform.Find("CABINET/DOOR_GRP");
@@ -497,7 +502,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(live.Issues.Single(i => i.code == TaskKit.FadeReturnedCode).message, Does.Contain("'LID' goes back shown"));
 
             var fades = ScriptableObject.CreateInstance<TaskSettings>();
-            fades.fadeReturned = true;
+            fades.hide.returned = true;
             ManifestsActions.Build(Plan(rows), new ManifestScene(_root, new[] { new AnimationClip { name = "A01" } }).Use(fades), new OpContext());
             Assert.That(lid.GetComponent<M3trik.Unitytk.RenderEffects.FadeTo>(), Is.Not.Null, "the task's choice: it fades, as the sheet says");
         }
@@ -505,7 +510,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         [Test]
         public void A_use_is_a_click_unless_an_object_of_its_own_is_held_to_play_or_a_timed_press()
         {
-            // The user: press and hold one button (release stops, optionally plays back), per object, never by default; a timed press a setting.
+            // The user: press and hold one button (release stops, optionally plays back), per object, never by default; a timed press a hold.
             var plan = Plan("{\"behavior\": \"use\", \"text\": \"Selecting the button lowers the door\", \"targets\": [\"CABINET|DOOR_GRP\", \"CABINET|LID\"], \"clip\": \"A01\"}");
             var quiet = ScriptableObject.CreateInstance<TaskSettings>();
             quiet.rig = TaskRig.None;
@@ -518,9 +523,10 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 GameObject door = _root.transform.Find("CABINET/DOOR_GRP").gameObject, lid = _root.transform.Find("CABINET/LID").gameObject;
                 Assert.That(door.GetComponents<M3trik.Unitytk.Interaction.ClipTrigger>().Single().whileHeld, Is.False, "by default a click plays it");
 
-                ManifestsActions.SetTune(manifest, "A01", "CABINET|DOOR_GRP", "use", nameof(TaskSettings.useTrigger), nameof(UseTrigger.HoldToPlay));
-                ManifestsActions.SetTune(manifest, "A01", "CABINET|DOOR_GRP", "use", nameof(TaskSettings.releaseRewinds), "true");
-                ManifestsActions.SetTune(manifest, "A01", "CABINET|LID", "use", nameof(TaskSettings.useTrigger), nameof(UseTrigger.TimedPress));
+                Assert.That(ManifestsActions.SetTune(manifest, "A01", "CABINET|DOOR_GRP", "use", "use.trigger", nameof(UseTrigger.Hold)), Is.True);
+                Assert.That(ManifestsActions.SetTune(manifest, "A01", "CABINET|DOOR_GRP", "use", "use.rewind", "true"), Is.True);
+                Assert.That(ManifestsActions.SetTune(manifest, "A01", "CABINET|LID", "use", "use.trigger", nameof(UseTrigger.Hold)), Is.True);
+                Assert.That(ManifestsActions.SetTune(manifest, "A01", "CABINET|LID", "use", "use.hold", "1.5"), Is.True);
                 var dry = new OpContext(dryRun: true);
                 ManifestsActions.Build(plan, Scene(), dry);
                 var live = new OpContext();
@@ -529,7 +535,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 var held = door.GetComponents<M3trik.Unitytk.Interaction.ClipTrigger>().Single();
                 Assert.That((held.whileHeld, held.reverseOnRelease), Is.EqualTo((true, true)), "its own: held to play, played back as let go");
                 var timed = lid.GetComponents<M3trik.Unitytk.Interaction.ClipTrigger>().Single();
-                Assert.That((timed.whileHeld, timed.pressSeconds), Is.EqualTo((false, quiet.pressSeconds)), "its own: a timed press, the task's seconds");
+                Assert.That((timed.whileHeld, timed.pressSeconds), Is.EqualTo((false, 1.5f)), "its own: held with a hold, a timed press of that long");
                 var again = new OpContext(dryRun: true);
                 ManifestsActions.Build(plan, Scene(), again);
                 Assert.That(again.Changes, Is.Empty, "a second build plans nothing");
@@ -545,7 +551,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         {
             // A lock clicked before the keys are taken was silent. Added: 2026-11-22
             var plan = Plan("{\"behavior\": \"use\", \"text\": \"Selecting the door with the lid opens it\", \"targets\": [\"CABINET|DOOR_GRP\"], " +
-                            "\"fields\": {\"tool\": \"CABINET|LID\"}, \"clip\": \"A01\"}");
+                            "\"fields\": {\"with\": \"CABINET|LID\"}, \"clip\": \"A01\"}");
             var dry = new OpContext(dryRun: true);
             ManifestsActions.Build(plan, _scene, dry);
             var live = new OpContext();
@@ -572,7 +578,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 "{\"behavior\": \"highlight\", \"text\": \"The door is highlighted\", \"targets\": [\"CABINET|DOOR_GRP\"]SET}," +
                 "{\"behavior\": \"take\", \"text\": \"Selecting the lid takes it\", \"targets\": [\"CABINET|LID\"]}," +
                 "{\"behavior\": \"use\", \"text\": \"Selecting the door with the lid opens it\", \"targets\": [\"CABINET|DOOR_GRP\"], " +
-                "\"fields\": {\"tool\": \"CABINET|LID\"}, \"clip\": \"A01\"}";
+                "\"fields\": {\"with\": \"CABINET|LID\"}, \"clip\": \"A01\"}";
             SheetPlan.Shape.Payload Two(string set)
             {
                 string json = "{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" + Rows.Replace("SET", set) + "]}, " +
@@ -609,19 +615,21 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(again.Changes, Is.Empty, "a second build changes nothing");
 
             // By its setting a cue shows for its whole step: what switches it stays, set neither to wait nor to go.
-            ManifestsActions.Build(Two(", \"settings\": {\"cueWhen\": \"Step\"}"), _scene, new OpContext());
+            ManifestsActions.Build(Two(", \"settings\": {\"cue\": \"step\"}"), _scene, new OpContext());
             Assert.That(glows.waitsForHand || glows.goesOnceActed, Is.False);
             Assert.That(points.waitsForHand && points.goesOnceActed, "the arrow's row says nothing: it keeps the task's");
         }
 
         [Test]
-        public void A_checklist_goes_from_the_placard_as_the_step_its_span_names_starts()
+        public void A_list_goes_from_the_placard_as_the_step_its_span_names_starts()
         {
-            // The real task's checklist, done with at its section's end, ran over the buttons of every page after it.
+            // The real task's list, done with at its section's end, ran over the buttons of every page after it.
             string json = "{\"version\": 2, \"steps\": [" +
-                          "{\"id\": \"A01\", \"actions\": [{\"behavior\": \"checklist\", \"text\": \"A checklist is shown\", \"fields\": {\"label\": \"Door, Lid\"}}]}, " +
-                          "{\"id\": \"A02\", \"actions\": [{\"behavior\": \"checklist\", \"text\": \"A checklist is shown, until A02\", " +
-                          "\"settings\": {\"checklistShow\": \"Hide\"}}]}]}";
+                          "{\"id\": \"A01\", \"actions\": [{\"behavior\": \"list\", \"text\": \"A list is shown, until A02\", " +
+                          "\"fields\": {\"label\": \"Door, Lid\"}, \"settings\": {\"until\": \"A02\"}}]}, " +
+                          "{\"id\": \"A02\", \"actions\": [{\"behavior\": \"note\", \"text\": \"The list goes\"}]}, " +
+                          "{\"id\": \"A03\", \"actions\": [{\"behavior\": \"list\", \"text\": \"A list is shown while its step runs\", " +
+                          "\"fields\": {\"label\": \"Bolt\"}, \"settings\": {\"until\": \"step\"}}]}]}";
             var plan = SheetPlan.Read(json, "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
             Assert.That(ManifestsActions.Assess(plan, _scene).rows.Select(r => r.state), Is.All.EqualTo(ManifestAssessment.State.Ready));
@@ -631,23 +639,27 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             ManifestsActions.Build(plan, _scene, live);
             Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(dry.Changes.Select(c => (c.kind, c.target, c.action))));
             var sequence = GameObject.Find("Task").GetComponent<M3trik.Unitytk.Steps.Sequence>();
-            var list = GameObject.Find("Placard").GetComponentInChildren<M3trik.Unitytk.Panels.PlacardList>(true);
+            Transform placard = GameObject.Find("Placard").transform;
+            var list = placard.Find(TaskKit.ListName("A01")).GetComponent<M3trik.Unitytk.Panels.PlacardList>();
             Assert.That(sequence.Find("A01").turnsOn.Contains(list), "up from its step on");
             Assert.That(sequence.Find("A02").turnsOff.Contains(list), "and off as the step its span names starts");
-            Assert.That(GameObject.Find("Placard").GetComponentsInChildren<M3trik.Unitytk.Panels.PlacardList>(true).Length, Is.EqualTo(1), "the row that takes it away makes no list");
+            var during = placard.Find(TaskKit.ListName("A03")).GetComponent<M3trik.Unitytk.Panels.PlacardList>();
+            Assert.That(sequence.Find("A03").activates.Contains(during), "until=step: while its step runs");
+            Assert.That(placard.GetComponentsInChildren<M3trik.Unitytk.Panels.PlacardList>(true).Length, Is.EqualTo(2), "no row to take one away");
 
-            var alone = SheetPlan.Read("{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [{\"behavior\": \"checklist\", " +
-                                       "\"text\": \"The checklist goes away\", \"settings\": {\"checklistShow\": \"Hide\"}}]}]}", "test plan", out refusal);
-            Assert.That(ManifestsActions.Assess(alone, _scene).rows.Single().problems.Single(), Is.EqualTo("no row before it shows a checklist"));
+            var before = SheetPlan.Read("{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [{\"behavior\": \"list\", " +
+                                        "\"text\": \"A list is shown, until A01\", \"fields\": {\"label\": \"Door\"}, \"settings\": {\"until\": \"A01\"}}]}]}",
+                                        "test plan", out refusal);
+            Assert.That(ManifestsActions.Assess(before, _scene).rows.Single().problems.Single(), Does.Contain("its until 'A01' is no later step than A01"));
         }
 
         [Test]
         public void A_behavior_says_what_kind_of_row_it_is_and_a_projects_behavior_fills_its_page()
         {
-            Assert.That(TaskBehaviors.Traits("pause").Offers && TaskBehaviors.Traits("pause").EndsStep, "pause: a button that goes on");
-            Assert.That(TaskBehaviors.Traits("option").Offers && !TaskBehaviors.Traits("option").EndsStep, "an answer: a button that may not");
-            Assert.That(TaskBehaviors.Traits("hold").Holds && TaskBehaviors.Traits("take").Holds, "the hand holds what they name");
-            Assert.That(TaskBehaviors.Traits("teleport").Places && !TaskBehaviors.Traits("highlight").Places, "a place, not a part to see");
+            Assert.That(TaskBehaviors.Traits("button").Offers && TaskBehaviors.Traits("button").EndsStep, "a button that goes on");
+            Assert.That(TaskBehaviors.Traits("answer").Chooses && !TaskBehaviors.Traits("answer").Offers, "an answer: keyed in, never a button");
+            Assert.That(TaskBehaviors.Traits("take").Holds, "the hand holds what it names");
+            Assert.That(TaskBehaviors.Traits("travel").Places && !TaskBehaviors.Traits("highlight").Places, "a place, not a part to see");
             var none = TaskBehaviors.Traits("no_such_behavior");
             Assert.That(none.ActsOn || none.Offers || none.EndsStep || none.Holds || none.Places, Is.False, "no builder: no traits");
 
@@ -659,7 +671,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         }
 
         [Test]
-        public void A_step_runs_its_reading_time_a_goto_to_the_start_restarts_and_its_page_keeps_clear_of_its_targets()
+        public void A_step_runs_its_reading_time_a_button_to_restart_starts_over_and_its_page_keeps_clear_of_its_targets()
         {
             var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);  // a viewpoint carrying its destination disc
             disc.name = "VIEW_FRONT";
@@ -668,10 +680,10 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             string json = "{\"version\": 2, \"steps\": [" +
                 "{\"id\": \"A01\", \"fields\": {\"voice\": \"one two three four five six seven eight nine ten\", \"placard\": \"Look at the door\"}, \"actions\": [" +
                 "{\"behavior\": \"highlight\", \"text\": \"Highlight the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}," +
-                "{\"behavior\": \"teleport\", \"text\": \"The user is teleported to VIEW_FRONT\", \"targets\": [\"CABINET|VIEW_FRONT\"]}," +
+                "{\"behavior\": \"travel\", \"text\": \"The user is brought to VIEW_FRONT\", \"fields\": {\"where\": [\"CABINET|VIEW_FRONT\"]}}," +
                 "{\"behavior\": \"advance\", \"text\": \"Auto Advance\"}]}," +
                 "{\"id\": \"A02\", \"actions\": [" +
-                "{\"behavior\": \"goto\", \"text\": \"Selecting 'Restart Tasks' triggers step A01\", \"fields\": {\"label\": \"Restart Tasks\"}, \"to\": \"A01\", \"restart\": true}]}]}";  // the reading marks a jump to the first step
+                "{\"behavior\": \"button\", \"text\": \"Selecting 'Restart Tasks' starts over\", \"fields\": {\"label\": \"Restart Tasks\"}, \"to\": \"restart\"}]}]}";
             var plan = SheetPlan.Read(json, "task", out string refusal);
             Assert.That(refusal, Is.Null);
             var dry = new OpContext(dryRun: true);
@@ -685,11 +697,11 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
 
             var sequence = GameObject.Find("Task").GetComponent<M3trik.Unitytk.Steps.Sequence>();
             Assert.That(sequence.Find("A01").dwell, Is.EqualTo(10f / ScriptableObject.CreateInstance<TaskSettings>().wordsPerSecond).Within(1e-4f), "its voice line, spoken");
-            Assert.That(sequence.Find("A02").Choice("Restart Tasks").Restarts, Is.True, "back to the first step: start over");
+            Assert.That(sequence.Find("A02").Choice("Restart Tasks").Restarts, Is.True, "To restart: start over");
             var page = GameObject.Find("Placard").transform.Find("A01").GetComponent<M3trik.Unitytk.Panels.PlacardPage>();
             Assert.That(page.keepClear, Is.EqualTo(new[] { _root.transform.Find("CABINET/DOOR_GRP") }), "what it shows, not where it goes");
             var marker = disc.transform.Find(M3trik.Unitytk.Indicators.IndicatorsActions.MarkerName).GetComponent<M3trik.Unitytk.Indicators.Marker>();
-            Assert.That(marker.enabled, Is.False, "the viewpoint's disc is a marker, off until a row shows it");
+            Assert.That(marker.enabled, Is.False, "the viewpoint's disc is its ring, off but for a span its row gives it");
         }
 
         [Test]
@@ -700,7 +712,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 "{\"id\": \"A01\", \"fields\": {\"voice\": \"Look at the door.\"}, \"actions\": [" +
                 "{\"behavior\": \"highlight\", \"text\": \"Highlight the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}]}," +
                 "{\"id\": \"A02\", \"actions\": [" +
-                "{\"behavior\": \"goto\", \"text\": \"Selecting 'Again' triggers step A01\", \"fields\": {\"label\": \"Again\"}, \"to\": \"A01\"}]}," +
+                "{\"behavior\": \"button\", \"text\": \"Selecting 'Again' goes to step A01\", \"fields\": {\"label\": \"Again\"}, \"to\": \"A01\"}]}," +
                 "{\"id\": \"A03\", \"actions\": [{\"behavior\": \"advance\", \"text\": \"Auto Advance\"}]}]}";
             var plan = SheetPlan.Read(json, "task", out string refusal);
             Assert.That(refusal, Is.Null);
@@ -867,19 +879,19 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             lens.transform.SetPositionAndRotation(new Vector3(0.3f, 1.5f, 0.6f), Quaternion.LookRotation(Vector3.back));
             lens.AddComponent<Camera>().fieldOfView = 25f;
             var scene = new ManifestScene(_root, new[] { new AnimationClip { name = "A01" } });
-            const string Teleport = "{\"behavior\": \"teleport\", \"text\": \"User is teleported facing the door\", \"fields\": {\"facing\": \"CABINET|DOOR_GRP\"}}";
-            const string Picture = "{\"behavior\": \"pip\", \"text\": \"A picture shows the bolt\", \"targets\": [\"CABINET|DOOR_GRP|BOLT\"], " +
-                                   "\"fields\": {\"from\": \"CABINET|CAM_BOLT\"}}";
+            const string Travel = "{\"behavior\": \"travel\", \"text\": \"The user is brought to face the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}";
+            const string Picture = "{\"behavior\": \"picture\", \"text\": \"A picture shows the bolt\", \"targets\": [\"CABINET|DOOR_GRP|BOLT\"], " +
+                                   "\"fields\": {\"where\": [\"CABINET|CAM_BOLT\"]}}";
             const string Act = "{\"behavior\": \"select\", \"text\": \"Selecting the bolt goes on\", \"targets\": [\"CABINET|DOOR_GRP|BOLT\"]}";
             try
             {
-                var looks = Plan(Teleport);
+                var looks = Plan(Travel);
                 ManifestsActions.Build(looks, scene, new OpContext());
                 Transform view = GameObject.Find(TaskKit.ViewpointsName(looks)).transform.Find(TaskKit.ViewpointName("A01"));
                 float seeing = Vector3.Distance(new Vector3(view.position.x, 0, view.position.z), new Vector3(0.3f, 0, 0.05f));
                 Assert.That(seeing, Is.GreaterThan(1.4f), "with nothing to act on there, they stand back to see the door");
 
-                var acts = Plan(Teleport + "," + Act + "," + Picture);
+                var acts = Plan(Travel + "," + Act + "," + Picture);
                 var dry = new OpContext(dryRun: true);
                 ManifestsActions.Build(acts, scene, dry);
                 var live = new OpContext();
@@ -896,7 +908,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 Assert.That(Vector3.Dot(view.forward, Vector3.ProjectOnPlane(bolt.transform.position - view.position, Vector3.up).normalized), Is.GreaterThan(0.9f), "facing it");
                 Assert.That(view.GetComponent<Viewpoints.TravelTo>(), Is.Not.Null, "and are stood on the spot as it stands");
 
-                var shot = GameObject.Find(TaskKit.PipName(acts)).transform.Find("A01").GetComponent<Panels.PipShot>();
+                var shot = GameObject.Find(TaskKit.PictureName(acts)).transform.Find("A01").GetComponent<Panels.PipShot>();
                 Assert.That(shot.from, Is.SameAs(lens.transform), "the picture is taken from the camera its row names");
                 Assert.That(lens.GetComponent<Camera>().enabled, Is.False, "which never draws to the screen itself");
                 Assert.That(bolt.transform.Find(Panels.PanelsActions.SpotName("A01")) == null, "no spot is searched for beside it");
@@ -907,7 +919,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             }
             finally
             {
-                foreach (string made in new[] { TaskKit.ViewpointsName(Plan(Teleport)), TaskKit.PipName(Plan(Teleport)) })
+                foreach (string made in new[] { TaskKit.ViewpointsName(Plan(Travel)), TaskKit.PictureName(Plan(Travel)) })
                 {
                     var node = GameObject.Find(made);
                     if (node != null) Object.DestroyImmediate(node);
@@ -933,9 +945,9 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Box("WALL", cabinet, new Vector3(0, 1f, -0.6f), new Vector3(6, 3, 0.1f));
             Box("DOOR_GEO", cabinet.Find("DOOR_GRP"), new Vector3(0, 1f, 0), Vector3.one * 0.4f);
             var scene = new ManifestScene(_root, new AnimationClip[0]);
-            var plan = Plan("{\"behavior\": \"teleport\", \"text\": \"User is teleported facing the door\", \"fields\": {\"facing\": \"CABINET|DOOR_GRP\"}}," +
+            var plan = Plan("{\"behavior\": \"travel\", \"text\": \"The user is brought to face the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}," +
                             "{\"behavior\": \"indicate\", \"text\": \"Arrow points at the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}," +
-                            "{\"behavior\": \"pip\", \"text\": \"PiP screen shows the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}");
+                            "{\"behavior\": \"picture\", \"text\": \"A picture shows the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}");
             try
             {
                 Assert.That(ManifestsActions.Assess(plan, scene).rows.Select(r => r.state), Is.All.EqualTo(ManifestAssessment.State.Ready));
@@ -949,18 +961,18 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 Transform view = GameObject.Find(TaskKit.ViewpointsName(plan)).transform.Find(TaskKit.ViewpointName("A01"));
                 Assert.That(view.position.z, Is.GreaterThan(-0.5f), "where the door is seen, not behind the wall");
                 Assert.That(view.position.y, Is.EqualTo(0f).Within(1e-3f), "on the floor");
-                Assert.That(view.GetComponent<Placement.PlacedSpot>().key, Is.EqualTo("teleport/A01"));
+                Assert.That(view.GetComponent<Placement.PlacedSpot>().key, Is.EqualTo("travel/A01"));
                 Assert.That(view.GetComponent<Viewpoints.TravelTo>(), Is.Not.Null, "the step brings the user there, standing on it as it stands");
                 Assert.That(view.Find(Viewpoints.ViewpointsActions.FacingName(view.gameObject, cabinet.Find("DOOR_GRP"))) == null,
                             "no second place turned toward the door: the viewpoint itself faces it, and a person turns that");
                 Assert.That(Vector3.Dot(view.forward, Vector3.ProjectOnPlane(cabinet.Find("DOOR_GRP/DOOR_GEO").GetComponent<Renderer>().bounds.center - view.position, Vector3.up).normalized),
                             Is.GreaterThan(0.9f), "placed facing what its row faces");
-                Assert.That(view.GetComponentInChildren<Indicators.Marker>(true), Is.Not.Null, "its ring, for a marker row");
+                Assert.That(view.GetComponentInChildren<Indicators.Marker>(true), Is.Not.Null, "its ring, off but for a span its row gives it");
 
                 Transform arrow = cabinet.Find("DOOR_GRP/Indicator A01");
                 Assert.That(arrow.GetComponent<Indicators.Indicator>().follow, Is.False, "placed, riding the door");
                 Assert.That(arrow.position.y, Is.GreaterThan(1.2f), "over the door: the usual arrow, seen from the spot");
-                var shot = GameObject.Find(TaskKit.PipName(plan)).transform.Find("A01").GetComponent<Panels.PipShot>();
+                var shot = GameObject.Find(TaskKit.PictureName(plan)).transform.Find("A01").GetComponent<Panels.PipShot>();
                 Assert.That(shot.from, Is.Not.Null.And.EqualTo(cabinet.Find("DOOR_GRP/" + Panels.PanelsActions.SpotName("A01"))),
                             "its picture taken from a spot that sees the door, the door's own: it rides it");
                 Assert.That(Placement.Placer.Seen(shot.from.position, cabinet.Find("DOOR_GRP/DOOR_GEO").GetComponent<Renderer>().bounds,
@@ -982,7 +994,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             }
             finally
             {
-                foreach (string made in new[] { TaskKit.ViewpointsName(plan), TaskKit.PipName(plan) })
+                foreach (string made in new[] { TaskKit.ViewpointsName(plan), TaskKit.PictureName(plan) })
                 {
                     var node = GameObject.Find(made);
                     if (node != null) Object.DestroyImmediate(node);
@@ -1006,21 +1018,21 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 box.transform.localScale = size;
             }
             SheetPlan.Shape.Payload Picture(string settings) => Plan(
-                "{\"behavior\": \"pip\", \"text\": \"PiP screen shows the door\", \"targets\": [\"CABINET|DOOR_GRP\"]" + settings + "}");
+                "{\"behavior\": \"picture\", \"text\": \"A picture shows the door\", \"targets\": [\"CABINET|DOOR_GRP\"]" + settings + "}");
             var plan = Picture("");
             try
             {
                 var scene = new ManifestScene(_root, new AnimationClip[0]);
                 ManifestsActions.Build(plan, scene, new OpContext());
-                Camera Lens() => GameObject.Find(TaskKit.PipName(plan)).transform.Find("A01").GetComponent<Panels.PipShot>().from.GetComponent<Camera>();
+                Camera Lens() => GameObject.Find(TaskKit.PictureName(plan)).transform.Find("A01").GetComponent<Panels.PipShot>().from.GetComponent<Camera>();
                 Assert.That(Lens().fieldOfView, Is.EqualTo(Panels.PipView.DefaultFieldOfView).Within(1e-4f), "the view's, by default");
-                var bound = ((IManifestBound)ManifestBehaviors.Find("pip")).Bound(plan.steps[0].actions[0], plan.steps[0], scene, "CABINET|DOOR_GRP").ToList();
+                var bound = ((IManifestBound)ManifestBehaviors.Find("picture")).Bound(plan.steps[0].actions[0], plan.steps[0], scene, "CABINET|DOOR_GRP").ToList();
                 Assert.That(bound.Select(b => (b.setting, b.part, b.property)),
-                            Is.EqualTo(new[] { (nameof(TaskSettings.pipFieldOfView), (Object)Lens(), "field of view") }), "bound to the camera the kit made");
+                            Is.EqualTo(new[] { ("picture.fieldOfView", (Object)Lens(), "field of view") }), "bound to the camera the kit made");
                 using (var held = new SerializedObject(Lens()))
                     Assert.That(held.FindProperty("field of view")?.floatValue, Is.EqualTo(Lens().fieldOfView), "the property an edit is kept by");
 
-                var framed = Picture(", \"settings\": {\"pipFieldOfView\": 40}");
+                var framed = Picture(", \"settings\": {\"fieldOfView\": 40}");
                 var dry = new OpContext(dryRun: true);
                 ManifestsActions.Build(framed, new ManifestScene(_root, new AnimationClip[0]), dry);
                 var live = new OpContext();
@@ -1029,15 +1041,15 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 Assert.That(Lens().fieldOfView, Is.EqualTo(40f).Within(1e-4f), "its row's");
 
                 // 0.5 degrees was placed for as it was written while the camera framed with 1: one angle for both, and said.
-                var narrow = Picture(", \"settings\": {\"pipFieldOfView\": 0.5}");
+                var narrow = Picture(", \"settings\": {\"fieldOfView\": 0.5}");
                 var said = new OpContext();
                 ManifestsActions.Build(narrow, new ManifestScene(_root, new AnimationClip[0]), said);
-                Assert.That(Lens().fieldOfView, Is.EqualTo(PipBehavior.LeastAngle).Within(1e-4f), "brought within what a camera takes");
+                Assert.That(Lens().fieldOfView, Is.EqualTo(PictureBehavior.LeastAngle).Within(1e-4f), "brought within what a camera takes");
                 Assert.That(said.Issues.Any(i => i.code == ManifestsActions.NoteCode && i.message.Contains("is no camera's")), "and said on its row");
             }
             finally
             {
-                foreach (string made in new[] { TaskKit.ViewpointsName(plan), TaskKit.PipName(plan) })
+                foreach (string made in new[] { TaskKit.ViewpointsName(plan), TaskKit.PictureName(plan) })
                 {
                     var node = GameObject.Find(made);
                     if (node != null) Object.DestroyImmediate(node);
@@ -1048,8 +1060,8 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         [Test]
         public void A_rows_own_helpers_are_named_as_every_tool_names_them_and_the_names_a_build_gave_before_go()
         {
-            // The Shot Manifest names a row's own helper VIEW_/ARROW_/CAM_<step>_<target>; Unity named what it made for the
-            // same row "VIEW_A01", "Indicator A01", "PiP A01". One standard: the plan's helpers (the reader's, by the same rule).
+            // The Shot Manifest names a row's own helper VIEW_/POINT_/CAM_<step>_<target>; a plan that names none gets the kit's
+            // own names ("VIEW_A01", "Indicator A01"). One standard: the plan's helpers (the reader's, by the same rule).
             Transform cabinet = _root.transform.Find("CABINET");
             var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
             floor.name = "FLOOR";
@@ -1062,19 +1074,19 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             door.transform.SetPositionAndRotation(new Vector3(0, 1f, 0), Quaternion.identity);
             door.transform.localScale = Vector3.one * 0.4f;
             string Rows(bool named) =>
-                "{\"behavior\": \"teleport\", \"text\": \"User is teleported facing the door\", \"fields\": {\"facing\": \"CABINET|DOOR_GRP\"" +
-                (named ? ", \"helpers\": [\"VIEW_A01_DOOR_GRP\"]" : "") + "}}," +
+                "{\"behavior\": \"travel\", \"text\": \"The user is brought to face the door\", \"targets\": [\"CABINET|DOOR_GRP\"]" +
+                (named ? ", \"fields\": {\"helpers\": [\"VIEW_A01_DOOR_GRP\"]}" : "") + "}," +
                 "{\"behavior\": \"indicate\", \"text\": \"Arrow points at the door\", \"targets\": [\"CABINET|DOOR_GRP\"]" +
-                (named ? ", \"fields\": {\"helpers\": [\"ARROW_A01_DOOR_GRP\"]}" : "") + "}," +
-                "{\"behavior\": \"pip\", \"text\": \"PiP screen shows the door\", \"targets\": [\"CABINET|DOOR_GRP\"]" +
+                (named ? ", \"fields\": {\"helpers\": [\"POINT_A01_DOOR_GRP\"]}" : "") + "}," +
+                "{\"behavior\": \"picture\", \"text\": \"A picture shows the door\", \"targets\": [\"CABINET|DOOR_GRP\"]" +
                 (named ? ", \"fields\": {\"helpers\": [\"CAM_A01_DOOR_GRP\"]}" : "") + "}";
             var before = Plan(Rows(false));
             var plan = Plan(Rows(true));
             try
             {
-                ManifestsActions.Build(before, new ManifestScene(_root, new AnimationClip[0]), new OpContext());  // a plan from before the standard
+                ManifestsActions.Build(before, new ManifestScene(_root, new AnimationClip[0]), new OpContext());  // a plan that names no helpers
                 Transform views = GameObject.Find(TaskKit.ViewpointsName(plan)).transform;
-                Assert.That(views.Find(TaskKit.ViewpointName("A01")), Is.Not.Null, "premise: the old names");
+                Assert.That(views.Find(TaskKit.ViewpointName("A01")), Is.Not.Null, "premise: the kit's own names");
                 var dry = new OpContext(dryRun: true);
                 ManifestsActions.Build(plan, new ManifestScene(_root, new AnimationClip[0]), dry);
                 var live = new OpContext();
@@ -1085,10 +1097,10 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 Transform doorGroup = cabinet.Find("DOOR_GRP");
                 Assert.That(views.Find("VIEW_A01_DOOR_GRP"), Is.Not.Null, "the viewpoint, as the Shot Manifest names it");
                 Assert.That(views.Find(TaskKit.ViewpointName("A01")), Is.Null, "the old one gone");
-                Assert.That(doorGroup.Find("ARROW_A01_DOOR_GRP").GetComponent<Indicators.Indicator>(), Is.Not.Null, "the arrow");
+                Assert.That(doorGroup.Find("POINT_A01_DOOR_GRP").GetComponent<Indicators.Indicator>(), Is.Not.Null, "the arrow");
                 Assert.That(doorGroup.Find(IndicateBehavior.ArrowName("A01")), Is.Null, "the old one gone");
                 Assert.That(doorGroup.Find("CAM_A01_DOOR_GRP").GetComponent<Camera>(), Is.Not.Null, "the picture's camera");
-                var shot = GameObject.Find(TaskKit.PipName(plan)).transform.Find("A01").GetComponent<Panels.PipShot>();
+                var shot = GameObject.Find(TaskKit.PictureName(plan)).transform.Find("A01").GetComponent<Panels.PipShot>();
                 Assert.That(shot.from, Is.EqualTo(doorGroup.Find("CAM_A01_DOOR_GRP")), "its picture taken from it");
                 var again = new OpContext(dryRun: true);
                 ManifestsActions.Build(plan, new ManifestScene(_root, new AnimationClip[0]), again);
@@ -1096,7 +1108,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             }
             finally
             {
-                foreach (string made in new[] { TaskKit.ViewpointsName(plan), TaskKit.PipName(plan) })
+                foreach (string made in new[] { TaskKit.ViewpointsName(plan), TaskKit.PictureName(plan) })
                 {
                     var node = GameObject.Find(made);
                     if (node != null) Object.DestroyImmediate(node);
@@ -1120,7 +1132,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             door.transform.SetParent(cabinet.Find("DOOR_GRP"));
             door.transform.SetPositionAndRotation(new Vector3(0, 1f, 0), Quaternion.identity);
             door.transform.localScale = Vector3.one * 0.4f;
-            var plan = Plan("{\"behavior\": \"teleport\", \"text\": \"User is teleported facing the door\", \"fields\": {\"facing\": \"CABINET|DOOR_GRP\"}}," +
+            var plan = Plan("{\"behavior\": \"travel\", \"text\": \"The user is brought to face the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}," +
                             "{\"behavior\": \"indicate\", \"text\": \"Arrow points at the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}");
             try
             {
@@ -1183,9 +1195,10 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 box.transform.SetPositionAndRotation(at, Quaternion.identity);
                 box.transform.localScale = size;
             }
-            var plan = Plan("{\"behavior\": \"teleport\", \"text\": \"User is teleported facing the door\", \"fields\": {\"facing\": \"CABINET|DOOR_GRP\"}}," +
-                            "{\"behavior\": \"pause\", \"text\": \"Selecting 'Next' triggers step advancement\", \"fields\": {\"label\": \"Next\"}}," +
-                            "{\"behavior\": \"teleport\", \"text\": \"User is teleported facing the lid\", \"fields\": {\"facing\": \"CABINET|LID\"}}");
+            var plan = Plan("{\"behavior\": \"travel\", \"text\": \"The user is brought to face the door\", \"targets\": [\"CABINET|DOOR_GRP\"]}," +
+                            "{\"behavior\": \"button\", \"text\": \"Selecting 'Next' goes on\", \"fields\": {\"label\": \"Next\"}, \"to\": \"next\"}," +
+                            "{\"behavior\": \"travel\", \"text\": \"The user is brought to face the lid as the step ends\", \"targets\": [\"CABINET|LID\"], " +
+                            "\"settings\": {\"when\": \"end\"}}");
             var settings = ScriptableObject.CreateInstance<TaskSettings>();
             settings.rig = TaskRig.None;
             try
@@ -1195,13 +1208,13 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
                 Transform first = views.Find(TaskKit.ViewpointName("A01")), second = views.Find(TaskKit.ViewpointName("A01") + "_2");
                 Assert.That(first != null && second != null, "a viewpoint each");
                 Assert.That((first.GetComponent<Placement.PlacedSpot>().key, second.GetComponent<Placement.PlacedSpot>().key),
-                            Is.EqualTo(("teleport/A01", "teleport/A01/2")), "each under its own key");
+                            Is.EqualTo(("travel/A01", "travel/A01/2")), "each under its own key");
 
                 first.position += Vector3.left * 0.5f;  // a person moves the first, and leaves the second
                 Vector3 moved = first.position, there = second.position;
                 var kept = new Placement.Placements.Tuning();
                 Placement.Placements.Capture(kept, null);
-                Assert.That(kept.spots.Select(s => s.key), Is.EqualTo(new[] { "teleport/A01" }), "the move kept, the other spot's no adjustment");
+                Assert.That(kept.spots.Select(s => s.key), Is.EqualTo(new[] { "travel/A01" }), "the move kept, the other spot's no adjustment");
                 var tuned = new ManifestScene(_root, new AnimationClip[0]).Use(settings);
                 tuned.State<TaskState>().Tuning = kept;
                 ManifestsActions.Build(plan, tuned, new OpContext());
@@ -1294,22 +1307,24 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         }
 
         [Test]
-        public void A_pip_row_shows_its_part_until_a_hide_row_and_the_deliverys_anchors_are_hidden()
+        public void A_picture_shows_its_part_for_its_span_and_the_deliverys_anchors_are_hidden()
         {
             var screen = GameObject.CreatePrimitive(PrimitiveType.Quad);  // an authoring anchor: a screen placed for a panel
             screen.name = "UI_PIP_01";
             screen.transform.SetParent(_root.transform.Find("CABINET"));
             var anchored = ScriptableObject.CreateInstance<TaskSettings>();
             anchored.anchorPattern = "^UI_";  // the task names its anchors (none by default)
-            anchored.pipAnchorPattern = "^UI_PIP";  // and its picture's screen
+            anchored.picture.anchor = "^UI_PIP";  // and its picture's screen
             var scene = new ManifestScene(_root, new AnimationClip[0]).Use(anchored);
             string json = "{\"version\": 2, \"steps\": [" +
                 "{\"id\": \"A01\", \"actions\": [" +
-                "{\"behavior\": \"pip\", \"text\": \"PiP screen shows the door behind the lid.\", \"targets\": [\"CABINET|DOOR_GRP\"]}]}," +
+                "{\"behavior\": \"picture\", \"text\": \"A picture shows DOOR_GRP, captioned 'The door behind the lid'\", " +
+                "\"targets\": [\"CABINET|DOOR_GRP\"], \"fields\": {\"label\": \"The door behind the lid\"}}]}," +
                 "{\"id\": \"A02\", \"actions\": [" +
-                "{\"behavior\": \"pip\", \"text\": \"PiP screen with the lid appears\", \"targets\": [\"CABINET|LID\"]}]}," +
+                "{\"behavior\": \"picture\", \"text\": \"A picture shows LID, until A03\", \"targets\": [\"CABINET|LID\"], " +
+                "\"settings\": {\"until\": \"A03\"}}]}," +
                 "{\"id\": \"A03\", \"actions\": [" +
-                "{\"behavior\": \"pip\", \"text\": \"PiP screen fades away\", \"settings\": {\"pipShow\": \"Hide\"}}]}]}";
+                "{\"behavior\": \"note\", \"text\": \"The picture goes\"}]}]}";
             var plan = SheetPlan.Read(json, "task", out string refusal);
             Assert.That(refusal, Is.Null);
             Assert.That(ManifestsActions.Assess(plan, scene).rows.Select(r => r.state), Is.All.EqualTo(ManifestAssessment.State.Ready));
@@ -1323,38 +1338,38 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(again.Changes, Is.Empty);
             try
             {
-                var pip = GameObject.Find(TaskKit.PipName(plan)).GetComponent<M3trik.Unitytk.Panels.PipView>();
-                Assert.That(pip.style, Is.EqualTo(ScriptableObject.CreateInstance<TaskSettings>().pipStyle));
-                var first = pip.transform.Find("A01").GetComponent<M3trik.Unitytk.Panels.PipShot>();
-                var second = pip.transform.Find("A02").GetComponent<M3trik.Unitytk.Panels.PipShot>();
-                Assert.That((first.target, first.caption), Is.EqualTo((_root.transform.Find("CABINET/DOOR_GRP"), "The door behind the lid")));
-                Assert.That(second.caption, Is.EqualTo("The lid"));
+                var view = GameObject.Find(TaskKit.PictureName(plan)).GetComponent<M3trik.Unitytk.Panels.PipView>();
+                Assert.That(view.name, Does.StartWith("Picture"), "named as the task's names say");
+                Assert.That(view.style, Is.EqualTo(ScriptableObject.CreateInstance<TaskSettings>().picture.style));
+                var first = view.transform.Find("A01").GetComponent<M3trik.Unitytk.Panels.PipShot>();
+                var second = view.transform.Find("A02").GetComponent<M3trik.Unitytk.Panels.PipShot>();
+                Assert.That((first.target, first.caption), Is.EqualTo((_root.transform.Find("CABINET/DOOR_GRP"), "The door behind the lid")), "captioned with its Label");
+                Assert.That(second.caption, Is.Empty, "no Label: no caption, never its node's name");
                 var sequence = GameObject.Find("Task").GetComponent<M3trik.Unitytk.Steps.Sequence>();
                 Assert.That(sequence.Find("A01").turnsOn, Does.Contain(first));
                 Assert.That(sequence.Find("A02").turnsOn, Does.Contain(second));
-                Assert.That(sequence.Find("A02").turnsOff, Does.Contain(first), "the next picture replaces it");
-                Assert.That(sequence.Find("A03").turnsOff, Does.Contain(second), "a hide row takes it away");
+                Assert.That(sequence.Find("A02").turnsOff, Does.Contain(first), "no span: the next picture replaces it");
+                Assert.That(sequence.Find("A03").turnsOff, Does.Contain(second), "its span: until A03 starts");
                 Assert.That(screen.GetComponent<MeshRenderer>().enabled, Is.False, "an authoring anchor is a place, not a thing to see");
-                Assert.That(TaskKit.PipAnchor(scene), Is.SameAs(screen.transform));
+                Assert.That(TaskKit.PictureAnchor(scene), Is.SameAs(screen.transform));
             }
             finally
             {
-                var made = GameObject.Find(TaskKit.PipName(plan));
+                var made = GameObject.Find(TaskKit.PictureName(plan));
                 if (made != null) Object.DestroyImmediate(made);
                 Object.DestroyImmediate(anchored);
             }
         }
 
         [Test]
-        public void Rows_after_the_advance_row_teleport_and_hide_the_marker_as_the_step_ends()
+        public void A_travel_as_its_step_ends_brings_the_user_once_its_choice_is_made_its_ring_shown_while_the_step_runs()
         {
             var view = new GameObject("VIEW_FRONT").transform;
             view.SetParent(_root.transform.Find("CABINET"));
             var scene = new ManifestScene(_root, new AnimationClip[0]);
-            var plan = Plan("{\"behavior\": \"marker\", \"text\": \"Destination circle fades in\"}," +
-                            "{\"behavior\": \"pause\", \"text\": \"Selecting 'Next' triggers step advancement\", \"fields\": {\"label\": \"Next\"}}," +
-                            "{\"behavior\": \"marker\", \"text\": \"Destination circle fades away\", \"settings\": {\"markerShow\": \"Hide\"}}," +
-                            "{\"behavior\": \"teleport\", \"text\": \"The user is teleported to VIEW_FRONT\", \"targets\": [\"CABINET|VIEW_FRONT\"]}");
+            var plan = Plan("{\"behavior\": \"button\", \"text\": \"Selecting 'Next' goes on\", \"fields\": {\"label\": \"Next\"}, \"to\": \"next\"}," +
+                            "{\"behavior\": \"travel\", \"text\": \"The user is brought to VIEW_FRONT, its ring shown until step\", " +
+                            "\"fields\": {\"where\": [\"CABINET|VIEW_FRONT\"]}, \"settings\": {\"when\": \"end\", \"ring\": \"step\"}}");
             var dry = new OpContext(dryRun: true);
             ManifestsActions.Build(plan, scene, dry);
             var live = new OpContext();
@@ -1367,30 +1382,29 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             var step = GameObject.Find("Task").GetComponent<M3trik.Unitytk.Steps.Sequence>().Find("A01");
             var travel = view.GetComponent<M3trik.Unitytk.Viewpoints.TravelTo>();
             var marker = view.Find(M3trik.Unitytk.Indicators.IndicatorsActions.MarkerName).GetComponent<M3trik.Unitytk.Indicators.Marker>();
-            Assert.That(step.ends, Does.Contain(travel), "the user is brought there once they choose Next");
+            Assert.That(step.ends, Does.Contain(travel), "when=end: the user is brought there once they choose Next");
             Assert.That(step.activates, Has.No.Member(travel));
-            Assert.That(step.activates, Does.Contain(marker), "the destination shows while the step runs");
+            Assert.That(step.activates, Does.Contain(marker), "the destination's ring shows while the step runs");
             Assert.That(step.turnsOn.Concat(step.turnsOff), Has.No.Member(marker), "and is gone after it");
         }
 
         [Test]
-        public void A_teleport_facing_an_object_brings_the_user_to_a_viewpoint_turned_toward_it_planned_first()
+        public void A_travel_to_a_viewpoint_stands_the_user_on_it_as_it_stands_planned_first()
         {
+            // The helper is the truth: the user stands on it facing its forward, and nothing is made beside it to turn them.
             var view = new GameObject("VIEW_FRONT").transform;
             view.SetParent(_root.transform.Find("CABINET"));
             var scene = new ManifestScene(_root, new AnimationClip[0]);
-            var plan = Plan("{\"behavior\": \"teleport\", \"text\": \"User is teleported to VIEW_FRONT, facing the door\", " +
-                            "\"targets\": [\"CABINET|VIEW_FRONT\"], \"fields\": {\"facing\": \"CABINET|DOOR_GRP\"}}");
+            var plan = Plan("{\"behavior\": \"travel\", \"text\": \"The user is brought to VIEW_FRONT\", \"fields\": {\"where\": [\"CABINET|VIEW_FRONT\"]}}");
             var dry = new OpContext(dryRun: true);
             ManifestsActions.Build(plan, scene, dry);
-            Assert.That(view.childCount, Is.Zero, "a dry run builds nothing");
+            Assert.That(view.GetComponent<M3trik.Unitytk.Viewpoints.TravelTo>() == null, "a dry run builds nothing");
             var live = new OpContext();
             ManifestsActions.Build(plan, scene, live);
             Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(dry.Changes.Select(c => (c.kind, c.target, c.action))));
-            Transform facing = view.Find(M3trik.Unitytk.Viewpoints.ViewpointsActions.FacingName(view.gameObject, _root.transform.Find("CABINET/DOOR_GRP")));
-            Assert.That(facing, Is.Not.Null);
-            Assert.That(facing.GetComponent<M3trik.Unitytk.Viewpoints.TravelTo>(), Is.Not.Null, "the step brings the user there");
-            Assert.That(view.GetComponent<M3trik.Unitytk.Viewpoints.TravelTo>() == null, "not to the viewpoint's own forward");
+            Assert.That(view.GetComponent<M3trik.Unitytk.Viewpoints.TravelTo>(), Is.Not.Null, "the step brings the user to it");
+            Assert.That(view.childCount, Is.Zero, "no place beside it, and no ring it was given no span for");
+            Assert.That(view.GetComponent<Placement.PlacedSpot>().key, Is.EqualTo("where/CABINET|VIEW_FRONT"), "a helper the delivery brought, marked as placed");
             var again = new OpContext(dryRun: true);
             ManifestsActions.Build(plan, scene, again);
             Assert.That(again.Changes, Is.Empty);

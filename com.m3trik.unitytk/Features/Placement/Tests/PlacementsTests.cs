@@ -115,7 +115,7 @@ namespace M3trik.Unitytk.Placement.Tests
         public void A_moved_spot_is_put_back_where_its_build_placed_it()
         {
             GameObject node = Node("VIEW");
-            PlacedSpot spot = Placements.Place(node, "teleport/A01", Part, Spot, null, new OpContext());
+            PlacedSpot spot = Placements.Place(node, "travel/A01", Part, Spot, null, new OpContext());
             Assert.That(Placements.Restore(spot, new OpContext()), Is.False, "where it was placed: nothing to put back");
             node.transform.position += Vector3.right * 0.5f;
             node.transform.rotation = Quaternion.Euler(0f, 40f, 0f) * node.transform.rotation;
@@ -133,17 +133,17 @@ namespace M3trik.Unitytk.Placement.Tests
         {
             GameObject node = Node("VIEW");
             var plan = new OpContext(dryRun: true);
-            Assert.That(Placements.Place(node, "teleport/A01", Part, Spot, null, plan), Is.Null, "a plan makes nothing");
+            Assert.That(Placements.Place(node, "travel/A01", Part, Spot, null, plan), Is.Null, "a plan makes nothing");
             Assert.That(plan.Changes.Select(c => c.kind), Is.EqualTo(new[] { "create", "change" }), "the spot, and the move");
             Assert.That(node.GetComponent<PlacedSpot>() == null && node.transform.position == Vector3.zero);
 
             var live = new OpContext();
-            PlacedSpot spot = Placements.Place(node, "teleport/A01", Part, Spot, null, live);
+            PlacedSpot spot = Placements.Place(node, "travel/A01", Part, Spot, null, live);
             Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(plan.Changes.Select(c => (c.kind, c.target, c.action))));
             Assert.That(node.transform.position, Is.EqualTo(Spot.position));
             Assert.That(spot.Adjusted, Is.False);
             var again = new OpContext(dryRun: true);
-            Placements.Place(node, "teleport/A01", Part, Spot, null, again);
+            Placements.Place(node, "travel/A01", Part, Spot, null, again);
             Assert.That(again.Changes, Is.Empty, "placed already: nothing to do");
 
             // A person moves it half a metre; the capture keeps that, relative to the part.
@@ -151,12 +151,12 @@ namespace M3trik.Unitytk.Placement.Tests
             var kept = new Placements.Tuning();
             Assert.That(Placements.Capture(kept, null), Is.True, "changed: the caller keeps it again");
             Assert.That(kept.spots.Count, Is.EqualTo(1));
-            Assert.That(kept.spots[0].key, Is.EqualTo("teleport/A01"));
+            Assert.That(kept.spots[0].key, Is.EqualTo("travel/A01"));
 
             // A new delivery moves the part: the next build puts the spot where it was adjusted to, beside the part.
             Part.position += Vector3.forward;
             node.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
-            Placements.Place(node, "teleport/A01", Part, new Pose(Spot.position + Vector3.forward, Spot.rotation), kept, new OpContext());
+            Placements.Place(node, "travel/A01", Part, new Pose(Spot.position + Vector3.forward, Spot.rotation), kept, new OpContext());
             Assert.That(Vector3.Distance(node.transform.position, new Vector3(0.5f, 0, 3)), Is.LessThan(1e-4f));
             Assert.That(spot.Adjusted, Is.True);
 
@@ -172,27 +172,27 @@ namespace M3trik.Unitytk.Placement.Tests
             // The search for a first spot runs once: a build whose search found another spot (the scene changed, a viewpoint
             // moved) moved a spot nobody asked to move (2026-11-26).
             GameObject node = Node("VIEW");
-            Placements.Place(node, "teleport/A01", Part, Spot, null, new OpContext());
+            Placements.Place(node, "travel/A01", Part, Spot, null, new OpContext());
             var elsewhere = new Pose(new Vector3(1.5f, 0f, 1f), Quaternion.identity);
             var plan = new OpContext(dryRun: true);
-            Placements.Place(node, "teleport/A01", Part, elsewhere, null, plan);
+            Placements.Place(node, "travel/A01", Part, elsewhere, null, plan);
             Assert.That(plan.Changes, Is.Empty, "placed before: its first placement holds");
             Assert.That(node.transform.position, Is.EqualTo(Spot.position));
 
             Part.position += Vector3.forward;  // a new delivery moves the part: the spot follows it
-            Placements.Place(node, "teleport/A01", Part, elsewhere, null, new OpContext());
+            Placements.Place(node, "travel/A01", Part, elsewhere, null, new OpContext());
             Assert.That(Vector3.Distance(node.transform.position, Spot.position + Vector3.forward), Is.LessThan(1e-4f));
 
-            PlacedSpot spot = Placements.PlacedAs(node, "teleport/A01", Part);
+            PlacedSpot spot = Placements.PlacedAs(node, "travel/A01", Part);
             Assert.That(spot, Is.Not.Null);
-            Assert.That(Placements.PlacedAs(node, "teleport/B01", Part), Is.Null, "another key: none");
+            Assert.That(Placements.PlacedAs(node, "travel/B01", Part), Is.Null, "another key: none");
             var again = new OpContext(dryRun: true);
             Assert.That(Placements.PlaceAgain(spot, again), Is.True);
             Assert.That(again.Changes.Single().kind, Is.EqualTo("delete"), "asked");
             Assert.That(node.GetComponent<PlacedSpot>() != null, "a dry run takes nothing off");
             OpContext.RunMenu("Place Again", ctx => Placements.PlaceAgain(spot, ctx));
             Assert.That(node.GetComponent<PlacedSpot>() == null);
-            Placements.Place(node, "teleport/A01", Part, elsewhere, null, new OpContext());
+            Placements.Place(node, "travel/A01", Part, elsewhere, null, new OpContext());
             Assert.That(Vector3.Distance(node.transform.position, elsewhere.position), Is.LessThan(1e-4f), "placed anew where the search says");
         }
 
@@ -201,21 +201,21 @@ namespace M3trik.Unitytk.Placement.Tests
         {
             // Its key renamed with the node already where the build puts it: the plan said it would move it there too.
             GameObject node = Node("VIEW");
-            Placements.Place(node, "teleport/A01", Part, Spot, null, new OpContext());
+            Placements.Place(node, "travel/A01", Part, Spot, null, new OpContext());
             var plan = new OpContext(dryRun: true);
-            Placements.Place(node, "teleport/B01", Part, Spot, null, plan);
+            Placements.Place(node, "travel/B01", Part, Spot, null, plan);
             Assert.That(plan.Changes.Select(c => (c.kind, c.action)), Is.EqualTo(new[] { ("change", "place it as 'teleport/B01'") }), "no move: it is there");
             var live = new OpContext();
-            PlacedSpot spot = Placements.Place(node, "teleport/B01", Part, Spot, null, live);
+            PlacedSpot spot = Placements.Place(node, "travel/B01", Part, Spot, null, live);
             Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(plan.Changes.Select(c => (c.kind, c.target, c.action))));
-            Assert.That(spot.key, Is.EqualTo("teleport/B01"));
+            Assert.That(spot.key, Is.EqualTo("travel/B01"));
 
             node.transform.position += Vector3.right;  // a person's move; the spot as placed
             plan = new OpContext(dryRun: true);
-            Placements.Place(node, "teleport/B01", Part, Spot, null, plan);
+            Placements.Place(node, "travel/B01", Part, Spot, null, plan);
             Assert.That(plan.Changes.Select(c => (c.kind, c.action)), Is.EqualTo(new[] { ("change", "move it there") }), "the spot as it is: the move alone");
             live = new OpContext();
-            Placements.Place(node, "teleport/B01", Part, Spot, null, live);
+            Placements.Place(node, "travel/B01", Part, Spot, null, live);
             Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(plan.Changes.Select(c => (c.kind, c.target, c.action))));
             Assert.That(node.transform.position, Is.EqualTo(Spot.position));
         }
@@ -224,7 +224,7 @@ namespace M3trik.Unitytk.Placement.Tests
         public void Placing_a_fresh_spot_is_one_undo_step_its_move_too()
         {
             GameObject node = Node("VIEW");
-            OpContext.RunMenu("Place", ctx => Placements.Place(node, "teleport/A01", Part, Spot, null, ctx));
+            OpContext.RunMenu("Place", ctx => Placements.Place(node, "travel/A01", Part, Spot, null, ctx));
             Assert.That(node.transform.position, Is.EqualTo(Spot.position));
             Undo.PerformUndo();
             Assert.That(node.GetComponent<PlacedSpot>() == null, "the spot is gone");
@@ -252,14 +252,14 @@ namespace M3trik.Unitytk.Placement.Tests
         [Test]
         public void A_kept_spot_reads_back_as_it_was_written_short_and_a_text_that_is_none_reads_as_none()
         {
-            var tuned = new Placements.Tuned { key = "teleport/A01", relativeTo = "PART", position = new Vector3(0.5f, 0f, 0.1f), rotation = Quaternion.Euler(0f, 90f, 0f) };
+            var tuned = new Placements.Tuned { key = "travel/A01", relativeTo = "PART", position = new Vector3(0.5f, 0f, 0.1f), rotation = Quaternion.Euler(0f, 90f, 0f) };
             string text = Placements.Write(tuned);
             Assert.That(text, Does.Contain("0.5").And.Contain("0.1").And.Not.Contain("0.10000000149"), "floats written as short as they read");
-            Assert.That(Placements.TryRead("teleport/A01", text, out Placements.Tuned back), Is.True);
+            Assert.That(Placements.TryRead("travel/A01", text, out Placements.Tuned back), Is.True);
             Assert.That((back.key, back.relativeTo, back.position), Is.EqualTo((tuned.key, tuned.relativeTo, tuned.position)));
             Assert.That(PlacedSpot.Same(back.rotation, tuned.rotation), Is.True);
-            Assert.That(Placements.TryRead("teleport/A01", "{\"relativeTo\": \"PART\"}", out _), Is.False, "no place in it");
-            Assert.That(Placements.TryRead("teleport/A01", "not json", out _), Is.False);
+            Assert.That(Placements.TryRead("travel/A01", "{\"relativeTo\": \"PART\"}", out _), Is.False, "no place in it");
+            Assert.That(Placements.TryRead("travel/A01", "not json", out _), Is.False);
             Assert.That(Placements.TryRead("", text, out _), Is.False, "no key");
         }
 
@@ -269,13 +269,13 @@ namespace M3trik.Unitytk.Placement.Tests
             // Two builds in one scene, their spots keyed alike, each with its own store: each keeps only its own.
             GameObject a = Node("A"), b = Node("B");
             GameObject viewA = Node("VIEW", a.transform), viewB = Node("VIEW", b.transform);
-            Placements.Place(viewA, "teleport/A01", Part, Spot, null, new OpContext());
-            Placements.Place(viewB, "teleport/A01", Part, Spot, null, new OpContext());
+            Placements.Place(viewA, "travel/A01", Part, Spot, null, new OpContext());
+            Placements.Place(viewB, "travel/A01", Part, Spot, null, new OpContext());
             viewB.transform.position += Vector3.right;  // B's adjusted, A's not
             var keptA = new Placements.Tuning();
-            keptA.spots.Add(new Placements.Tuned { key = "teleport/Z99", position = new Vector3(2, 0, 0) });
+            keptA.spots.Add(new Placements.Tuned { key = "travel/Z99", position = new Vector3(2, 0, 0) });
             Assert.That(Placements.Capture(keptA, new[] { a }), Is.False, "nothing of A's changed");
-            Assert.That(keptA.spots.Select(t => t.key), Is.EqualTo(new[] { "teleport/Z99" }),
+            Assert.That(keptA.spots.Select(t => t.key), Is.EqualTo(new[] { "travel/Z99" }),
                         "B's adjustment is not A's, and what is kept for spots not under A stays");
             var keptB = new Placements.Tuning();
             Assert.That(Placements.Capture(keptB, new[] { b }), Is.True);

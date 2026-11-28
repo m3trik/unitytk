@@ -98,6 +98,36 @@ namespace M3trik.Unitytk.Manifests.Tests
         }
 
         [Test]
+        public void A_rows_settings_resolve_under_its_kits_member_named_as_its_behavior_else_by_their_own_names()
+        {
+            // One rule for every kit: a row's "size" is the member named as its behavior's size, where there is one.
+            Assert.That(ManifestBehaviors.Mark("test_look").Settings, Is.EqualTo(new[] { "test_look.size", "test_look.solid" }),
+                        "a behavior naming none of its own takes each field of its group, by its path");
+            Assert.That((ManifestBehaviors.Mark("test_look").RowSettings, ManifestBehaviors.Mark("test_look").Suffix),
+                        Is.EqualTo((new[] { "test_look.size" }, new[] { "test_look.solid" })), "a name with no dot is its group's field");
+            Assert.That(ManifestBehaviors.Mark("test_part").Settings, Is.EqualTo(new[] { "box" }), "a kit's flat settings stay as they are named");
+            Assert.That((ManifestBehaviors.SettingName("test_look", "size"), ManifestBehaviors.SettingName("test_part", "size")),
+                        Is.EqualTo(("test_look.size", "size")));
+
+            _root = new GameObject("delivery");
+            Child(_root.transform, "A");
+            var scene = new ManifestScene(_root);
+            var look = new SheetPlan.Shape.PlanAction
+            {
+                behavior = "test_look", text = "A looks solid", targets = new System.Collections.Generic.List<string> { "A" },
+                settings = new System.Collections.Generic.Dictionary<string, object> { ["size"] = 3, ["solid"] = "on" },
+            };
+            TestSettings own = scene.Settings<TestSettings>("S01", "A", look);
+            Assert.That((own.test_look.size, own.test_look.solid, own.size), Is.EqualTo((3f, true, 1f)), "under its group; the flat size untouched");
+            var part = new SheetPlan.Shape.PlanAction
+            {
+                behavior = "test_part", text = "Part A", targets = new System.Collections.Generic.List<string> { "A" },
+                settings = new System.Collections.Generic.Dictionary<string, object> { ["size"] = 2 },
+            };
+            Assert.That(scene.Settings<TestSettings>("S01", "A", part).size, Is.EqualTo(2f), "a behavior with no group: by the setting's own name");
+        }
+
+        [Test]
         public void Clips_are_found_by_take_name()
         {
             _root = new GameObject("cabinet");

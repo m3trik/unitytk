@@ -1058,7 +1058,7 @@ namespace M3trik.Unitytk.Manifests.Tests
         {
             const string rows =
                 "{\"version\": 2, \"steps\": [{\"id\": \"S01\", \"actions\": [" +
-                "{\"behavior\": \"test_part\", \"text\": \"Its tool is a word\", \"targets\": [\"A\"], \"fields\": {\"tool\": \"no node\"}}," +
+                "{\"behavior\": \"test_part\", \"text\": \"Its with is a word\", \"targets\": [\"A\"], \"fields\": {\"with\": \"no node\"}}," +
                 "{\"behavior\": \"test_part\", \"text\": \"Its anchor is a node\", \"targets\": [\"A\"], \"fields\": {\"anchor\": \"NOPE\"}}," +
                 "{\"behavior\": \"test_part\", \"text\": \"It plays a take\", \"targets\": [\"A\"], \"clip\": \"Z99\"}]}]}";
             ManifestAssessment assessed = ManifestsActions.Assess(SheetPlan.Read(rows, "test", out _), _scene);

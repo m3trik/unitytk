@@ -6,12 +6,15 @@ using M3trik.Unitytk.Steps;
 namespace M3trik.Unitytk.Kits.Tasks.Tests
 {
     /// <summary>
-    /// A project's own gate (<see cref="IStepGate"/>): its step waits on its button, which, as it finishes, is offered
-    /// once the step's actions are done. Only the tests register it.
+    /// A project's own gate (<see cref="IStepGate"/>): its step waits on its button, every row of it, which, as it finishes,
+    /// is offered once the step's actions are done. Only the tests register it.
     /// </summary>
     [TaskBehavior("test_gate", NamesObjects = false, Offers = true, Chooses = true, EndsStep = true, Fields = new[] { "label" })]
     public sealed class TestGateBehavior : IManifestBehavior, IStepGate
     {
+        /// <inheritdoc/>
+        public bool Gates(SheetPlan.Shape.PlanAction action, SheetPlan.Shape.PlanStep step) => true;
+
         /// <inheritdoc/>
         public bool AtStart(SheetPlan.Shape.PlanAction action, SheetPlan.Shape.PlanStep step, ManifestScene scene) => false;
 

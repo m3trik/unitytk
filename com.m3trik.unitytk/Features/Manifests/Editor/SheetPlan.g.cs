@@ -162,22 +162,29 @@ namespace M3trik.Unitytk.Manifests
                 }
             }
 
-            /// <summary>One row of a step, read as one behavior on named nodes.</summary>
+            /// <summary>One row of a step, read as one of the sheet's words on named nodes.</summary>
             public sealed class PlanAction
             {
                 /// <summary>
-                /// What the row does, as the clause it reads as: `highlight`, `take`, `use`,
-                /// `play`, `place`, `return`, `advance`, `goto` ... (the clause templates'
-                /// behaviors), or `unread` for a row no template reads. The kit builds a behavior
-                /// it has an applier for and reports the rest.
+                /// What the row does: the sheet's word, as a row in cells writes it (`highlight`,
+                /// `indicate`, `show`, `hide`, `set`, `take`, `return`, `use`, `play`, `button`,
+                /// `select`, `answer`, `travel`, `picture`, `list`, `tick`, `note`: the Interactive
+                /// template's words), a sheet of sentences' rows read into the same words;
+                /// `advance` (the step goes on by itself: a sheet of sentences' "Auto Advance"); or
+                /// `unread` for a row nothing reads. The kit builds a word it has a builder for and
+                /// reports the rest.
                 /// </summary>
                 public string behavior;
-                /// <summary>The row as the sheet writes it.</summary>
+                /// <summary>
+                /// The row as the sheet writes it: its sentence (a row in cells, the sentence its
+                /// cells read as).
+                /// </summary>
                 public string text;
                 /// <summary>
-                /// The nodes the row acts on, each its path in the delivery from the file's top
-                /// level down, '|' joined (the path tells same-named nodes apart). A phrase that
-                /// names no node is left out, with an issue.
+                /// The row's Target: the nodes it is about, each its path in the delivery from the
+                /// file's top level down, '|' joined (the path tells same-named nodes apart); a
+                /// travel's, what the user is brought to face. A name that finds no node is left
+                /// out, with an issue.
                 /// </summary>
                 public List<string> targets;
                 /// <summary>
@@ -186,21 +193,26 @@ namespace M3trik.Unitytk.Manifests
                 /// Manifest's names for them); absent when the row plays none.
                 /// </summary>
                 public string clip;
-                /// <summary>The step the row goes to, by ID (`B03.5` spelled `B03_5`, as the step's own).</summary>
+                /// <summary>
+                /// Where the row goes, as its To cell writes it: `next` (on), `restart` (the
+                /// sequence over, its scene loaded again: nothing a take did stands), `exit` (out),
+                /// `retry` (a wrong answer: the step stays; a step holding one is a question, its
+                /// `next` choice the right answer), or a step's ID as the step's own (`B03.5`
+                /// spelled `B03_5`).
+                /// </summary>
                 public string to;
                 /// <summary>
-                /// Its jump starts the sequence over (the scene loaded again: nothing a take did
-                /// stands), as its reading says a jump to the first step does (the reading's
-                /// `restart`).
-                /// </summary>
-                public bool? restart;
-                /// <summary>
-                /// What the row's words say beyond its behavior, nodes, take and jump, by name:
-                /// each group of the clause template that read it (a phrase as written, a label, a
-                /// value; a group naming a node holds that node's path, as `targets`), what the
-                /// hand holds where the row is done with it, and a list where the reading names
-                /// several (the authored arrows of a pointing row). The kit that builds the
-                /// behavior reads the names it knows.
+                /// The row's cells beyond its word, Target, take and jump, by the sheet's names:
+                /// `with`, the With node's path (what the hand holds); `label`, the Label (a
+                /// button's words, an answer's value or `*` for any other, a list's items comma
+                /// separated, a picture's caption); `where`, the node each Target happens at, one
+                /// per Target in order (`""` where a Target has none; one where the row has no
+                /// Target): an indicate's pointer, a travel's viewpoint, a picture's camera;
+                /// `helpers`, the names Unity gives the helpers it makes for a placing row that
+                /// names none, one per Target. A sheet of sentences adds what its words say: `side`
+                /// and `side_of` (a travel to a side of a node), `phrase` (a take's words), and a
+                /// project's own clause groups. The kit that builds the word reads the names it
+                /// knows.
                 /// </summary>
                 public IDictionary<string, object> fields;
                 /// <summary>
@@ -212,9 +224,12 @@ namespace M3trik.Unitytk.Manifests
                 /// </summary>
                 public List<string> issues;
                 /// <summary>
-                /// Settings the row gives its behavior, by its kit's names, over the kit's: what
-                /// its words say ("Pressing and holding ..." a Use held to play: `useTrigger:
-                /// HoldToPlay`); a person may change them per object in the manifest. Absent: the
+                /// The settings the row gives its word, by the sheet's own names and values as
+                /// written (a sheet of sentences' as its clause gives them: "Pressing and holding
+                /// ..." a use with `trigger: hold`): every one but an object's (`where`, a field).
+                /// A span (`until`, `ring`) is `step` (as its own step ends) or a step's ID as the
+                /// step's own (as that step starts). The kit resolves them under its settings of
+                /// the row's word; a person may change them per object in the manifest. Absent: the
                 /// kit's.
                 /// </summary>
                 public IDictionary<string, object> settings;
@@ -237,7 +252,7 @@ namespace M3trik.Unitytk.Manifests
                 {
                     if (!(value is IDictionary<string, object> o)) return null;
                     Wire.Require(o, "PlanAction", "behavior", "text");
-                    Wire.NotNull(o, "PlanAction", "behavior", "text", "targets", "clip", "to", "restart", "fields", "issues", "settings", "upstream", "warnings");
+                    Wire.NotNull(o, "PlanAction", "behavior", "text", "targets", "clip", "to", "fields", "issues", "settings", "upstream", "warnings");
                     return new PlanAction
                     {
                         behavior = Wire.Str(o, "behavior"),
@@ -245,7 +260,6 @@ namespace M3trik.Unitytk.Manifests
                         targets = Wire.Strs(o, "targets"),
                         clip = Wire.Str(o, "clip"),
                         to = Wire.Str(o, "to"),
-                        restart = Wire.Bool(o, "restart"),
                         fields = Wire.Dict(o, "fields"),
                         issues = Wire.Strs(o, "issues"),
                         settings = Wire.Dict(o, "settings"),

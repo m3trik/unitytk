@@ -224,6 +224,25 @@ namespace M3trik.Unitytk.Indicators.Tests
         }
 
         [Test]
+        public void An_indicator_is_made_solid_as_planned_once_also_for_one_only_planned()
+        {
+            const string name = "Indicator S1";
+            var dry = new OpContext(dryRun: true);
+            IndicatorsActions.AddIndicator(_key, name, ctx: dry);
+            Assert.That(IndicatorsActions.SetFlat(_key, name, true, dry), Is.False, "a new one is flat: nothing to change");
+            Assert.That(IndicatorsActions.SetFlat(_key, name, false, dry), Is.True, "made solid: planned");
+            Assert.That(IndicatorsActions.SetFlat(_key, name, false, dry), Is.False, "once");
+            var live = new OpContext();
+            Indicator made = IndicatorsActions.AddIndicator(_key, name, ctx: live);
+            IndicatorsActions.SetFlat(_key, name, true, live);
+            IndicatorsActions.SetFlat(_key, name, false, live);
+            Assert.That(live.Changes.Select(c => (c.kind, c.target, c.action)), Is.EqualTo(dry.Changes.Select(c => (c.kind, c.target, c.action))));
+            Assert.That(made.flat, Is.False);
+            Assert.That(IndicatorsActions.SetFlat(made, false, new OpContext(dryRun: true)), Is.False, "so already");
+            Assert.That(IndicatorsActions.SetFlat(_key, "Nothing", false, new OpContext()), Is.False, "none there: nothing");
+        }
+
+        [Test]
         public void Two_same_named_indicators_are_styled_and_taken_away_apart_in_one_dry_run()
         {
             const string name = "Indicator S1";

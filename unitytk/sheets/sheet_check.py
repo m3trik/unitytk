@@ -253,7 +253,7 @@ class _SheetCheckInternal:
     @staticmethod
     def _list_items(label) -> List[str]:
         """A list row's own items: its label split at commas and semicolons, unquoted. The Unity kit splits a list's
-        label by the same rule as it builds the row (``Checklists.Items``): it splits the label the row is built with,
+        label by the same rule as it builds the row (``Lists.Items``): it splits the label the row is built with,
         which a list behavior declaring ``label`` among its fields lets a person set in the manifest, past this
         reader, so the plan cannot carry the items for both."""
         return [

@@ -23,7 +23,7 @@ namespace M3trik.Unitytk.Tools.Manifests.Tests
             "{\"version\": 2, \"extensions\": {\"test\": {\"root\": \"Feature Kit Root\"}, \"tool_test\": {\"holder\": \"Tool Kit Holder\"}}, " +
             "\"steps\": [{\"id\": \"S01\", \"actions\": [" +
             "{\"behavior\": \"test_part\", \"text\": \"Part A\", \"targets\": [\"A\"]}," +
-            "{\"behavior\": \"test_marker\", \"text\": \"A marker goes\", \"settings\": {\"show\": \"Hide\"}}]}]}";
+            "{\"behavior\": \"test_sign\", \"text\": \"The sign faces back\", \"settings\": {\"face\": \"Back\"}}]}]}";
 
         const string FeatureOnly =
             "{\"version\": 2, \"steps\": [{\"id\": \"S01\", \"actions\": [{\"behavior\": \"test_part\", \"text\": \"Part A\", \"targets\": [\"A\"]}]}]}";
@@ -71,9 +71,9 @@ namespace M3trik.Unitytk.Tools.Manifests.Tests
             Assert.That(ManifestBehaviors.Kits(plan).Select(k => k.GetType()), Is.EqualTo(new[] { typeof(TestKit), typeof(ToolTestKit) }));
             Assert.That(ManifestBehaviors.Kits(SheetPlan.Read(FeatureOnly, "test", out _)).Select(k => k.GetType()), Is.EqualTo(new[] { typeof(TestKit) }),
                         "a kit with no row of its own takes no part");
-            Assert.That((ManifestBehaviors.KitOf("test_part")?.GetType(), ManifestBehaviors.KitOf("test_marker")?.GetType()),
+            Assert.That((ManifestBehaviors.KitOf("test_part")?.GetType(), ManifestBehaviors.KitOf("test_sign")?.GetType()),
                         Is.EqualTo((typeof(TestKit), typeof(ToolTestKit))));
-            Assert.That((ManifestBehaviors.SettingsOf("test_part"), ManifestBehaviors.SettingsOf("test_marker"), ManifestBehaviors.SettingsOf("test_choice")),
+            Assert.That((ManifestBehaviors.SettingsOf("test_part"), ManifestBehaviors.SettingsOf("test_sign"), ManifestBehaviors.SettingsOf("test_choice")),
                         Is.EqualTo((typeof(TestSettings), typeof(ToolTestSettings), (System.Type)null)),
                         "a behavior's settings are its own kit's, never the first kit holding a field of the name; none where it names none");
 
@@ -88,8 +88,8 @@ namespace M3trik.Unitytk.Tools.Manifests.Tests
                 Assert.That(built.shared.parts.Select(p => p.name), Is.EquivalentTo(new[] { "Feature Kit Root", "Tool Kit Holder" }));
                 Assert.That(_root.transform.Find("A").GetComponent<BoxCollider>(), Is.Not.Null);
 
-                Assert.That(ManifestsActions.SetTune(manifest, "S01", "", "test_marker", "show", "Appear"), Is.True, "its own kit's setting");
-                Assert.That(ManifestsActions.SetTune(manifest, "S01", "A", "test_part", "show", "Appear"), Is.False, "another kit's is not the behavior's");
+                Assert.That(ManifestsActions.SetTune(manifest, "S01", "", "test_sign", "face", "Front"), Is.True, "its own kit's setting");
+                Assert.That(ManifestsActions.SetTune(manifest, "S01", "A", "test_part", "face", "Front"), Is.False, "another kit's is not the behavior's");
                 Assert.That(ManifestsActions.AddSettings(manifest, typeof(TestSettings)) != null && ManifestsActions.AddSettings(manifest, typeof(ToolTestSettings)) != null);
                 Assert.That(manifest.settings.Select(s => s.GetType()), Is.EquivalentTo(new[] { typeof(TestSettings), typeof(ToolTestSettings) }), "each kit's kept apart");
             }

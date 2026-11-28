@@ -108,15 +108,16 @@ class SheetConverterTestCase(UnityTkTestCase):
         before = SheetPlan.from_sheet(self.sheet, self.fbx, mapping="default")
         after = SheetPlan.from_sheet(self.out, self.fbx, mapping="interactive")
         for old, new in zip(before.steps, after.steps):
-            # A placard line in the hint is the step's placard text now, no action.
+            # A page line in the hint is the step's placard text, its row a note; written as a sentence sheet, the line
+            # moves to the placard column, and no row is left of it.
             kept = [
                 (a.behavior, a.targets, a.clip)
                 for a in old.actions
-                if not a.issues and a.behavior != "placard"
+                if not a.issues and a.behavior != "note"
             ]
             read = [(a.behavior, a.targets, a.clip) for a in new.actions]
-            if any(a.behavior == "placard" for a in old.actions):
-                self.assertTrue(new.field("placard"), old.id)
+            if old.field("placard"):
+                self.assertEqual(new.field("placard"), old.field("placard"), old.id)
             for action in kept:
                 with self.subTest(step=old.id, action=action):
                     self.assertIn(action, read)
@@ -230,30 +231,26 @@ class CellColumnsTestCase(UnityTkTestCase):
                     header = next(csv.reader(fh))
                 self.assertEqual(ReadingSpec.load(template).cell_columns, header)
 
-    def test_a_timed_press_its_sheet_gives_no_seconds_is_left_for_a_person(self):
-        """A timed press whose old sheet said no seconds was written ``hold=1.5``, a value the sheet never said (the
-        kit's own default). Added: 2026-11-26"""
+    def test_a_value_its_row_needs_that_the_old_sheet_never_said_is_left_for_a_person(self):
+        """A state the old sheet's words never said was never invented: each row written is held to the format's own
+        check (``ManifestActions.check_row``), and what it still needs is left by row. Added: 2026-11-26"""
         import json
 
         folder = self.create_temp_dir()
         os.makedirs(os.path.join(folder, "clauses"))
-        with open(os.path.join(folder, "clauses", "press_long.json"), "w", encoding="utf-8") as fh:
-            json.dump({"behavior": "use", "order": 1, "clip": True, "roles": ["uses"],
-                       "settings": {"useTrigger": "TimedPress"},
-                       "detect": [r"^pressing\s+(?P<targets>.+?)\s+a\s+while\s+triggers\s+(?P<phrase>.+?)\s+animation$"]},
-                      fh)
+        with open(os.path.join(folder, "clauses", "lights_up.json"), "w", encoding="utf-8") as fh:
+            json.dump({"word": "set", "order": 1, "detect": [r"^(?P<targets>.+?)\s+lights\s+up$"]}, fh)
         with open(os.path.join(folder, "task.csv"), "w", encoding="utf-8", newline="") as fh:
-            fh.write("Step,Step Contents,Asset Names,Animation Clip Names\n"
-                     "A01,Pressing the door a while triggers Door Open Animation,DOOR,A01\n")
-        write_delivery(os.path.join(folder, "task.fbx"), takes=["A01"])
+            fh.write("Step,Step Contents,Asset Names,Animation Clip Names\nA01,The door lights up,DOOR,\n")
+        write_delivery(os.path.join(folder, "task.fbx"), takes=[])
         with open(os.path.join(folder, "task.json"), "w", encoding="utf-8") as fh:
             json.dump({"version": 1, "sheet": "task.csv", "mapping": "default", "deliveries": ["task.fbx"]}, fh)
         out = os.path.join(folder, "cells.csv")
         result = SheetConverter.convert(settings=os.path.join(folder, "task.json"), out=out)
         with open(out, encoding="utf-8", newline="") as fh:
             rows = list(csv.reader(fh))
-        use = dict(zip(rows[0], next(r for r in rows if "use" in r)))
-        self.assertEqual((use["Target"], use["Clip"], use["Settings"]), ("DOOR_GRP", "A01", ""))
+        row = dict(zip(rows[0], next(r for r in rows if "set" in r)))
+        self.assertEqual((row["Target"], row["Settings"]), ("DOOR_GRP", ""), "no state invented")
         self.assertEqual([(i["step"], i["why"]) for i in result["left"]],
-                         [("A01", "say how long the press is held: Settings hold=<seconds>")])
+                         [("A01", "Settings: set needs its state: write state=<value>")])
 

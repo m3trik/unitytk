@@ -43,13 +43,13 @@ namespace M3trik.Unitytk.Kits.Tasks
         // node's trigger for clip (tool: what the selecting hand holds, working where the clip does not move it), on while
         // step runs: a target later steps use again plays their clips then. How it plays is the object's settings' (own):
         // selected, or brought what the hand holds, it plays to its end; held, with no hold, it plays while held (played back
-        // as let go, by its rewind); a hold above 0 is a timed press of that long, held or selected.
+        // as let go, by its rewind); held with a hold above 0, a timed press of that long.
         internal static void Trigger(GameObject node, string clip, SheetPlan.Shape.PlanStep step, ManifestScene scene,
                                      GameObject tool, UseSettings own, OpContext ctx)
         {
-            bool near = own.trigger == UseTrigger.Near, held = own.trigger == UseTrigger.Hold && own.hold <= 0f;
+            bool pressed = own.trigger == UseTrigger.Hold, held = pressed && own.hold <= 0f;
             ClipTrigger trigger = Interactions.AddClipTrigger(node, scene.Root, clip, tool, held,
-                                                              pressSeconds: near ? 0f : own.hold,
+                                                              pressSeconds: pressed && !held ? own.hold : 0f,
                                                               reverseOnRelease: held && own.rewind, ctx: ctx);
             if (tool != null) Spots.Work(scene, step, node, clip, tool, trigger, ctx);
             scene.EnableDuring(step.id, node, trigger, ctx);

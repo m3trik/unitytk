@@ -3,7 +3,7 @@
   "source": {
     "sheet": "cabinet.csv",
     "delivery": "cabinet.fbx",
-    "sheet_digest": "3d061077a660c500eaa3fb8214fe02e86c1e83a177d5dd0c997cf756901221a1",
+    "sheet_digest": "0302cffaff895f1a7c0cf9e706577ac98efc2ed8f34c3edc5f54ce9adf37e5e8",
     "settings": "",
     "settings_digest": "",
     "clauses": "",
@@ -23,18 +23,6 @@
           "behavior": "note",
           "text": "The cabinet stands in front of you with its tools on the table.",
           "targets": [],
-          "restart": false,
-          "fields": {},
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "advance",
-          "text": "Auto Advance",
-          "targets": [],
-          "restart": false,
           "fields": {},
           "issues": [],
           "settings": {},
@@ -53,10 +41,10 @@
       },
       "actions": [
         {
-          "behavior": "pause",
-          "text": "Selecting 'Begin' triggers step advancement",
+          "behavior": "button",
+          "text": "Selecting 'Begin' goes on",
           "targets": [],
-          "restart": false,
+          "to": "next",
           "fields": {
             "label": "Begin"
           },
@@ -73,101 +61,31 @@
       "section": "A",
       "section_title": "Open the cabinet",
       "fields": {
-        "voice": "Unlock both latches with the key.",
-        "hint": "-Bouncing arrow pointing at the key on the table"
+        "voice": "Unlock both latches with the key."
       },
       "actions": [
         {
+          "behavior": "travel",
+          "text": "The user is brought to VIEW_FRONT",
+          "targets": [
+            "CABINET"
+          ],
+          "fields": {
+            "where": [
+              "VIEW_FRONT"
+            ]
+          },
+          "issues": [],
+          "settings": {},
+          "upstream": [],
+          "warnings": []
+        },
+        {
           "behavior": "highlight",
-          "text": "Highlight the Cabinet Latches",
+          "text": "CABINET_LATCHES_GRP is highlighted",
           "targets": [
             "CABINET|CABINET_LATCHES_GRP"
           ],
-          "restart": false,
-          "fields": {},
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "teleport",
-          "text": "The user is teleported to the front view",
-          "targets": [
-            "VIEW_FRONT"
-          ],
-          "restart": false,
-          "fields": {},
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "take",
-          "text": "Selecting the key places it in hand",
-          "targets": [
-            "TABLE|KEY_GRP"
-          ],
-          "restart": false,
-          "fields": {},
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "use",
-          "text": "Selecting the top latch triggers Top Latch Open Animation and returns the key to hand",
-          "targets": [
-            "CABINET|CABINET_LATCHES_GRP|LATCH_UPPER_GRP"
-          ],
-          "clip": "A01_1",
-          "restart": false,
-          "fields": {
-            "phrase": "Top Latch Open",
-            "tool": "TABLE|KEY_GRP"
-          },
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "use",
-          "text": "Selecting the bottom latch triggers Bottom Latch Open Animation and returns the key to hand",
-          "targets": [
-            "CABINET|CABINET_LATCHES_GRP|LATCH_LOWER_GRP"
-          ],
-          "clip": "A01_2",
-          "restart": false,
-          "fields": {
-            "phrase": "Bottom Latch Open",
-            "tool": "TABLE|KEY_GRP"
-          },
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "return",
-          "text": "Return the key to the table",
-          "targets": [
-            "TABLE|KEY_GRP"
-          ],
-          "restart": false,
-          "fields": {},
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "advance",
-          "text": "Auto Advance when both latches are open",
-          "targets": [],
-          "restart": false,
           "fields": {},
           "issues": [],
           "settings": {},
@@ -176,11 +94,68 @@
         },
         {
           "behavior": "indicate",
-          "text": "-Bouncing arrow pointing at the key on the table",
+          "text": "KEY_GRP is pointed out",
           "targets": [
             "TABLE|KEY_GRP"
           ],
-          "restart": false,
+          "fields": {
+            "helpers": [
+              "POINT_A01_KEY_GRP"
+            ]
+          },
+          "issues": [],
+          "settings": {},
+          "upstream": [],
+          "warnings": []
+        },
+        {
+          "behavior": "take",
+          "text": "Selecting KEY_GRP takes it in hand",
+          "targets": [
+            "TABLE|KEY_GRP"
+          ],
+          "fields": {},
+          "issues": [],
+          "settings": {},
+          "upstream": [],
+          "warnings": []
+        },
+        {
+          "behavior": "use",
+          "text": "Selecting LATCH_UPPER_GRP with KEY_GRP in hand plays A01_1",
+          "targets": [
+            "CABINET|CABINET_LATCHES_GRP|LATCH_UPPER_GRP"
+          ],
+          "clip": "A01_1",
+          "fields": {
+            "with": "TABLE|KEY_GRP"
+          },
+          "issues": [],
+          "settings": {},
+          "upstream": [],
+          "warnings": []
+        },
+        {
+          "behavior": "use",
+          "text": "Selecting LATCH_LOWER_GRP with KEY_GRP in hand plays A01_2",
+          "targets": [
+            "CABINET|CABINET_LATCHES_GRP|LATCH_LOWER_GRP"
+          ],
+          "clip": "A01_2",
+          "fields": {
+            "with": "TABLE|KEY_GRP"
+          },
+          "issues": [],
+          "settings": {},
+          "upstream": [],
+          "warnings": []
+        },
+        {
+          "behavior": "return",
+          "text": "KEY_GRP goes back where it rests",
+          "targets": [
+            "TABLE|KEY_GRP"
+          ],
           "fields": {},
           "issues": [],
           "settings": {},
@@ -201,11 +176,10 @@
       "actions": [
         {
           "behavior": "highlight",
-          "text": "Highlight the door",
+          "text": "DOOR_GRP is highlighted",
           "targets": [
             "CABINET|DOOR_GRP"
           ],
-          "restart": false,
           "fields": {},
           "issues": [],
           "settings": {},
@@ -214,25 +188,11 @@
         },
         {
           "behavior": "use",
-          "text": "Selecting the door triggers Door Open Animation",
+          "text": "Selecting DOOR_GRP plays A02",
           "targets": [
             "CABINET|DOOR_GRP"
           ],
           "clip": "A02",
-          "restart": false,
-          "fields": {
-            "phrase": "Door Open"
-          },
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "advance",
-          "text": "Auto Advance",
-          "targets": [],
-          "restart": false,
           "fields": {},
           "issues": [],
           "settings": {},
@@ -247,111 +207,31 @@
       "section": "B",
       "section_title": "Replace the bolt",
       "fields": {
-        "voice": "Remove the bolt with the wrench.",
-        "hint": "-Bouncing arrow pointing at the wrench on the table"
+        "voice": "Remove the bolt with the wrench."
       },
       "actions": [
         {
+          "behavior": "travel",
+          "text": "The user is brought to VIEW_BACK",
+          "targets": [
+            "CABINET"
+          ],
+          "fields": {
+            "where": [
+              "VIEW_BACK"
+            ]
+          },
+          "issues": [],
+          "settings": {},
+          "upstream": [],
+          "warnings": []
+        },
+        {
           "behavior": "highlight",
-          "text": "Highlight the bolt",
+          "text": "BOLT_GRP is highlighted",
           "targets": [
             "CABINET|BOLT_GRP"
           ],
-          "restart": false,
-          "fields": {},
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "teleport",
-          "text": "The user is teleported to the back view",
-          "targets": [
-            "VIEW_BACK"
-          ],
-          "restart": false,
-          "fields": {},
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "take",
-          "text": "Selecting the wrench places it in hand",
-          "targets": [
-            "TABLE|WRENCH_GRP"
-          ],
-          "restart": false,
-          "fields": {},
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "use",
-          "text": "Selecting the bolt with wrench in hand triggers Bolt Removal Animation",
-          "targets": [
-            "CABINET|BOLT_GRP"
-          ],
-          "clip": "B01_1",
-          "restart": false,
-          "fields": {
-            "tool": "TABLE|WRENCH_GRP",
-            "phrase": "Bolt Removal"
-          },
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "play",
-          "text": "Trigger Lid Open Animation",
-          "targets": [],
-          "clip": "B01_2",
-          "restart": false,
-          "fields": {
-            "phrase": "Lid Open"
-          },
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "fade_out",
-          "text": "The bolt fades away",
-          "targets": [
-            "CABINET|BOLT_GRP"
-          ],
-          "restart": false,
-          "fields": {},
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "return",
-          "text": "Return the wrench to the table",
-          "targets": [
-            "TABLE|WRENCH_GRP"
-          ],
-          "restart": false,
-          "fields": {},
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "advance",
-          "text": "Auto Advance",
-          "targets": [],
-          "restart": false,
           "fields": {},
           "issues": [],
           "settings": {},
@@ -360,11 +240,78 @@
         },
         {
           "behavior": "indicate",
-          "text": "-Bouncing arrow pointing at the wrench on the table",
+          "text": "WRENCH_GRP is pointed out",
           "targets": [
             "TABLE|WRENCH_GRP"
           ],
-          "restart": false,
+          "fields": {
+            "helpers": [
+              "POINT_B01_WRENCH_GRP"
+            ]
+          },
+          "issues": [],
+          "settings": {},
+          "upstream": [],
+          "warnings": []
+        },
+        {
+          "behavior": "take",
+          "text": "Selecting WRENCH_GRP takes it in hand",
+          "targets": [
+            "TABLE|WRENCH_GRP"
+          ],
+          "fields": {},
+          "issues": [],
+          "settings": {},
+          "upstream": [],
+          "warnings": []
+        },
+        {
+          "behavior": "use",
+          "text": "Selecting BOLT_GRP with WRENCH_GRP in hand plays B01_1",
+          "targets": [
+            "CABINET|BOLT_GRP"
+          ],
+          "clip": "B01_1",
+          "fields": {
+            "with": "TABLE|WRENCH_GRP"
+          },
+          "issues": [],
+          "settings": {},
+          "upstream": [],
+          "warnings": []
+        },
+        {
+          "behavior": "play",
+          "text": "B01_2 plays by itself after B01_1",
+          "targets": [],
+          "clip": "B01_2",
+          "fields": {},
+          "issues": [],
+          "settings": {
+            "after": "B01_1"
+          },
+          "upstream": [],
+          "warnings": []
+        },
+        {
+          "behavior": "hide",
+          "text": "BOLT_GRP disappears",
+          "targets": [
+            "CABINET|BOLT_GRP"
+          ],
+          "fields": {},
+          "issues": [],
+          "settings": {},
+          "upstream": [],
+          "warnings": []
+        },
+        {
+          "behavior": "return",
+          "text": "WRENCH_GRP goes back where it rests",
+          "targets": [
+            "TABLE|WRENCH_GRP"
+          ],
           "fields": {},
           "issues": [],
           "settings": {},
@@ -384,11 +331,10 @@
       "actions": [
         {
           "behavior": "select",
-          "text": "Selecting the button triggers step advancement",
+          "text": "Selecting BUTTON_GRP goes on",
           "targets": [
             "CABINET|BUTTON_GRP"
           ],
-          "restart": false,
           "fields": {},
           "issues": [],
           "settings": {},
@@ -408,24 +354,10 @@
       },
       "actions": [
         {
-          "behavior": "buttons",
-          "text": "YES and NO buttons appear on the placard screen",
-          "targets": [],
-          "restart": false,
-          "fields": {
-            "label": "YES and NO"
-          },
-          "issues": [],
-          "settings": {},
-          "upstream": [],
-          "warnings": []
-        },
-        {
-          "behavior": "goto",
-          "text": "Selecting 'YES' triggers step advancement to step B04",
+          "behavior": "button",
+          "text": "Selecting 'YES' goes to step B04",
           "targets": [],
           "to": "B04",
-          "restart": false,
           "fields": {
             "label": "YES"
           },
@@ -435,11 +367,10 @@
           "warnings": []
         },
         {
-          "behavior": "goto",
-          "text": "Selecting 'NO' triggers step advancement to step B03.5",
+          "behavior": "button",
+          "text": "Selecting 'NO' goes to step B03A",
           "targets": [],
-          "to": "B03_5",
-          "restart": false,
+          "to": "B03A",
           "fields": {
             "label": "NO"
           },
@@ -451,7 +382,7 @@
       ]
     },
     {
-      "id": "B03_5",
+      "id": "B03A",
       "name": "Wrong answer",
       "section": "B",
       "section_title": "Replace the bolt",
@@ -460,11 +391,10 @@
       },
       "actions": [
         {
-          "behavior": "goto",
-          "text": "Selecting 'Try Again' triggers step advancement to step B03",
+          "behavior": "button",
+          "text": "Selecting 'Try Again' goes to step B03",
           "targets": [],
           "to": "B03",
-          "restart": false,
           "fields": {
             "label": "Try Again"
           },
@@ -485,10 +415,10 @@
       },
       "actions": [
         {
-          "behavior": "exit",
+          "behavior": "button",
           "text": "Selecting 'Exit' ends the task",
           "targets": [],
-          "restart": false,
+          "to": "exit",
           "fields": {
             "label": "Exit"
           },

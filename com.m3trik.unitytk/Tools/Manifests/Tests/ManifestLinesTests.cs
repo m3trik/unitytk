@@ -43,23 +43,24 @@ namespace M3trik.Unitytk.Tools.Manifests.Tests
             // The user: consolidate, and keep chips readable with a suffix when a behavior is set a certain way.
             const string rows =
                 "{\"version\": 2, \"steps\": [{\"id\": \"C01\", \"actions\": [" +
-                "{\"behavior\": \"test_marker\", \"text\": \"Destination circle fades in\"}," +
-                "{\"behavior\": \"test_marker\", \"text\": \"Destination circle fades away\", \"settings\": {\"show\": \"Hide\"}}," +
-                "{\"behavior\": \"test_press\", \"text\": \"Pressing and holding the button plays its take\", \"targets\": [\"BOX|BUTTON\"], \"clip\": \"C01\", " +
-                "\"fields\": {\"tool\": \"BOX|PLIERS\"}, \"settings\": {\"press\": \"HoldToPlay\"}}]}]}";
+                "{\"behavior\": \"test_sign\", \"text\": \"The sign faces front\"}," +
+                "{\"behavior\": \"test_sign\", \"text\": \"The sign faces back\", \"settings\": {\"face\": \"Back\"}}," +
+                "{\"behavior\": \"test_press\", \"text\": \"Holding the button down plays its take\", \"targets\": [\"BOX|BUTTON\"], \"clip\": \"C01\", " +
+                "\"fields\": {\"with\": \"BOX|PLIERS\"}, \"settings\": {\"way\": \"HeldDown\"}}]}]}";
             ManifestLines.Line step = ManifestLines.Of(SheetPlan.Read(rows, "test", out _), null).Single();
-            Assert.That(ManifestWindow.Chips(step).Select(c => c.label), Is.EqualTo(new[] { "Test Marker", "Test Marker · hide" }), "the usual way says nothing");
+            Assert.That(ManifestWindow.Chips(step).Select(c => c.label), Is.EqualTo(new[] { "Test Sign", "Test Sign · back" }), "the usual way says nothing");
             var press = ManifestWindow.Chips(step.rows.Single()).Single();
-            Assert.That(press.label, Is.EqualTo("Test Press · hold to play"));
+            Assert.That(press.label, Is.EqualTo("Test Press · held down"), "a row's setting by the sheet's name, under its kit's group of it");
             Assert.That(press.tooltip, Does.Contain("Take: C01").And.Contain("In hand: PLIERS"), "a field naming a node, by the node's own name");
 
             var manifest = ScriptableObject.CreateInstance<Manifest>();
             try
             {
-                Assert.That(ManifestsActions.SetTune(manifest, "C01", "BOX|BUTTON", "test_press", "press", "TimedPress"), Is.True);
+                Assert.That(ManifestsActions.SetTune(manifest, "C01", "BOX|BUTTON", "test_press", "test_press.way", "TimedHold"), Is.True);
                 ManifestLines.Line own = ManifestLines.Of(SheetPlan.Read(rows, "test", out _), null, manifest).Single().rows.Single();
                 var chip = ManifestWindow.Chips(own).Single();
-                Assert.That((chip.label, chip.level), Is.EqualTo(("Test Press · timed press", "edit")), "the object's own way, marked as an edit");
+                Assert.That((chip.label, chip.level), Is.EqualTo(("Test Press · timed hold", "edit")), "the object's own way, marked as an edit");
+                Assert.That(chip.tooltip, Does.Contain("way TimedHold"), "said by its own name, its group left out");
             }
             finally
             {

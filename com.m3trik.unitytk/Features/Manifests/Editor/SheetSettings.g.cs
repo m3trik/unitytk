@@ -41,13 +41,13 @@ namespace M3trik.Unitytk.Manifests
                 public List<string> deliveries;
                 /// <summary>
                 /// Files whose nodes join the delivery but whose takes no step plays (an older
-                /// delivery's arrows with their own bounce takes, its viewpoints, its panel
+                /// delivery's pointers with their own bounce takes, its viewpoints, its panel
                 /// anchors): paths beside this file.
                 /// </summary>
                 public List<string> extras;
                 /// <summary>
                 /// The project's own name rules, over its reading's (`ReadingSpec.names`):
-                /// `inline`, `viewpoint` and `arrow` regexes, and `suffixes`, the node-name endings
+                /// `inline`, `viewpoint` and `point` regexes, and `suffixes`, the node-name endings
                 /// its delivery's builds use, where it names them another way.
                 /// </summary>
                 public IDictionary<string, object> names;

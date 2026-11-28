@@ -32,7 +32,7 @@ namespace M3trik.Unitytk.Manifests
         /// a label, a node's path). Null where it has none, or where the entry is a list (<see cref="FieldList"/>).
         /// </summary>
         /// <param name="action">The plan's row.</param>
-        /// <param name="name">The value's name (<c>clip</c>, <c>tool</c>, <c>label</c> ...).</param>
+        /// <param name="name">The value's name (<c>clip</c>, <c>with</c>, <c>label</c> ...).</param>
         public static string Field(this Shape.PlanAction action, string name)
         {
             if (action == null || string.IsNullOrEmpty(name)) return null;
@@ -41,8 +41,8 @@ namespace M3trik.Unitytk.Manifests
         }
 
         /// <summary>
-        /// The row's <c>fields</c> entry named <paramref name="name"/> as a list of text (the authored arrows of a
-        /// pointing row): a list entry's text items, a text entry as a list of one; null where it has none.
+        /// The row's <c>fields</c> entry named <paramref name="name"/> as a list of text (a placing row's <c>where</c>, one
+        /// entry a target): a list entry's text items, a text entry as a list of one; null where it has none.
         /// </summary>
         /// <param name="action">The plan's row.</param>
         /// <param name="name">The entry's name.</param>
@@ -63,7 +63,7 @@ namespace M3trik.Unitytk.Manifests
         /// (<see cref="DeclaredFields"/>) as a list of one, else its <c>fields</c> entry's (<see cref="FieldList"/>); null where it has none.
         /// </summary>
         /// <param name="action">The plan's row.</param>
-        /// <param name="name">The value's name (<c>clip</c>, <c>arrows</c> ...).</param>
+        /// <param name="name">The value's name (<c>clip</c>, <c>where</c> ...).</param>
         public static List<string> FieldValues(this Shape.PlanAction action, string name)
         {
             if (action == null || string.IsNullOrEmpty(name)) return null;

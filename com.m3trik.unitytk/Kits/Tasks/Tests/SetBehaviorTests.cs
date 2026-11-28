@@ -8,11 +8,11 @@ using UnityEngine;
 namespace M3trik.Unitytk.Kits.Tasks.Tests
 {
     /// <summary>
-    /// <see cref="SetStateBehavior"/> (the user, 2026-11-24: "use the manifest behavior for emissive state
+    /// <see cref="SetBehavior"/> (the user, 2026-11-24: "use the manifest behavior for emissive state
     /// changes"): a row "The solenoid LED turns amber" puts a switch to amber on the Emission Track that shows the
     /// LED's material, which its step enables; a state the track lacks, or a target no track shows, is said.
     /// </summary>
-    public class SetStateBehaviorTests
+    public class SetBehaviorTests
     {
         GameObject _root;
         Material _material;
@@ -29,8 +29,8 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         static SheetPlan.Shape.Payload Plan(string state, string target = "SOLENOID_LED")
         {
             var plan = SheetPlan.Read("{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
-                                      $"{{\"behavior\": \"set_state\", \"text\": \"The solenoid LED turns {state}\", \"targets\": [\"{target}\"], " +
-                                      $"\"fields\": {{\"state\": \"{state}\"}}}}]}}]}}", "test plan", out string refusal);
+                                      $"{{\"behavior\": \"set\", \"text\": \"The solenoid LED turns {state}\", \"targets\": [\"{target}\"], " +
+                                      $"\"settings\": {{\"state\": \"{state}\"}}}}]}}]}}", "test plan", out string refusal);
             Assert.That(refusal, Is.Null);
             return plan;
         }
@@ -83,7 +83,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
         public void A_state_the_LED_lacks_or_a_part_that_emits_nothing_is_said()
         {
             Board();
-            var behavior = new SetStateBehavior();
+            var behavior = new SetBehavior();
             SheetPlan.Shape.PlanAction purple = Plan("purple").steps[0].actions[0];
             Assert.That(behavior.Check(purple, new ManifestScene(_root)), Has.Some.Contains("no state 'purple'").And.Some.Contains("off, amber"));
             SheetPlan.Shape.PlanAction panel = Plan("amber", "PANEL").steps[0].actions[0];
@@ -101,7 +101,7 @@ namespace M3trik.Unitytk.Kits.Tasks.Tests
             Assert.That(RenderEffectsActions.TrackOf(led), Is.Null);
             Assert.That(RenderEffectsActions.Emitting(led), Is.SameAs(_material), "it emits: a track can be made for it");
             Assert.That(RenderEffectsActions.Emitting(_root.transform.Find("PANEL").gameObject), Is.Null);
-            var behavior = new SetStateBehavior();
+            var behavior = new SetBehavior();
             Assert.That(behavior.Check(Plan("amber").steps[0].actions[0], new ManifestScene(_root)), Is.Empty, "one of the default states");
             Assert.That(behavior.Check(Plan("purple").steps[0].actions[0], new ManifestScene(_root)),
                         Has.Some.Contains("no state 'purple'").And.Some.Contains("off, green, blue, amber, red"));

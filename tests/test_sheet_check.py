@@ -121,11 +121,10 @@ class SheetCheckTestCase(UnityTkTestCase):
     def test_choices_and_auto_advance_in_one_step_are_an_error(self):
         self._has("A02", "error", ["Auto Advance"], row=4)
 
-    def test_a_number_pad_without_its_any_other_row_and_an_answer_without_a_pad_are_errors(
-        self,
-    ):
-        self._has("A04", "error", ["any other"], row=1)
-        self._has("A05", "error", ["number_pad"], row=1)
+    def test_an_entered_value_without_a_row_for_any_other_is_an_error_and_needs_no_pad_row(self):
+        # The key pad is every answer row's: a step's "number pad appears" is a note, and none is no error.
+        self._has("A04", "error", ["any other"], row=2)
+        self.assertFalse([i for i in self._items("A05", "error") if "pad" in i.reason or "number" in i.reason])
 
     def test_a_question_marks_exactly_one_option_correct(self):
         self._has("Q01", "error", ["2"])
@@ -357,12 +356,12 @@ class CellSheetDeliveryCheckTestCase(UnityTkTestCase):
         ])  # the bolt's material is none the record names: Unity's build gives it the defaults, and says
         self.assertEqual([i.line() for i in self._check(*rows).items if "state" in i.reason], [], "no record: Unity's to say")
 
-    STEP = ("B01,Remove the bolt,Remove the bolt.,,,,,,,,,,,", ",,,,,teleport,CABINET,,,,,,where=VIEW_BACK,",
+    STEP = ("B01,Remove the bolt,Remove the bolt.,,,,,,,,,,,", ",,,,,travel,CABINET,,,,,,where=VIEW_BACK,",
             ",,,,,highlight,BOLT_GRP,,,,,,,", ",,,,,take,WRENCH_GRP,,,,,,,")
 
     def test_a_take_that_moves_its_rows_target_is_its_rows_whatever_else_the_step_names(self):
         """The row's Target counted for nothing where another row named it too (its highlight), so the take
-        was judged by its tool alone, and a teleport's CABINET, above the bolt, read as what it moved:
+        was judged by its tool alone, and a travel's CABINET, above the bolt, read as what it moved:
         "the take B01_1 moves CABINET (row 1) and none of this row's WRENCH". Added: 2026-11-25"""
         check = self._check(*self.STEP, ",,,,,use,BOLT_GRP,WRENCH_GRP,B01_1,,,,,", ",,,,,play,,,B01_2,LID_GRP,,,after=B01_1,")
         self.assertEqual([i.line() for i in check.items], [])
@@ -409,9 +408,9 @@ class CellSheetDeliveryCheckTestCase(UnityTkTestCase):
 
 
 class SheetCheckDeliveryTestCase(UnityTkTestCase):
-    """Against a delivery: an arrow whose part is gone."""
+    """Against a delivery: an authored pointer whose part is gone."""
 
-    def test_an_arrow_whose_part_the_delivery_lacks_is_reported(self):
+    def test_a_pointer_whose_part_the_delivery_lacks_is_reported(self):
         sheet = os.path.join(self.create_temp_dir(), "s.csv")
         with open(sheet, "w", encoding="utf-8", newline="") as fh:
             fh.write("Step,Step Contents,Asset Names\nA01,Highlight the door,DOOR\n")
@@ -419,17 +418,17 @@ class SheetCheckDeliveryTestCase(UnityTkTestCase):
             [
                 "CABINET",
                 "CABINET|DOOR_GRP",
-                "ARROWS",
-                "ARROWS|DOOR_ARROW",
-                "ARROWS|LID_ARROW",
+                "POINTS",
+                "POINTS|DOOR_POINT",
+                "POINTS|LID_POINT",
             ],
             [],
             "d.fbx",
         )
         check = SheetCheck.run(sheet, index)
-        arrows = [i for i in check.items if "ARROW" in i.reason]
+        pointers = [i for i in check.items if "POINT" in i.reason]
         self.assertEqual(
-            [(i.severity, "LID_ARROW" in i.reason) for i in arrows], [("warning", True)]
+            [(i.severity, "LID_POINT" in i.reason) for i in pointers], [("warning", True)]
         )
         self.assertTrue(check.passed, "a warning does not fail the check")
 

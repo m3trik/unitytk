@@ -6,7 +6,12 @@
     "^pip\\s+screen\\s+(?:appears\\s+)?(?:showing|shows)\\s+(?P<targets>.+)$",
     "^pip\\s+screen\\s+with\\s+(?P<targets>.+?)\\s+appears$"
   ],
+  "span": {
+    "word": "picture",
+    "setting": "until"
+  },
   "roles": [
-    "captioned"
+    "captioned",
+    "opens"
   ]
 }

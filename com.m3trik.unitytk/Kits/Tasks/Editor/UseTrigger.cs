@@ -3,7 +3,7 @@ namespace M3trik.Unitytk.Kits.Tasks
     /// <summary>What sets a Use row's take off (<see cref="UseSettings.trigger"/>, the sheet's <c>trigger</c>).</summary>
     public enum UseTrigger
     {
-        /// <summary>Selecting the object plays it to its end (held <see cref="UseSettings.hold"/> seconds first, where that is above 0).</summary>
+        /// <summary>Selecting the object plays it to its end (<see cref="UseSettings.hold"/> is unused: a click).</summary>
         Select = 0,
         /// <summary>
         /// Holding the object pressed: with <see cref="UseSettings.hold"/> 0 it plays while held, and let go it stops (or plays

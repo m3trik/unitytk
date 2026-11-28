@@ -14,13 +14,13 @@ namespace M3trik.Unitytk.Manifests.Tests
             var plan = SheetPlan.Read(
                 "{\"version\": 2, \"source\": {\"sheet\": \"s.csv\", \"delivery\": \"d.fbx\"}, \"steps\": [" +
                 "{\"id\": \"A01\", \"name\": \"Open\", \"fields\": {\"voice\": \"Open it.\"}, \"actions\": [" +
-                "{\"behavior\": \"use\", \"text\": \"Selecting the door triggers Door open Animation\", " +
-                "\"targets\": [\"CABINET|DOOR_GRP\"], \"clip\": \"A01\", \"fields\": {\"tool\": \"TOOLS|KEY_GRP\"}}]}]}",
+                "{\"behavior\": \"use\", \"text\": \"Selecting the door plays A01\", " +
+                "\"targets\": [\"CABINET|DOOR_GRP\"], \"clip\": \"A01\", \"fields\": {\"with\": \"TOOLS|KEY_GRP\"}}]}]}",
                 "plan.json", out string refusal);
             Assert.That(refusal, Is.Null);
             Assert.That(plan.source.delivery, Is.EqualTo("d.fbx"));
             var action = plan.steps[0].actions[0];
-            Assert.That((action.behavior, action.clip, action.Field("tool")), Is.EqualTo(("use", "A01", "TOOLS|KEY_GRP")));
+            Assert.That((action.behavior, action.clip, action.Field("with")), Is.EqualTo(("use", "A01", "TOOLS|KEY_GRP")));
             Assert.That(plan.steps[0].Field("voice"), Is.EqualTo("Open it."));
             Assert.That(action.targets, Is.EqualTo(new[] { "CABINET|DOOR_GRP" }));
             Assert.That(action.to, Is.Null, "an optional key left out reads as null");
@@ -43,13 +43,13 @@ namespace M3trik.Unitytk.Manifests.Tests
         {
             var plan = SheetPlan.Read(
                 "{\"version\": 2, \"steps\": [{\"id\": \"A01\", \"actions\": [" +
-                "{\"behavior\": \"point\", \"text\": \"Arrows point at the latches\", \"targets\": [\"A\", \"B\"], " +
-                "\"fields\": {\"arrows\": [\"ARROWS|A\", \"\"], \"phrase\": \"the latches\"}}]}], " +
+                "{\"behavior\": \"indicate\", \"text\": \"Arrows point at the latches\", \"targets\": [\"A\", \"B\"], " +
+                "\"fields\": {\"where\": [\"POINTS|A\", \"\"], \"phrase\": \"the latches\"}}]}], " +
                 "\"extensions\": {\"some_kit\": {\"speed\": 2}}}", "plan.json", out string refusal);
             Assert.That(refusal, Is.Null);
             var action = plan.steps[0].actions[0];
-            Assert.That(action.FieldList("arrows"), Is.EqualTo(new[] { "ARROWS|A", "" }), "one per target, empty where none");
-            Assert.That(action.Field("arrows"), Is.Null, "a list is no text");
+            Assert.That(action.FieldList("where"), Is.EqualTo(new[] { "POINTS|A", "" }), "one per target, empty where none");
+            Assert.That(action.Field("where"), Is.Null, "a list is no text");
             Assert.That(action.FieldList("phrase"), Is.EqualTo(new[] { "the latches" }), "a text is a list of one");
             Assert.That((action.Field("absent"), plan.steps[0].Field("absent")), Is.EqualTo(((string)null, (string)null)));
             Assert.That(plan.Extension("some_kit")["speed"], Is.EqualTo(2.0));

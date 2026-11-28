@@ -4,9 +4,11 @@
 
 The spec is the template (pythontk's ``mapping/<template>.json``): its columns and its
 actions, each word with its cells and settings. Everything else restates part of it and is
-held to it here: the starter sheets an author copies, the reading that binds each word to a
-builder (``sheets/readings/default.json`` ``words``), and the builders and their settings
-in the Unity package (the Tasks kit's C#)."""
+held to it here: the starter sheets an author copies, the reading's data about cell rows
+(``sheets/readings/default.json``: ``order_by``, ``applies``), the clause templates a sheet
+of sentences is read with (each names a word and settings the template declares), the plan
+(every setting a row gives reaches it), and the kit that builds the plan in the Unity package
+(a builder per word, a field per setting in the word's group of the Tasks kit's settings)."""
 
 import os
 import re
@@ -22,115 +24,160 @@ except ImportError:
 
 from pythontk.core_utils.engines.shots.manifest.mapping import Mapping
 
-from unitytk.sheets import DeliveryIndex, ReadingSpec, SheetCheck
+from unitytk.sheets import ClauseBook, DeliveryIndex, ReadingSpec, SheetCheck
 from unitytk.sheets._cell_reading import _CellReading
+from unitytk.sheets.clause_spec import ADVANCE
 
 KIT = Path(__file__).resolve().parent.parent / "com.m3trik.unitytk" / "Kits" / "Tasks" / "Editor"
-
-#: The settings a template declares that no builder is handed yet: each a gap, listed so it is
-#: closed on purpose (a setting carried leaves this list, and the test says so).
-NOT_CARRIED = {}
-#: What the reader itself reads of a word's settings (where its row stands among its step's).
-READ_BY_THE_READER = {"play": {"after"}}
-
-
-def _actions(template: str) -> dict:
-    return Mapping.load_mapping(template)["columns"]["actions"]
-
-
-def _words() -> dict:
-    return ReadingSpec.load("interactive").words
-
-
-def _read_by(cases) -> set:
-    """The sheet settings and cells any of a word's cases reads (each case's own: ``_CellReading.reads``)."""
-    return set().union(*(_CellReading.reads(case) for case in cases))
-
 
 #: A value of each setting type the templates declare, for a row that sets it.
 VALUES = {"number": "2", "color": "#fff", "object": "NODE_GRP", "span": "step", "clip": "A01", "text": "x",
           "state": "amber", "step": "A01", "flag": "on"}
 
 
-def _row(word: str, conditions: dict, settings=None) -> dict:
-    """A cell row of *word* meeting *conditions* (a case's ``if``), with *settings* over them."""
-    row = {"word": word, "cells": True, "settings": {}, "issues": [], "warnings": []}
-    for key, wanted in (conditions or {}).items():
-        if key == "any":
-            continue
-        value = "x" if wanted == "?" else str(wanted)
-        if key == "target":
-            row["assets"] = [value] if value else []
-        elif key in _CellReading.CELLS:
-            row[key] = value
-        elif value:
-            row["settings"][key] = value
-    row["settings"].update(settings or {})
-    return row
+def _actions(template: str) -> dict:
+    return Mapping.load_mapping(template)["columns"]["actions"]
+
+
+class _Kit:
+    """The Tasks kit's C#, read as text: each builder's word, each settings group's fields and each enum's members."""
+
+    def __init__(self, folder: Path):
+        self.sources = {p: p.read_text(encoding="utf-8") for p in folder.rglob("*.cs")}
+        text = "\n".join(self.sources.values())
+        self.builders = set(re.findall(r'\[TaskBehavior\("(\w+)"', text))
+        self.enums = {name: {m.lower() for m in re.findall(r"^\s*(\w+)\s*(?:=[^,]*)?,?\s*$", body, re.M)}
+                      for name, body in re.findall(r"\benum\s+(\w+)\s*\{([^}]*)\}", text)}
+        self.classes = {}
+        for name, base, body in self._bodies(text):
+            fields = dict((n, t) for t, n in re.findall(
+                r"^\s*public\s+(?!const\b|static\b|override\b)([\w.<>\[\]]+)\s+@?(\w+)\s*(?:=|;)", body, re.M))
+            self.classes[name] = (base, fields)
+
+    @staticmethod
+    def _bodies(text: str):
+        """``(name, base, body)`` of every class: its body to its matching brace."""
+        for match in re.finditer(r"\bclass\s+(\w+)\s*(?::\s*([\w.]+))?[^{;]*\{", text):
+            depth, at = 1, match.end()
+            while depth and at < len(text):
+                depth += {"{": 1, "}": -1}.get(text[at], 0)
+                at += 1
+            yield match.group(1), match.group(2), text[match.end():at - 1]
+
+    def fields(self, name: str) -> dict:
+        """The public fields of class *name*, its base classes' with them."""
+        base, own = self.classes.get(name, (None, {}))
+        return {**(self.fields(base) if base in self.classes else {}), **own}
+
+    def group(self, word: str):
+        """The type of the kit's settings' member named as *word*, or None."""
+        return self.fields("TaskSettings").get(word)
 
 
 class SpecTestCase(UnityTkTestCase):
-    def test_every_word_of_the_templates_has_its_binding_and_no_other_word_does(self):
-        declared = {w for name in ("interactive", "linear") for w in _actions(name) if w}
-        self.assertEqual(set(_words()), declared)
+    def test_every_clause_template_reads_a_word_and_settings_its_template_declares(self):
+        actions = _actions("interactive")
+        words = set(actions) | {ADVANCE}
+        for name, spec in ClauseBook.load_templates():
+            with self.subTest(template=name):
+                self.assertIn(spec.word, words)
+                self.assertEqual(spec.problems(), [])
+                for also in spec.also:
+                    self.assertIn(also, words)
+        self.assertEqual(set(ClauseBook().behaviors()) - {ADVANCE}, set(actions) - {""},
+                         "a sheet of sentences reads into every word, and into no other")
 
-    def test_every_setting_a_word_declares_is_carried_or_is_a_listed_gap(self):
-        words = _words()
-        gaps = {}
-        for word, declared in _actions("interactive").items():
-            missing = set(declared.get("settings") or {}) - _read_by(words[word]) - READ_BY_THE_READER.get(word, set())
-            if missing:
-                gaps[word] = missing
-        self.assertEqual(gaps, NOT_CARRIED)
-
-    def test_a_setting_its_rows_case_does_not_read_is_said_never_dropped(self):
-        """Per case, not per word: a setting one case of a word read counted as read for every row of the word, so
-        ``trigger=near; hold=2`` lost its hold and a ``when`` on a button leaving the task was dropped, with nothing
-        said. Each case, given each setting of its word it does not read (at a value that keeps the row its case's),
-        warns. Added: 2026-11-26"""
+    def test_the_readings_data_names_only_what_its_words_declare(self):
         reading, actions = ReadingSpec.load("interactive"), _actions("interactive")
-        reader = _CellReading(reading, DeliveryIndex(["NODE_GRP", "X"]), "warning: ", "unread", actions)
-        heads = {"action": "Action", "settings": "Settings", "to": "To", "label": "Label", "target": "Target"}
+        cells = set(_CellReading.CELLS)
+        for word, setting in reading.order_by.items():
+            self.assertIn(setting, actions[word].get("settings") or {}, word)
+        for word, by in reading.applies.items():
+            declared = set(actions[word].get("settings") or {})
+            for setting, conditions in by.items():
+                self.assertIn(setting, declared, word)
+                for condition in conditions:
+                    keys = set(condition) - {"any", "none"} | {k for c in ("any", "none") for k in condition.get(c) or {}}
+                    self.assertEqual(keys - cells - declared, set(), (word, setting))
+
+    def test_every_setting_a_row_gives_reaches_the_plan(self):
+        """Nothing a template declares is dropped: each setting a row gives is in the plan's settings by its own name,
+        and a setting naming an object (``where``) is the row's ``where`` field."""
+        actions = _actions("interactive")
+        index = DeliveryIndex(["NODE_GRP", "X", "A01"], ["A01"], "d.fbx")
+        reader = _CellReading(ReadingSpec.load("interactive"), index, "warning: ", "unread", actions)
+        heads = {"action": "Action", "settings": "Settings"}
         checked = 0
-        for word, cases in reading.words.items():
-            declared = actions[word].get("settings") or {}
-            for case in cases:
-                for name in set(declared) - _CellReading.reads(case) - READ_BY_THE_READER.get(word, set()):
-                    spec = declared[name]
-                    values = [c for c in spec.get("choices") or () if c != spec.get("default")] or [VALUES[spec.get("type", "text")]]
-                    for value in values:
-                        row = _row(word, case.get("if"), {name: value})
-                        siblings = [row] + ([_row(word, case["if"]["any"])] if "any" in (case.get("if") or {}) else [])
-                        if reader._case(row, siblings) is not case:
-                            continue  # the setting makes it another case's row, which reads it
-                        _, issues, _, _ = reader.read(row, siblings, heads, "A01")
-                        with self.subTest(word=word, case=case.get("if"), setting=name):
-                            self.assertTrue(any(i.startswith("warning: ") and " takes no %s," % name in i for _, i in issues), issues)
-                        checked += 1
-        self.assertGreater(checked, 10)
+        for word, declared in actions.items():
+            for name, spec in (declared.get("settings") or {}).items():
+                value = next((c for c in spec.get("choices") or () if c != spec.get("default")), None) or VALUES[spec["type"]]
+                row = {"word": word, "cells": True, "assets": ["X"], "settings": {name: value}, "issues": [], "warnings": []}
+                (clause,), _, _, _ = reader.read(row, [row], heads, "A01")
+                with self.subTest(word=word, setting=name):
+                    if spec["type"] == "object":
+                        self.assertEqual(clause.fields.get(name), ["NODE_GRP"])
+                    else:
+                        self.assertEqual(clause.settings.get(name), value)
+                checked += 1
+        self.assertGreater(checked, 15)
 
-    def test_a_binding_reads_only_what_its_word_declares(self):
-        cells = {"target", "with", "clip", "members", "label", "to"}
-        for word, cases in _words().items():
-            declared = _actions("interactive")[word]
-            known = cells | set(declared.get("settings") or {}) | {"any"}
-            self.assertEqual(_read_by(cases) - known, set(), word)
+    def test_a_setting_its_row_makes_do_nothing_is_said_never_dropped(self):
+        """``trigger=near; hold=2`` lost its hold and a ``when`` on a button leaving the task was dropped, with nothing
+        said. Each setting the reading says does something only beside other cells (``applies``), given beside cells
+        that meet none of its conditions, warns. Added: 2026-11-26"""
+        reading, actions = ReadingSpec.load("interactive"), _actions("interactive")
+        reader = _CellReading(reading, DeliveryIndex(["X"]), "warning: ", "unread", actions)
+        heads = {"action": "Action", "settings": "Settings", "to": "To", "label": "Label", "target": "Target"}
+        cases = [("use", {"trigger": "near"}, "hold"), ("use", {}, "hold"), ("button", {"to": "exit"}, "when"),
+                 ("button", {"to": "B01"}, "reply"), ("button", {"to": "next"}, "reply")]
+        for word, cells, setting in cases:
+            spec = actions[word]["settings"][setting]
+            value = next((c for c in spec.get("choices") or () if c != spec.get("default")), None) or VALUES[spec["type"]]
+            row = {"word": word, "cells": True, "assets": ["X"], "issues": [], "warnings": [],
+                   "settings": {k: v for k, v in cells.items() if k != "to"}, "to": cells.get("to", "")}
+            row["settings"][setting] = value
+            _, issues, _, _ = reader.read(row, [row], heads, "A01")
+            with self.subTest(word=word, cells=cells, setting=setting):
+                self.assertTrue(any(i.startswith("warning: ") and " takes no %s," % setting in i for _, i in issues), issues)
+        # Met, or written at its default: nothing said.
+        for word, cells, setting, value in (("use", {"trigger": "hold"}, "hold", "2"), ("button", {"to": "exit"}, "when", "end"),
+                                            ("button", {"to": "retry"}, "reply", "No.")):
+            row = {"word": word, "cells": True, "assets": ["X"], "issues": [], "warnings": [],
+                   "settings": dict({k: v for k, v in cells.items() if k != "to"}, **{setting: value}),
+                   "to": cells.get("to", "")}
+            self.assertEqual(reader.read(row, [row], heads, "A01")[1], [], (word, cells))
 
-    def test_every_behavior_and_builder_setting_a_binding_names_is_the_kits(self):
-        sources = "\n".join(p.read_text(encoding="utf-8") for p in (KIT / "Behaviors").glob("*.cs"))
-        built = set(re.findall(r'\[TaskBehavior\("(\w+)"', sources))
-        settings = (KIT / "TaskSettings.cs").read_text(encoding="utf-8")
-        fields = {name: kind for kind, name in re.findall(r"public\s+([\w.\[\]]+)\s+(\w+)\s*(?:=|;)", settings)}
-        for word, cases in _words().items():
-            for case in cases:
-                for name in filter(None, (case.get("behavior"), case.get("brings"))):
-                    self.assertIn(name, built, f"{word}: no builder is registered as {name}")
-                for name in list(case.get("pass") or {}) + list(case.get("settings") or {}):
-                    self.assertIn(name, fields, f"{word}: the kit's settings hold no {name}")
-                for name, value in (case.get("settings") or {}).items():
-                    enum = KIT / f"{fields[name]}.cs"
-                    self.assertTrue(enum.is_file(), f"{word}: {name} is a {fields[name]}, which is no enum of the kit")
-                    self.assertRegex(enum.read_text(encoding="utf-8"), rf"\b{value}\b", f"{word}: {name} has no value {value}")
+
+class KitTestCase(UnityTkTestCase):
+    """The kit builds every word as the template declares it: a builder registered by the word, and each setting a
+    field of the word's group of the kit's settings (``TaskSettings.<word>.<setting>``), a choice an enum whose members
+    are the sheet's choices. The kit is read as text, so its C# need not compile here."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.kit = _Kit(KIT)
+
+    def test_every_word_has_a_builder_registered_by_it(self):
+        words = set(_actions("interactive")) - {""} | {ADVANCE}
+        self.assertEqual(words - self.kit.builders, set(), "a word no builder builds")
+        self.assertEqual(self.kit.builders - words, set(), "a builder of no word")
+
+    def test_every_setting_is_a_field_of_its_words_group(self):
+        for word, declared in _actions("interactive").items():
+            settings = {n: s for n, s in (declared.get("settings") or {}).items() if s.get("type") != "object"}
+            if not settings:
+                continue
+            group = self.kit.group(word)
+            with self.subTest(word=word):
+                self.assertIsNotNone(group, "TaskSettings has no member %s for the %s row's settings" % (word, word))
+                fields = self.kit.fields(group)
+                for name, spec in settings.items():
+                    self.assertIn(name, fields, "%s.%s" % (word, name))
+                    if spec.get("choices"):
+                        members = self.kit.enums.get(fields[name].rsplit(".", 1)[-1])
+                        self.assertIsNotNone(members, "%s.%s is a %s, no enum of the kit" % (word, name, fields[name]))
+                        self.assertEqual({str(c).lower() for c in spec["choices"]} - members, set(),
+                                         "%s.%s: the sheet's choices are its members" % (word, name))
 
 
 class StarterTestCase(UnityTkTestCase):

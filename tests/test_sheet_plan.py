@@ -210,15 +210,18 @@ class SheetPlanTestCase(UnityTkTestCase):
                 "take",
                 "use",
                 "use",
-                "fade_out",
+                "hide",
                 "return",
                 "advance",
                 "indicate",
             ],
         )
-        self.assertEqual(self._behaviors("IN_01"), ["unread", "pause"])
+        self.assertEqual(self._behaviors("IN_01"), ["unread", "button"])
+        # A hint line that is the page's text is the step's page, its row a note.
+        self.assertEqual(self.steps["A02"].field("placard"), "Select the door")
         self.assertEqual(
-            self._action("A02", "placard").field("label"), "Select the door"
+            (self._action("A02", "note").text, self._action("A02", "note").fields),
+            ('Placard text reads "Select the door"', {}),
         )
 
     def test_clip_rows_are_named_as_the_shot_manifest_names_their_takes(self):
@@ -234,7 +237,7 @@ class SheetPlanTestCase(UnityTkTestCase):
         top = self._action("A01", "use")
         self.assertEqual(top.targets, ["CABINET|CABINET_LATCHES_GRP|LATCH_UPPER_GRP"])
         self.assertEqual(
-            top.field("tool"),
+            top.field("with"),
             "TOOLS|KEY_GRP",
             "'returns the key to hand' names the tool",
         )
@@ -242,10 +245,10 @@ class SheetPlanTestCase(UnityTkTestCase):
         screw = self._action("B01", "use")
         self.assertEqual(screw.targets, ["CABINET|SCREWS|SCREW_UPPER"])
         self.assertEqual(
-            screw.field("tool"), "TOOLS|WRENCH_GRP", "'with the wrench in hand'"
+            screw.field("with"), "TOOLS|WRENCH_GRP", "'with the wrench in hand'"
         )
         self.assertIsNone(
-            self._action("A02", "use").field("tool"), "the key went back to the table"
+            self._action("A02", "use").field("with"), "the key went back to the table"
         )
 
     def test_a_step_reads_a_vague_phrase_against_what_it_shows(self):
@@ -256,17 +259,21 @@ class SheetPlanTestCase(UnityTkTestCase):
             "'on the table' says where, not what",
         )
 
-    def test_goto_names_steps_as_the_steps_spell_their_ids(self):
+    def test_a_button_names_steps_as_the_steps_spell_their_ids(self):
         self.assertEqual(
             [
                 (a.field("label"), a.to)
                 for a in self.steps["B02"].actions
-                if a.behavior == "goto"
+                if a.behavior == "button"
             ],
             [("YES", "B02_5"), ("NO", "B03")],
         )
-        self.assertEqual(self._action("B02_5", "goto").to, "B02")
-        self.assertEqual(self._action("B02", "buttons").field("label"), "YES and NO")
+        self.assertEqual(self._action("B02_5", "button").to, "B02")
+        # The page's buttons the sentence names are the step's choices: a note, held to them.
+        buttons = self._action("B02", "note")
+        self.assertEqual((buttons.text, buttons.fields, buttons.issues),
+                         ("YES and NO buttons appear on the placard screen", {}, []))
+        self.assertEqual(self._action("IN_01", "button").to, "next")
 
     def test_what_a_row_cannot_be_read_into_is_stated_never_guessed(self):
         lid, release = [
@@ -371,7 +378,7 @@ class InteractiveSheetTestCase(UnityTkTestCase):
     def test_a_rows_words_bind_only_to_the_names_that_row_lists(self):
         use = [a for a in self._acts("A01") if a.behavior == "use"][0]
         self.assertEqual(self._leafs(use.targets), ["LATCH_UPPER_GRP"])
-        self.assertEqual(self._leafs([use.field("tool")]), ["KEY_GRP"])
+        self.assertEqual(self._leafs([use.field("with")]), ["KEY_GRP"])
         self.assertEqual(use.clip, "A01_1")
         self.assertEqual(use.issues, [])
         highlight = self._acts("A01")[0]
@@ -436,7 +443,7 @@ class InteractiveSheetTestCase(UnityTkTestCase):
     def test_a_phrase_binds_the_one_listed_name_carrying_its_head_noun(self):
         use = next(a for a in self._acts("B02") if "lever" in a.text)
         self.assertEqual(
-            (self._leafs(use.targets), self._leafs([use.field("tool")])),
+            (self._leafs(use.targets), self._leafs([use.field("with")])),
             (["DOOR_RELEASE_LEVER"], ["KEY_GRP"]),
         )
 
@@ -618,7 +625,7 @@ class ContractTestCase(UnityTkTestCase):
             text="Selecting the screw triggers Screw Out",
             targets=["PANEL|SCREW_GRP"],
             clip="A01",
-            fields={"tool": "TOOLS|SCREWDRIVER_GRP", "arrows": ["ARROWS|SCREW_ARROW"]},
+            fields={"with": "TOOLS|SCREWDRIVER_GRP", "where": ["POINTS|SCREW_POINT"]},
         )
         plan = SheetPlan(
             version=SheetPlan.VERSION,
@@ -637,9 +644,9 @@ class ContractTestCase(UnityTkTestCase):
         self.assertEqual(
             (
                 loaded.steps[0].field("voice"),
-                loaded.steps[0].actions[0].field("arrows"),
+                loaded.steps[0].actions[0].field("where"),
             ),
-            ("Go.", ["ARROWS|SCREW_ARROW"]),
+            ("Go.", ["POINTS|SCREW_POINT"]),
         )
         self.assertEqual(
             loaded.steps[0].actions[0].field("clip"),
@@ -655,7 +662,7 @@ class ContractTestCase(UnityTkTestCase):
 
     def test_a_projects_own_group_is_a_field_of_its_row(self):
         own = ClauseSpec(
-            behavior="weigh",
+            word="highlight",
             detect=[r"^weigh\s+(?P<targets>.+?)\s+at\s+(?P<grams>\d+)\s+grams$"],
             order=5,
         )
@@ -672,13 +679,13 @@ class ContractTestCase(UnityTkTestCase):
         action = plan.steps[0].actions[0]
         self.assertEqual(
             (action.behavior, action.targets, action.fields),
-            ("weigh", ["TOOLS|KEY_GRP"], {"grams": "12"}),
+            ("highlight", ["TOOLS|KEY_GRP"], {"grams": "12"}),
         )
 
 
 class QuizTestCase(UnityTkTestCase):
     """A question is a step with an option written with a leading `*`: its rows no phrase reads are
-    its options, the starred one correct."""
+    its options, buttons: the starred one goes on, any other is a wrong answer."""
 
     def test_a_questions_rows_are_its_options_the_starred_one_correct(self):
         sheet = os.path.join(self.create_temp_dir(), "quiz.csv")
@@ -688,10 +695,10 @@ class QuizTestCase(UnityTkTestCase):
         plan = SheetPlan.from_sheet(sheet, index, mapping="interactive")
         acts = plan.steps[0].actions
         self.assertEqual(
-            [(a.behavior, a.field("label"), a.field("value"), a.issues) for a in acts],
+            [(a.behavior, a.field("label"), a.to, a.issues) for a in acts],
             [
-                ("option", "To free the key", None, []),
-                ("option", "To reach the door", "correct", []),
+                ("button", "To free the key", "retry", []),
+                ("button", "To reach the door", "next", []),
                 ("advance", None, None, []),
             ],
         )
@@ -806,9 +813,9 @@ A02,User is teleported to the key,KEY
 """
 
 
-class TeleportTestCase(UnityTkTestCase):
-    """A teleport goes to a viewpoint (a name the template's viewpoint pattern matches) and faces
-    what the row says it faces, among the row's names."""
+class TravelTestCase(UnityTkTestCase):
+    """A travel goes to a viewpoint (its `where`: a name the template's viewpoint pattern matches) and
+    faces what the row says it faces (its targets), among the row's names."""
 
     def setUp(self):
         super().setUp()
@@ -821,15 +828,15 @@ class TeleportTestCase(UnityTkTestCase):
         self.plan = SheetPlan.from_sheet(sheet, index, mapping="interactive")
         self.steps = {s.id: s.actions[0] for s in self.plan.steps}
 
-    def test_a_teleport_stands_at_its_viewpoint_facing_the_named_object(self):
-        teleport = self.steps["A01"]
+    def test_a_travel_stands_at_its_viewpoint_facing_the_named_object(self):
+        travel = self.steps["A01"]
         self.assertEqual(
-            (teleport.behavior, teleport.targets, teleport.field("facing")),
-            ("teleport", ["VIEWS|VIEW_FRONT"], "CABINET|DOOR_GRP"),
+            (travel.behavior, travel.targets, travel.field("where")),
+            ("travel", ["CABINET|DOOR_GRP"], ["VIEWS|VIEW_FRONT"]),
         )
-        self.assertEqual(teleport.issues, [])
+        self.assertEqual(travel.issues, [])
 
-    def test_a_teleport_may_say_only_what_the_user_faces_its_spot_found_by_the_build(
+    def test_a_travel_may_say_only_what_the_user_faces_its_spot_found_by_the_build(
         self,
     ):
         """ "The user is teleported facing the door": no destination named, none needed; the
@@ -840,22 +847,22 @@ class TeleportTestCase(UnityTkTestCase):
                 "Step,Step Contents,Asset Names\nA01,User is teleported facing the door,DOOR\n"
             )
         index = DeliveryIndex([p for p, _ in NODES], [], "d.fbx")
-        teleport = (
+        travel = (
             SheetPlan.from_sheet(sheet, index, mapping="interactive")
             .steps[0]
             .actions[0]
         )
         self.assertEqual(
             (
-                teleport.behavior,
-                teleport.targets,
-                teleport.field("facing"),
-                teleport.issues,
+                travel.behavior,
+                travel.targets,
+                travel.field("where"),
+                travel.issues,
             ),
-            ("teleport", [], "CABINET|DOOR_GRP", []),
+            ("travel", ["CABINET|DOOR_GRP"], None, []),
         )
 
-    def test_a_teleport_may_say_which_side_of_what_the_user_stands_on(self):
+    def test_a_travel_may_say_which_side_of_what_the_user_stands_on(self):
         """ "... to the front of the cabinet. Facing the door." (as a sheet writes it): the side and
         what it is a side of, both from the row's names. Added: 2026-11-21"""
         sheet = os.path.join(self.create_temp_dir(), "side.csv")
@@ -874,10 +881,10 @@ class TeleportTestCase(UnityTkTestCase):
                 front.targets,
                 front.field("side"),
                 front.field("side_of"),
-                front.field("facing"),
+                front.field("where"),
                 front.issues,
             ),
-            ([], "front", "CABINET", "CABINET|DOOR_GRP", []),
+            (["CABINET|DOOR_GRP"], "front", "CABINET", None, []),
         )
         self.assertEqual(
             (other.field("side"), other.field("side_of"), other.issues),
@@ -907,10 +914,10 @@ class TeleportTestCase(UnityTkTestCase):
         )
         self.assertEqual((second.field("side_of"), second.issues), ("A|CABINET", []))
 
-    def test_an_arrow_is_a_step_row_naming_its_part(self):
+    def test_a_pointer_is_a_step_row_naming_its_part(self):
         """ "Arrow points at the door" in Step Contents, the part in Asset Names: no Hint wording
         to match. Added: 2026-11-21"""
-        sheet = os.path.join(self.create_temp_dir(), "arrow.csv")
+        sheet = os.path.join(self.create_temp_dir(), "pointer.csv")
         with open(sheet, "w", encoding="utf-8", newline="") as fh:
             fh.write(
                 "Step,Step Contents,Asset Names\nA01,Highlight the door,DOOR\n,Arrow points at the door,DOOR\n"
@@ -920,8 +927,8 @@ class TeleportTestCase(UnityTkTestCase):
         actions = (
             SheetPlan.from_sheet(sheet, index, mapping="interactive").steps[0].actions
         )
-        arrows = [(a.targets, a.issues) for a in actions if a.behavior == "indicate"]
-        self.assertEqual(arrows, [(["CABINET|DOOR_GRP"], []), (["TOOLS|KEY_GRP"], [])])
+        pointers = [(a.targets, a.issues) for a in actions if a.behavior == "indicate"]
+        self.assertEqual(pointers, [(["CABINET|DOOR_GRP"], []), (["TOOLS|KEY_GRP"], [])])
 
     def test_a_destination_that_is_no_viewpoint_is_an_error(self):
         self.assertTrue(
@@ -929,22 +936,22 @@ class TeleportTestCase(UnityTkTestCase):
             self.steps["A02"].issues,
         )
 
-    def test_a_hint_arrow_names_the_deliverys_authored_arrow_for_its_target(self):
-        sheet = os.path.join(self.create_temp_dir(), "arrows.csv")
+    def test_a_hint_arrow_names_the_deliverys_authored_pointer_for_its_target(self):
+        sheet = os.path.join(self.create_temp_dir(), "pointers.csv")
         with open(sheet, "w", encoding="utf-8", newline="") as fh:
             fh.write(
                 'Step,Step Contents,Asset Names,Hint\nA01,Highlight the door,"DOOR\nKEY",'
                 '"-Bouncing arrow pointing at the door\n-Bouncing arrow pointing at the key"\n'
             )
         index = DeliveryIndex(
-            [p for p, _ in NODES] + ["ARROWS", "ARROWS|DOOR_ARROW"], [], "d.fbx"
+            [p for p, _ in NODES] + ["POINTS", "POINTS|DOOR_POINT"], [], "d.fbx"
         )
         plan = SheetPlan.from_sheet(sheet, index, mapping="interactive")
         door, key = [a for a in plan.steps[0].actions if a.behavior == "indicate"]
         self.assertEqual(
-            (door.field("arrows"), door.issues), (["ARROWS|DOOR_ARROW"], [])
+            (door.field("where"), door.issues), (["POINTS|DOOR_POINT"], [])
         )
-        self.assertIsNone(key.field("arrows"), "no arrow authored: the kit makes one")
+        self.assertIsNone(key.field("where"), "no pointer authored: the kit makes one")
 
     def test_a_reading_without_a_viewpoint_rule_imposes_none(self):
         sheet = os.path.join(self.create_temp_dir(), "t.csv")
@@ -962,12 +969,11 @@ class TeleportTestCase(UnityTkTestCase):
             "no viewpoint rule declared: the key is a place like any",
         )
 
-    def test_the_facing_round_trips_through_the_plan_file(self):
+    def test_the_viewpoint_round_trips_through_the_plan_file(self):
         path = os.path.join(self.create_temp_dir(), "plan.json")
         self.plan.write(path)
-        self.assertEqual(
-            SheetPlan.load(path).steps[0].actions[0].field("facing"), "CABINET|DOOR_GRP"
-        )
+        travel = SheetPlan.load(path).steps[0].actions[0]
+        self.assertEqual((travel.targets, travel.field("where")), (["CABINET|DOOR_GRP"], ["VIEWS|VIEW_FRONT"]))
 
 
 #: The second fixture: a desk lamp assembly whose builds end ``_MSH`` and ``_NUL``, its steps ``S-1``.
@@ -1049,10 +1055,10 @@ class LampFixtureTestCase(UnityTkTestCase):
         plan = self._plan(
             text, mapping=lamp_template(), reading=dict(LAMP_READING, strict=True)
         )
-        goto = plan.steps[0].actions[0]
+        button = plan.steps[0].actions[0]
         self.assertEqual(
-            ([s.id for s in plan.steps], goto.behavior, goto.to, goto.issues),
-            (["S_1", "S_2"], "goto", "S_2", []),
+            ([s.id for s in plan.steps], button.behavior, button.to, button.issues),
+            (["S_1", "S_2"], "button", "S_2", []),
         )
         default = self._plan(
             text,
@@ -1104,7 +1110,7 @@ class LampFixtureTestCase(UnityTkTestCase):
             .actions[1]
         )
         self.assertEqual(
-            (heard.field("tool"), unheard.field("tool")), ("DESK|LAMP_NUL", None)
+            (heard.field("with"), unheard.field("with")), ("DESK|LAMP_NUL", None)
         )
 
 
@@ -1322,168 +1328,54 @@ class NodeMatcherTestCase(unittest.TestCase):
 
 
 class ClauseBookTestCase(unittest.TestCase):
-    #: One row per built-in template, as a sheet writes it, and what it reads as.
+    #: One row per built-in template, as a sheet writes it, and what it reads as: the template, its word, the
+    #: settings it gives and its fields. A question's option is read as one (``options``).
     ROWS = [
-        (
-            "Selecting 'Next' triggers step advancement",
-            "contents",
-            "pause",
-            {"label": "Next"},
-        ),
-        (
-            "Selecting 'YES' triggers step advancement to step B02.5",
-            "contents",
-            "goto",
-            {"label": "YES", "to": "B02.5"},
-        ),
-        (
-            "Selecting 'Exit' ends the task",
-            "contents",
-            "exit",
-            {"label": "Exit"},
-        ),
-        (
-            "Selecting 'Take Quiz' triggers advancement to the quiz",
-            "contents",
-            "quiz",
-            {"label": "Take Quiz"},
-        ),
-        (
-            "Selecting the nut with wrench in hand triggers nut removal animation",
-            "contents",
-            "use",
-            {"targets": ["the nut"], "tool": "wrench", "phrase": "nut removal"},
-        ),
-        (
-            "Selecting the button triggers step advancement",
-            "contents",
-            "select",
-            {"targets": ["the button"]},
-        ),
-        (
-            "Selecting the keys places them in hand",
-            "contents",
-            "take",
-            {"targets": ["the keys"]},
-        ),
-        (
-            "Trigger Part install animation when moved close to empty slot",
-            "contents",
-            "place",
-            {"targets": ["empty slot"], "phrase": "Part install"},
-        ),
-        ("Trigger Lid open animation", "contents", "play", {"phrase": "Lid open"}),
-        ("Return Keys to table", "contents", "return", {"targets": ["Keys"]}),
-        (
-            "Screwdriver returns to hand",
-            "contents",
-            "hold",
-            {"targets": ["Screwdriver"]},
-        ),
-        ("Pip screen fades away", "contents", "pip_hide", {}),
-        (
-            "PiP screen appears showing the far side",
-            "contents",
-            "pip",
-            {"targets": ["the far side"]},
-        ),
-        (
-            "Highlighted bolt appears in place",
-            "contents",
-            "show",
-            {"targets": ["bolt"]},
-        ),
-        ("Highlight Both Plugs", "contents", "highlight", {"targets": ["Both Plugs"]}),
-        ("Lamp fades away", "contents", "fade_out", {"targets": ["Lamp"]}),
-        ("Marker fades in at the door", "contents", "fade_in", {"targets": ["Marker"]}),
-        (
-            "Auto advance to step C05 when the number 42 is entered",
-            "contents",
-            "answer",
-            {"to": "C05", "value": "42"},
-        ),
-        ("Auto Advance when both screws are removed", "contents", "advance", {}),
-        (
-            "When any number other than 42 is entered advance to step C04.5",
-            "contents",
-            "answer_else",
-            {"to": "C04.5", "value": "42"},
-        ),
-        (
-            "YES and NO buttons appear on the placard screen",
-            "contents",
-            "buttons",
-            {"label": "YES and NO"},
-        ),
-        (
-            "Number pad with enter button appears on placard",
-            "contents",
-            "number_pad",
-            {},
-        ),
-        (
-            "Checklist appears on placard with blank check boxes",
-            "contents",
-            "checklist",
-            {},
-        ),
-        (
-            "Checklist item 'Lights' gets a check mark",
-            "contents",
-            "check",
-            {"label": "Lights"},
-        ),
-        (
-            "User is teleported to the front of the cabinet",
-            "contents",
-            "teleport",
-            {"targets": ["the front of the cabinet"]},
-        ),
-        ("Status light turns on", "contents", "turn_on", {"targets": ["Status light"]}),
-        (
-            "The solenoid LED turns amber",
-            "contents",
-            "set_state",
-            {"targets": ["The solenoid LED"], "state": "amber"},
-        ),
-        (
-            "Pressing and holding the button plays Button Press Animation",
-            "contents",
-            "press_hold",
-            {"targets": ["the button"], "phrase": "Button Press"},
-        ),
-        ("The destination marker fades in", "contents", "marker_show", {}),
-        ("The destination marker fades away", "contents", "marker_hide", {}),
-        ("The checklist fades away", "contents", "checklist_hide", {}),
-        (
-            "-Bouncing arrows pointing at both screws",
-            "hint",
-            "indicate",
-            {"targets": ["both screws"]},
-        ),
-        (
-            'Placard text reads "Select the door"',
-            "hint",
-            "placard",
-            {"label": "Select the door"},
-        ),
-        (
-            "Note: the room is quiet",
-            "contents",
-            "note",
-            {"phrase": "the room is quiet"},
-        ),
+        ("Selecting 'Next' triggers step advancement", "button_next", "button", {}, {"label": "Next", "to": "next"}),
+        ("Selecting 'YES' triggers step advancement to step B02.5", "button_step", "button", {},
+         {"label": "YES", "to": "B02.5"}),
+        ("Selecting 'Exit' ends the task", "button_exit", "button", {}, {"label": "Exit", "to": "exit"}),
+        ("Selecting 'Take Quiz' triggers advancement to the quiz", "button_quiz", "button", {}, {"label": "Take Quiz"}),
+        ("Selecting the nut with wrench in hand triggers nut removal animation", "use", "use", {},
+         {"targets": ["the nut"], "with": "wrench", "phrase": "nut removal"}),
+        ("Pressing and holding the button plays Button Press Animation", "use_hold", "use", {"trigger": "hold"},
+         {"targets": ["the button"], "phrase": "Button Press"}),
+        ("Trigger Part install animation when moved close to empty slot", "use_near", "use", {"trigger": "near"},
+         {"targets": ["empty slot"], "phrase": "Part install"}),
+        ("Selecting the button triggers step advancement", "select", "select", {}, {"targets": ["the button"]}),
+        ("Selecting the keys places them in hand", "take", "take", {}, {"targets": ["the keys"]}),
+        ("Trigger Lid open animation", "play", "play", {}, {"phrase": "Lid open"}),
+        ("Return Keys to table", "return", "return", {}, {"targets": ["Keys"]}),
+        ("Screwdriver returns to hand", "note_in_hand", "note", {}, {}),
+        ("Pip screen fades away", "picture_hide", "note", {}, {}),
+        ("PiP screen appears showing the far side", "picture", "picture", {}, {"targets": ["the far side"]}),
+        ("Highlighted bolt appears in place", "show_highlighted", "show", {}, {"targets": ["bolt"]}),
+        ("Highlight Both Plugs", "highlight", "highlight", {}, {"targets": ["Both Plugs"]}),
+        ("Status light turns on", "highlight_steady", "highlight", {"style": "steady"}, {"targets": ["Status light"]}),
+        ("Lamp fades away", "hide", "hide", {}, {"targets": ["Lamp"]}),
+        ("Marker fades in at the door", "show", "show", {}, {"targets": ["Marker"]}),
+        ("Auto advance to step C05 when the number 42 is entered", "answer", "answer", {}, {"to": "C05", "label": "42"}),
+        ("Auto Advance when both screws are removed", "advance", "advance", {}, {}),
+        ("When any number other than 42 is entered advance to step C04.5", "answer_else", "answer", {},
+         {"to": "C04.5", "label": "*"}),
+        ("YES and NO buttons appear on the placard screen", "note_buttons", "note", {}, {"label": "YES and NO"}),
+        ("Number pad with enter button appears on placard", "note_number_pad", "note", {}, {}),
+        ("Checklist appears on placard with blank check boxes", "list", "list", {}, {}),
+        ("Checklist item 'Lights' gets a check mark", "tick", "tick", {}, {"label": "Lights"}),
+        ("User is teleported to the front of the cabinet", "travel", "travel", {}, {"where": "the front of the cabinet"}),
+        ("The solenoid LED turns amber", "set", "set", {"state": "amber"}, {"targets": ["The solenoid LED"]}),
+        ("The destination marker fades in", "ring_show", "note", {}, {}),
+        ("The destination marker fades away", "ring_hide", "note", {}, {}),
+        ("The checklist fades away", "list_hide", "note", {}, {}),
+        ("-Bouncing arrows pointing at both screws", "indicate", "indicate", {}, {"targets": ["both screws"]}),
+        ('Placard text reads "Select the door"', "note_page", "note", {}, {"label": "Select the door"}),
+        ("Note: the room is quiet", "note", "note", {}, {}),
+        ("* To reach the door", "option_right", "button", {}, {"label": "To reach the door", "to": "next"}),
+        ("To free the key", "option", "button", {}, {"label": "To free the key", "to": "retry"}),
     ]
-
-    #: The readings that give their behavior settings: one behavior, read several ways (its chip says which).
-    READS = {
-        "press_hold": ("use", {"useTrigger": "HoldToPlay"}),
-        "marker_show": ("marker", {}),
-        "marker_hide": ("marker", {"markerShow": "Hide"}),
-        "pip_hide": ("pip", {"pipShow": "Hide"}),
-        "checklist_hide": ("checklist", {"checklistShow": "Hide"}),
-        "answer_else": ("answer", {"answerKind": "Otherwise"}),
-    }
+    #: The column each row is read from where it is not the contents, and the rows read as a question's.
+    COLUMN = {"indicate": "hint", "note_page": "hint"}
+    OPTIONS = ("option_right", "option")
 
     @classmethod
     def setUpClass(cls):
@@ -1491,34 +1383,36 @@ class ClauseBookTestCase(unittest.TestCase):
 
     def test_every_built_in_template_validates_and_reads_its_row(self):
         built_in = {name for name, _ in ClauseBook.load_templates()}
-        self.assertEqual(
-            built_in, {row[2] for row in self.ROWS}, "one sample row per template"
-        )
-        for text, column, template, fields in self.ROWS:
+        self.assertEqual(built_in, {row[1] for row in self.ROWS}, "one sample row per template")
+        for text, template, word, settings, fields in self.ROWS:
             with self.subTest(text=text):
-                read = self.book.read(text, column)
-                behavior, settings = self.READS.get(template, (template, {}))
+                read = self.book.read(text, self.COLUMN.get(template, "contents"), options=template in self.OPTIONS)
                 self.assertEqual(
                     (read[0].template, read[0].behavior, read[0].settings),
-                    (template, behavior, settings),
+                    (template, word, settings),
                 )
                 self.assertEqual(read[0].fields, fields)
 
-    def test_a_teleport_goes_where_it_says_not_where_it_faces(self):
+    def test_a_questions_options_are_read_in_a_question_alone(self):
+        self.assertEqual(self.book.read("To free the key"), [], "outside a question no template reads it")
+        self.assertEqual([c.template for c in self.book.read("Highlight the door", options=True)], ["option"],
+                         "in a question, a row no other template reads")
+
+    def test_a_travel_goes_where_it_says_not_where_it_faces(self):
         # "Facing the door" names what the user looks at; read as the destination,
         # it bound the door itself and put the user inside it.
         read = self.book.read(
             "User is teleported to the front of the cabinet.  Facing the open door."
         )
-        self.assertEqual(read[0].behavior, "teleport")
+        self.assertEqual(read[0].behavior, "travel")
         self.assertEqual(
             read[0].fields,
-            {"side": "front", "side_of": "the cabinet", "facing": "the open door"},
+            {"side": "front", "side_of": "the cabinet", "targets": ["the open door"]},
             "a side of the cabinet, not a viewpoint named 'the front of the cabinet'",
         )
         read = self.book.read("User is teleported to VIEW_FRONT, facing the red door")
         self.assertEqual(
-            read[0].fields, {"targets": ["VIEW_FRONT"], "facing": "the red door"}
+            read[0].fields, {"where": "VIEW_FRONT", "targets": ["the red door"]}
         )
 
     def test_the_format_s_phrasebook_reads_every_phrase(self):
@@ -1529,43 +1423,39 @@ class ClauseBookTestCase(unittest.TestCase):
                 {
                     "targets": ["the top lock"],
                     "phrase": "Top Lock Open",
-                    "tool": "keys",
+                    "with": "keys",
                 },
             ),
             (
                 "Moving the solenoid close to the bracket triggers Solenoid Install Animation",
-                "place",
+                "use",
                 {
-                    "tool": "solenoid",
+                    "with": "solenoid",
                     "targets": ["bracket"],
                     "phrase": "Solenoid Install",
                 },
             ),
-            ("A number pad appears on the placard", "number_pad", {}),
-            ("Entering '11' triggers step C11", "answer", {"value": "11", "to": "C11"}),
+            ("A number pad appears on the placard", "note", {}),
+            ("Entering '11' triggers step C11", "answer", {"label": "11", "to": "C11"}),
             (
                 "Entering any other number triggers step C10.5",
                 "answer",
-                {"to": "C10.5"},
+                {"to": "C10.5", "label": "*"},
             ),
             (
                 "A checklist appears on the placard: 'Lights', 'Power'",
-                "checklist",
+                "list",
                 {"label": "Lights, Power"},
             ),
             (
                 "'YES' and 'NO' buttons appear on the placard",
-                "buttons",
+                "note",
                 {"label": "YES and NO"},
             ),
-            (
-                "The destination marker fades in at the door",
-                "marker",
-                {"targets": ["the door"]},
-            ),
-            ("Destination circle fades in", "marker", {}),
-            ("Destination circle fades in at teleport destination", "marker", {}),
-            ("Destination circle fades away", "marker", {}),
+            ("The destination marker fades in at the door", "note", {}),
+            ("Destination circle fades in", "note", {}),
+            ("Destination circle fades in at teleport destination", "note", {}),
+            ("Destination circle fades away", "note", {}),
         ]
         for text, behavior, fields in rows:
             with self.subTest(text=text):
@@ -1577,7 +1467,8 @@ class ClauseBookTestCase(unittest.TestCase):
         book = ClauseBook()
         for ends in ("task", "module"):
             with self.subTest(ends=ends):
-                self.assertEqual([c.behavior for c in book.read("Selecting 'Exit' ends the %s" % ends)], ["exit"])
+                self.assertEqual([(c.behavior, c.fields.get("to")) for c in book.read("Selecting 'Exit' ends the %s" % ends)],
+                                 [("button", "exit")])
         self.assertEqual(book.read("Selecting 'Exit' ends the training"), [])
 
     def test_show_is_also_a_highlight(self):
@@ -1588,15 +1479,15 @@ class ClauseBookTestCase(unittest.TestCase):
 
     def test_a_template_reads_only_its_column_or_either_when_any(self):
         hint = ClauseSpec(
-            behavior="note", detect=[r"^tip:\s+(?P<text>.+)$"], column="hint", order=5
+            word="note", detect=[r"^tip:\s+(?P<text>.+)$"], column="hint", order=5
         )
         either = ClauseSpec(
-            behavior="indicate",
+            word="indicate",
             detect=[r"^arrow at\s+(?P<targets>.+)$"],
             column="any",
             order=6,
         )
-        book = ClauseBook([("tip", hint), ("arrow", either)])
+        book = ClauseBook([("tip", hint), ("pointer", either)])
         self.assertEqual(
             book.read("tip: look up"), [], "a hint template does not read the contents"
         )
@@ -1608,7 +1499,7 @@ class ClauseBookTestCase(unittest.TestCase):
 
     def test_a_project_template_reads_its_own_wording(self):
         own = ClauseSpec(
-            behavior="use", detect=[r"^press\s+(?P<targets>.+)$"], clip=True, order=5
+            word="use", detect=[r"^press\s+(?P<targets>.+)$"], clip=True, order=5
         )
         book = ClauseBook([("press", own)])
         self.assertEqual(
@@ -1616,21 +1507,35 @@ class ClauseBookTestCase(unittest.TestCase):
         )
         self.assertTrue(book.read("Press the red button")[0].clip)
 
+    def test_a_template_names_a_word_of_the_sheet_and_the_settings_it_takes(self):
+        """No other name reaches a plan: a template's word is the sheet's (or ``advance``), each setting it gives one its
+        word takes, at a value of it."""
+        self.assertFalse(ClauseSpec.validate({"word": "teleport", "detect": ["^x$"]}).ok, "no word of the sheet")
+        self.assertFalse(ClauseSpec.validate({"behavior": "use", "detect": ["^x$"]}).ok)
+        self.assertTrue(ClauseSpec.validate({"word": "advance", "detect": ["^x$"]}).ok)
+        for settings in ({"useTrigger": "HoldToPlay"}, {"trigger": "press"}):
+            with self.subTest(settings=settings), self.assertRaisesRegex(ValueError, "template 'own'"):
+                ClauseBook([("own", ClauseSpec(word="use", detect=["^x$"], settings=settings))])
+
     def test_the_roles_are_declared_by_the_templates(self):
         declared = {name: set(spec.roles) for name, spec in ClauseBook.load_templates()}
         self.assertEqual(declared["take"], {"takes"})
         self.assertEqual(self.book.roles("answer"), {"advances", "entered"})
         self.assertEqual(
-            self.book.roles("answer", {"answerKind": "Otherwise"}),
+            self.book.roles("answer", fields={"label": "*"}),
             {"advances", "entered", "otherwise"},
-            "a role declared with settings belongs to the rows carrying them",
+            "a role declared with fields belongs to the rows carrying them",
         )
+        self.assertEqual(self.book.roles("use", {"trigger": "near"}), {"uses", "places"})
+        self.assertEqual(self.book.roles("note"), set(), "a template's own roles belong to the rows it reads alone")
+        (buttons,) = self.book.read("YES and NO buttons appear on the placard")
+        self.assertEqual(self.book.roles_of(buttons), {"buttons"})
 
-    def test_a_projects_own_behavior_is_an_action_word(self):
+    def test_a_projects_own_template_is_an_action_word_only_as_its_word(self):
         from unitytk.sheets._row_reading import _RowReading
 
         own = ClauseSpec(
-            behavior="inspect_part", detect=[r"^inspect\s+(?P<targets>.+)$"], order=5
+            word="highlight", detect=[r"^inspect\s+(?P<targets>.+)$"], order=5
         )
         reading = _RowReading(
             DeliveryIndex(["UNIT", "UNIT|LID"]),
@@ -1638,25 +1543,26 @@ class ClauseBookTestCase(unittest.TestCase):
             ReadingSpec.load(),
             None,
         )
-        self.assertEqual(reading.actions.get("inspect part"), ("inspect_part", {}))
+        self.assertEqual(reading.actions.get("highlight"), ("highlight", {}))
         self.assertEqual(
-            (reading.actions.get("note"), reading.actions.get("press and hold")),
-            (None, None),
-            "a book without note or press_hold has no word for them",
+            (reading.actions.get("inspect"), reading.actions.get("note"), reading.actions.get("press and hold")),
+            (None, None, None),
+            "a template's name is no word; a book without note or use_hold has no word for them",
         )
         built_in = _RowReading(
             DeliveryIndex(["UNIT"]), ClauseBook(), ReadingSpec.load(), None
         )
         self.assertEqual(
             built_in.actions.get("press and hold"),
-            ("use", {"useTrigger": "HoldToPlay"}),
-            "the word reads as its reading: a Use held to play",
+            ("use", {"trigger": "hold"}),
+            "the word reads as its reading: a use held",
         )
         self.assertEqual(
             built_in.actions.get("note"),
             ("note", {}),
-            "every behavior the book reads is a word",
+            "every word the book reads is a word",
         )
+        self.assertIsNone(built_in.actions.get("teleport"), "no older name is read")
 
 
 class ProjectClausesTestCase(UnityTkTestCase):
@@ -1665,17 +1571,18 @@ class ProjectClausesTestCase(UnityTkTestCase):
     def test_project_templates_win_a_built_in_of_their_name_and_change_the_digest(self):
         folder = os.path.join(self.create_temp_dir(), "clauses")
         os.makedirs(folder)
-        with open(os.path.join(folder, "pause.json"), "w", encoding="utf-8") as fh:
+        with open(os.path.join(folder, "button_next.json"), "w", encoding="utf-8") as fh:
             json.dump(
                 {
-                    "behavior": "pause",
+                    "word": "button",
                     "detect": ["^press\\s+'(?P<label>[^']+)'\\s+to\\s+go\\s+on$"],
+                    "fields": {"to": "next"},
                     "roles": ["advances"],
                 },
                 fh,
             )
         own = ClauseBook(folder=folder)
-        self.assertEqual(own.read("Press 'Next' to go on")[0].fields, {"label": "Next"})
+        self.assertEqual(own.read("Press 'Next' to go on")[0].fields, {"label": "Next", "to": "next"})
         self.assertEqual(ClauseBook().read("Press 'Next' to go on"), [])
         self.assertNotEqual(own.digest(), ClauseBook().digest())
         self.assertEqual(
@@ -1688,8 +1595,8 @@ class ProjectClausesTestCase(UnityTkTestCase):
         root = self.create_temp_dir()
         user = os.path.join(root, "unitytk", "sheet_clauses")
         os.makedirs(user)
-        with open(os.path.join(user, "pause.json"), "w", encoding="utf-8") as fh:
-            json.dump({"behavior": "pause", "detect": ["^go on$"]}, fh)
+        with open(os.path.join(user, "button_next.json"), "w", encoding="utf-8") as fh:
+            json.dump({"word": "button", "detect": ["^go on$"]}, fh)
         built_in = ClauseBook().digest()
         with unittest.mock.patch.dict(os.environ, {ptk.UserConfig.CONFIG_ROOT_ENV_VAR: root}):
             self.assertEqual(ClauseBook().read("Go on"), [], "no project: the built-ins alone")
@@ -1701,7 +1608,7 @@ class ProjectClausesTestCase(UnityTkTestCase):
         shipped = os.path.join(root, "clauses")  # the package's folder, under a config root that holds it
         os.makedirs(shipped)
         with open(os.path.join(shipped, "go.json"), "w", encoding="utf-8") as fh:
-            json.dump({"behavior": "pause", "detect": ["^go on$"]}, fh)
+            json.dump({"word": "button", "detect": ["^go on$"]}, fh)
         env = {ptk.UserConfig.CONFIG_ROOT_ENV_VAR: root}
         with unittest.mock.patch.dict(os.environ, env), unittest.mock.patch.object(
             ClauseBook, "BUILTIN_DIR", Path(shipped)
@@ -1714,7 +1621,8 @@ class ProjectClausesTestCase(UnityTkTestCase):
         self.assertEqual(sorted(os.listdir(root)), ["clauses"], "nor anywhere under the config root")
 
     #: A fixed folder of a project's templates (one file with CRLF line endings) and its digest: the C# staleness
-    #: test (ManifestsActionsTests.An_edited_clause_template_of_the_project_makes_its_plan_stale) holds the same.
+    #: test (ManifestsActionsTests.An_edited_clause_template_of_the_project_makes_its_plan_stale) holds the same bytes,
+    #: which a digest reads as bytes alone, never as templates.
     FIXED_CLAUSES = {
         "go.json": '{"behavior": "pause",\r\n "detect": ["^go on$"]}\r\n',
         "stop.json": '{"behavior": "pause", "detect": ["^stop$"]}\n',
@@ -1727,20 +1635,20 @@ class ProjectClausesTestCase(UnityTkTestCase):
         for name, text in self.FIXED_CLAUSES.items():
             with open(os.path.join(folder, name), "w", encoding="utf-8", newline="") as fh:
                 fh.write(text)
-        self.assertEqual(ClauseBook(folder=folder).digest(), self.FIXED_DIGEST)
+        self.assertEqual(ClauseBook.folder_digest(folder), self.FIXED_DIGEST)
 
 
 class RolesTestCase(UnityTkTestCase):
-    """A project's own behavior takes part in the reading by the roles its template declares."""
+    """A project's own template takes part in the reading by the roles it declares."""
 
-    def test_a_projects_own_behavior_takes_part_by_the_roles_it_declares(self):
+    def test_a_projects_own_template_takes_part_by_the_roles_it_declares(self):
         sheet = os.path.join(self.create_temp_dir(), "roles.csv")
         with open(sheet, "w", encoding="utf-8", newline="") as fh:
             fh.write(
                 "Step,Step Contents,Asset Names\nA01,Grab the key,\nA02,Selecting the top latch triggers Latch Animation,\n"
             )
         grab = ClauseSpec(
-            behavior="grab",
+            word="take",
             detect=[r"^grab\s+(?P<targets>.+)$"],
             order=5,
             roles=["takes"],
@@ -1754,13 +1662,13 @@ class RolesTestCase(UnityTkTestCase):
         )
         use = plan.steps[1].actions[0]
         self.assertEqual(
-            (use.behavior, use.field("tool")),
+            (use.behavior, use.field("with")),
             ("use", "TOOLS|KEY_GRP"),
             "the grabbed key is in hand",
         )
         self.assertFalse(
             ClauseSpec.validate(
-                {"behavior": "x", "detect": ["^x$"], "roles": ["juggles"]}
+                {"word": "take", "detect": ["^x$"], "roles": ["juggles"]}
             ).ok
         )
 

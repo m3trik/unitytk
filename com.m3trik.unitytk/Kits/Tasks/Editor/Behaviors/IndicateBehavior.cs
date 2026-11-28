@@ -52,8 +52,7 @@ namespace M3trik.Unitytk.Kits.Tasks
         }
 
         // The name of the arrow at a target's things (thing: one of several, else null): the row's own helper's name as every
-        // tool names it (the plan's helpers; one of several things adds its name), else, for a plan from the old sentence
-        // format, ArrowName.
+        // tool names it (the plan's helpers; one of several things adds its name), else, for a plan that carries none, ArrowName.
         static string Named(SheetPlan.Shape.PlanAction action, int index, string step, string thing)
         {
             string own = TaskKit.Helper(action, index);
