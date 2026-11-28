@@ -49,8 +49,22 @@ namespace M3trik.Unitytk.Manifests
         public static ManifestBehaviorAttribute Mark(string behavior)
         {
             Types();
-            return !string.IsNullOrEmpty(behavior) && _marks.TryGetValue(behavior, out ManifestBehaviorAttribute mark) ? mark : null;
+            if (string.IsNullOrEmpty(behavior) || !_marks.TryGetValue(behavior, out ManifestBehaviorAttribute mark)) return null;
+            if (!mark.Named) mark.NameSettings(KitOf(behavior)?.Settings);  // its settings by their paths in its kit's, once
+            return mark;
         }
+
+        /// <summary>
+        /// The name a row's setting <paramref name="name"/> (as the sheet names it) of a <paramref name="behavior"/> row has
+        /// among its kit's settings: under the behavior's own group where its kit's settings have a member named as the
+        /// behavior (<c>size</c> on an <c>indicate</c> row: <c>indicate.size</c>), else <paramref name="name"/> as it is. What
+        /// a build reads the row's setting as (<see cref="ManifestScene.Settings{T}(string, string, SheetPlan.Shape.PlanAction)"/>),
+        /// and what the manifest keeps an object's own value of it by.
+        /// </summary>
+        /// <param name="behavior">A plan action's behavior.</param>
+        /// <param name="name">A setting's name, as the row's Settings cell names it.</param>
+        public static string SettingName(string behavior, string name)
+            => ManifestValues.PathOf(KitOf(behavior)?.Settings, behavior, name);
 
         /// <summary>Every behavior this editor can build, sorted.</summary>
         public static IReadOnlyList<string> Names()
@@ -62,7 +76,7 @@ namespace M3trik.Unitytk.Manifests
 
         /// <summary>
         /// The behavior <paramref name="behavior"/> is a way of setting (its mark's
-        /// <see cref="ManifestBehaviorAttribute.Family"/>: <c>fade_in</c> is <c>fade</c>), else itself.
+        /// <see cref="ManifestBehaviorAttribute.Family"/>: <c>swing_open</c> is <c>swing</c>), else itself.
         /// </summary>
         /// <param name="behavior">A behavior's name.</param>
         public static string FamilyOf(string behavior)
@@ -72,8 +86,8 @@ namespace M3trik.Unitytk.Manifests
         }
 
         /// <summary>
-        /// The behaviors of <paramref name="behavior"/>'s family, sorted (<c>fade_in</c>: <c>fade_in</c>,
-        /// <c>fade_out</c>); itself alone where it has none: what one switch turns off or on.
+        /// The behaviors of <paramref name="behavior"/>'s family, sorted (<c>swing_open</c>: <c>swing_open</c>,
+        /// <c>swing_shut</c>); itself alone where it has none: what one switch turns off or on.
         /// </summary>
         /// <param name="behavior">A behavior's name.</param>
         public static IReadOnlyList<string> Family(string behavior)
@@ -125,8 +139,8 @@ namespace M3trik.Unitytk.Manifests
 
         /// <summary>
         /// The settings type the fields <paramref name="behavior"/> names as its own settings
-        /// (<see cref="ManifestBehaviorAttribute.Settings"/>) are of: its kit's (<see cref="KitOf"/>); null where it
-        /// names none, belongs to no kit, or its kit keeps no settings.
+        /// (<see cref="ManifestBehaviorAttribute.Settings"/>, a group's by their paths) are of: its kit's (<see cref="KitOf"/>);
+        /// null where it names none, belongs to no kit, or its kit keeps no settings.
         /// </summary>
         /// <param name="behavior">A plan action's behavior.</param>
         public static Type SettingsOf(string behavior)

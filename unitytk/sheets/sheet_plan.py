@@ -6,13 +6,13 @@ The seam between unitytk's two halves. This one reads a build sheet (the rows it
 one step after another) and the delivery its steps play (an FBX: its nodes and its takes), and
 writes a plan: each step's values, and each row read as a behavior on named nodes. The Unity
 package's manifest reads the plan (its generated ``SheetPlan.g.cs``) and builds the scene from it,
-one row at a time, each through the builder a kit registers for its behavior.
+one row at a time, each through the builder a kit registers for its word.
 
-The contract names no kit's data: a row's words beyond its behavior, nodes, take and jump are its
-``fields`` (each the group of the clause template that read it, so a project's own template adds
-its own), a step's values are its ``fields`` (named by the reading, :attr:`ReadingSpec.step_fields`),
-and a kit's own plan-wide data is its entry of ``extensions``, as the project's settings file gives
-it.
+The plan speaks the sheet's own words: a row's behavior is its word (pythontk's template), its
+``fields`` its cells by their names (``with``, ``label``, ``where``), its ``settings`` its settings
+as written, a sheet of sentences read into the same. It names no kit's data: a step's values are its
+``fields`` (named by the reading, :attr:`ReadingSpec.step_fields`), and a kit's own plan-wide data is
+its entry of ``extensions``, as the project's settings file gives it.
 
 A typed :class:`~pythontk.SchemaSpec` declaration, so this one definition validates a plan,
 publishes its JSON Schema, and is what ``m3trik/scripts/sync_unity_contracts.py`` generates the C#
@@ -119,31 +119,31 @@ class PlanSource(SchemaSpec):
 
 @dataclass
 class PlanAction(SchemaSpec):
-    """One row of a step, read as one behavior on named nodes."""
+    """One row of a step, read as one of the sheet's words on named nodes."""
 
     TYPED = True
 
     behavior: str = _field(
         help=(
-            "What the row does, as the clause it reads as: `highlight`, `take`, "
-            "`use`, `play`, `place`, `return`, `advance`, `goto` ... "
-            "(the clause templates' behaviors), or `unread` for a row no template "
-            "reads. The kit builds a behavior it has an applier for and reports "
-            "the rest."
+            "What the row does: the sheet's word, as a row in cells writes it (`highlight`, `indicate`, `show`, "
+            "`hide`, `set`, `take`, `return`, `use`, `play`, `button`, `select`, `answer`, `travel`, `picture`, "
+            "`list`, `tick`, `note`: the Interactive template's words), a sheet of sentences' rows read into "
+            "the same words; `advance` (the step goes on by itself: a sheet of sentences' \"Auto Advance\"); or "
+            "`unread` for a row nothing reads. The kit builds a word it has a builder for and reports the rest."
         ),
         required=True,
         example="use",
     )
     text: str = _field(
-        help="The row as the sheet writes it.",
+        help="The row as the sheet writes it: its sentence (a row in cells, the sentence its cells read as).",
         required=True,
         example="Selecting the door triggers Door open Animation",
     )
     targets: List[str] = _field(
         help=(
-            "The nodes the row acts on, each its path in the delivery from the "
-            "file's top level down, '|' joined (the path tells same-named nodes "
-            "apart). A phrase that names no node is left out, with an issue."
+            "The row's Target: the nodes it is about, each its path in the delivery from the file's top level "
+            "down, '|' joined (the path tells same-named nodes apart); a travel's, what the user is brought to "
+            "face. A name that finds no node is left out, with an issue."
         ),
         example=["CABINET|DOOR_GRP"],
         default_factory=list,
@@ -157,26 +157,26 @@ class PlanAction(SchemaSpec):
         example="A02",
     )
     to: str = _field(
-        help="The step the row goes to, by ID (`B03.5` spelled `B03_5`, as the step's own).",
-        example="B04",
-    )
-    restart: bool = _field(
         help=(
-            "Its jump starts the sequence over (the scene loaded again: nothing a take did stands), as its "
-            "reading says a jump to the first step does (the reading's `restart`)."
+            "Where the row goes, as its To cell writes it: `next` (on), `restart` (the sequence over, its scene "
+            "loaded again: nothing a take did stands), `exit` (out), `retry` (a wrong answer: the step stays; a step "
+            "holding one is a question, its `next` choice the right answer), or a step's ID as the step's own "
+            "(`B03.5` spelled `B03_5`)."
         ),
-        example=False,
-        default=False,
+        example="B04",
     )
     fields: Dict[str, Union[str, List[str]]] = _field(
         help=(
-            "What the row's words say beyond its behavior, nodes, take and jump, by name: each group of "
-            "the clause template that read it (a phrase as written, a label, a value; a group naming a "
-            "node holds that node's path, as `targets`), what the hand holds where the row is done with "
-            "it, and a list where the reading names several (the authored arrows of a pointing row). "
-            "The kit that builds the behavior reads the names it knows."
+            "The row's cells beyond its word, Target, take and jump, by the sheet's names: `with`, the With node's "
+            "path (what the hand holds); `label`, the Label (a button's words, an answer's value or `*` for any "
+            "other, a list's items comma separated, a picture's caption); `where`, the node each Target happens "
+            "at, one per Target in order (`\"\"` where a Target has none; one where the row has no Target): an "
+            "indicate's pointer, a travel's viewpoint, a picture's camera; `helpers`, the names Unity gives the "
+            "helpers it makes for a placing row that names none, one per Target. A sheet of sentences adds what "
+            "its words say: `side` and `side_of` (a travel to a side of a node), `phrase` (a take's words), and a "
+            "project's own clause groups. The kit that builds the word reads the names it knows."
         ),
-        example={"tool": "TOOLS|WRENCH", "phrase": "Door open"},
+        example={"with": "TOOLS|WRENCH_GRP", "where": ["VIEW_FRONT"], "phrase": "Door open"},
         default_factory=dict,
     )
     issues: List[str] = _field(
@@ -191,11 +191,13 @@ class PlanAction(SchemaSpec):
     )
     settings: Dict[str, str] = _field(
         help=(
-            "Settings the row gives its behavior, by its kit's names, over the kit's: what its words say "
-            '("Pressing and holding ..." a Use held to play: `useTrigger: HoldToPlay`); a person may change '
-            "them per object in the manifest. Absent: the kit's."
+            "The settings the row gives its word, by the sheet's own names and values as written (a sheet of "
+            "sentences' as its clause gives them: \"Pressing and holding ...\" a use with `trigger: hold`): every "
+            "one but an object's (`where`, a field). A span (`until`, `ring`) is `step` (as its own step ends) or a "
+            "step's ID as the step's own (as that step starts). The kit resolves them under its settings of the "
+            "row's word; a person may change them per object in the manifest. Absent: the kit's."
         ),
-        example={"useTrigger": "HoldToPlay"},
+        example={"trigger": "hold", "hold": "2"},
         default_factory=dict,
     )
     upstream: List[str] = _field(

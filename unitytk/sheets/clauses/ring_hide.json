@@ -1,0 +1,15 @@
+{
+  "word": "note",
+  "order": 69,
+  "description": "The destination marker goes away: the ring still shown ends here (its travel's `ring`).",
+  "detect": [
+    "^(?:the\\s+)?destination\\s+(?:marker|circle|ring)\\s+(?:fades\\s+(?:away|out)|disappears)$"
+  ],
+  "span": {
+    "word": "travel",
+    "setting": "ring"
+  },
+  "roles": [
+    "closes"
+  ]
+}

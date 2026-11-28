@@ -1,0 +1,20 @@
+{
+  "word": "use",
+  "order": 31,
+  "clip": true,
+  "description": "Bringing what the hand holds close to a target plays the row's clip.",
+  "detect": [
+    "^trigger\\s+(?P<phrase>.+?)\\s+animation\\s+when\\s+(?:it\\s+is\\s+)?moved\\s+close\\s+to\\s+(?:the\\s+|an?\\s+)?(?P<targets>.+)$",
+    "^moving\\s+(?:the\\s+)?(?P<with>.+?)\\s+close\\s+to\\s+(?:the\\s+|an?\\s+)?(?P<targets>.+?)\\s+triggers\\s+(?P<phrase>.+?)\\s+animation$"
+  ],
+  "settings": {
+    "trigger": "near"
+  },
+  "nodes": [
+    "with"
+  ],
+  "roles": [
+    "uses",
+    "places"
+  ]
+}

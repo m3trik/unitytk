@@ -1,5 +1,5 @@
 {
-  "behavior": "advance",
+  "word": "advance",
   "order": 80,
   "description": "The step completes once its actions are done (at once where it has none).",
   "detect": [

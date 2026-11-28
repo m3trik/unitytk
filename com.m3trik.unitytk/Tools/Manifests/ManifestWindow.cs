@@ -342,8 +342,8 @@ namespace M3trik.Unitytk.Tools.Manifests
         public bool IsOff(string behavior) => _manifest != null && _manifest.off.Contains(behavior);
 
         /// <summary>
-        /// Turn <paramref name="behavior"/> and the rest of its family (<see cref="ManifestBehaviors.Family"/>: Fade's
-        /// in and out) off for the manifest, or on again (<see cref="ManifestsActions.SetOff"/>); then assess.
+        /// Turn <paramref name="behavior"/> and the rest of its family (<see cref="ManifestBehaviors.Family"/>: a
+        /// swing's open and shut) off for the manifest, or on again (<see cref="ManifestsActions.SetOff"/>); then assess.
         /// </summary>
         /// <param name="behavior">A behavior's name.</param>
         /// <param name="off">Turn it off (true) or on again.</param>

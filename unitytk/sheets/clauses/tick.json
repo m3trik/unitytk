@@ -1,0 +1,11 @@
+{
+  "word": "tick",
+  "order": 88,
+  "description": "An item of the list is ticked.",
+  "detect": [
+    "^checklist\\s+item\\s+['\\\"](?P<label>[^'\\\"]+)['\\\"]\\s+gets\\s+a\\s+check\\s*mark$"
+  ],
+  "roles": [
+    "ticks"
+  ]
+}

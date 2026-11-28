@@ -50,7 +50,7 @@ namespace M3trik.Unitytk.Tools.Manifests
             public bool tuned;
             /// <summary>What tells its row from its behavior's others, shown beside its label (<see cref="ManifestBehaviorAttribute.ChipFields"/>: <c>'Yes' → B03_5</c>); empty for none.</summary>
             public string detail = "";
-            /// <summary>How its behavior is set where its row or object says so (<see cref="ManifestBehaviorAttribute.Suffix"/>): <c>hide</c> for a marker taken away; empty: the usual way.</summary>
+            /// <summary>How its behavior is set where its row or object says so (<see cref="ManifestBehaviorAttribute.Suffix"/>): <c>hold</c> for a press held to play; empty: the usual way.</summary>
             public string variant = "";
             /// <summary>What the sheet's row gives it, a <c>Label: value</c> line a field (<see cref="ManifestBehaviorAttribute.FieldLabel"/>); empty for none.</summary>
             public string fields = "";
@@ -136,9 +136,9 @@ namespace M3trik.Unitytk.Tools.Manifests
         }
 
         /// <summary>
-        /// A behavior's name as a label: <c>press_hold</c> as <c>Press Hold</c>; one of a family
-        /// (<see cref="ManifestBehaviors.FamilyOf"/>) its family's, then how it sets it: <c>fade_in</c> as
-        /// <c>Fade · in</c>, as the Shot Manifest reads it.
+        /// A behavior's name as a label: <c>pick_up</c> as <c>Pick Up</c>; one of a family
+        /// (<see cref="ManifestBehaviors.FamilyOf"/>) its family's, then how it sets it: <c>swing_open</c> as
+        /// <c>Swing · open</c>.
         /// </summary>
         /// <param name="behavior">A behavior's name.</param>
         public static string BehaviorLabel(string behavior)
@@ -338,7 +338,8 @@ namespace M3trik.Unitytk.Tools.Manifests
         }
 
         // How a behavior is set, in words, for its chip: each of its suffix settings (ManifestBehaviorAttribute.Suffix)
-        // that the object's own values (tune) or else its row (row) set ("HoldToPlay": "hold to play"); was: the row's.
+        // that the object's own values (tune) or else its row (row, by the sheet's names: ManifestBehaviors.SettingName) set
+        // ("Hold": "hold"); was: the row's.
         static string Variant(string behavior, IDictionary<string, object> row, Manifest.Tune tune, string was = "")
         {
             string[] names = ManifestBehaviors.Mark(behavior)?.Suffix;
@@ -347,7 +348,9 @@ namespace M3trik.Unitytk.Tools.Manifests
             foreach (string name in names)
             {
                 string value = tune?.Get(name);
-                if (value == null && row != null && row.TryGetValue(name, out object set)) value = Convert.ToString(set, CultureInfo.InvariantCulture);
+                if (value == null && row != null)
+                    foreach (var set in row)
+                        if (ManifestBehaviors.SettingName(behavior, set.Key) == name) value = Convert.ToString(set.Value, CultureInfo.InvariantCulture);
                 if (!string.IsNullOrEmpty(value)) said.Add(Words(value));
             }
             return said.Count > 0 ? string.Join(", ", said) : tune != null ? was : "";
@@ -361,7 +364,7 @@ namespace M3trik.Unitytk.Tools.Manifests
             token.variant = Variant(token.behavior, null, tune, token.variant);
             var said = new List<string>();
             foreach (Manifest.Value value in tune.values)
-                if (value != null) said.Add($"{Words(value.name)} {value.value}");
+                if (value != null) said.Add($"{Words(value.name.Substring(value.name.LastIndexOf('.') + 1))} {value.value}");  // a group's field by its own name
             ManifestBehaviorAttribute mark = ManifestBehaviors.Mark(token.behavior);
             foreach (Manifest.Value value in tune.fields)
                 if (value != null) said.Add($"{(mark != null ? mark.FieldLabel(value.name) : ManifestBehaviorAttribute.DefaultLabel(value.name)).ToLowerInvariant()} {value.value}");

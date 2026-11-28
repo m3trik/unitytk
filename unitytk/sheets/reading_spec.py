@@ -26,7 +26,7 @@ SchemaSpec = ptk.SchemaSpec
 _field = SchemaSpec.spec_field
 
 #: The name rules a reading (or a project's settings file) may state.
-NAME_RULES = ("inline", "suffixes", "viewpoint", "arrow")
+NAME_RULES = ("inline", "suffixes", "viewpoint", "point")
 #: The vocabulary a reading may give the phrase matcher (:class:`~unitytk.sheets.NodeMatcher`).
 VOCABULARY = ("synonyms", "stop", "distinct", "qualifiers", "referents", "opposites")
 
@@ -48,7 +48,7 @@ class _ReadingSpecInternal:
 
     @classmethod
     def validate_names(cls, value: Any) -> List[str]:
-        """``names`` = ``{inline, viewpoint, arrow}`` regexes and ``suffixes``, a list of node-name endings."""
+        """``names`` = ``{inline, viewpoint, point}`` regexes and ``suffixes``, a list of node-name endings."""
         if not isinstance(value, dict):
             return ["expected an object of name rules"]
         errors = [
@@ -77,6 +77,27 @@ class _ReadingSpecInternal:
                 "use non-capturing groups (?:...) only: it is placed inside a template's"
             )
         return errors
+
+    @classmethod
+    def validate_caption(cls, value: Any) -> List[str]:
+        """``caption`` = empty, or a regex with a ``what`` group."""
+        if not value:
+            return []
+        errors = cls._regex_errors("", value)
+        if not errors and "what" not in re.compile(value).groupindex:
+            errors.append("name what it shows in a group: (?P<what>...)")
+        return errors
+
+    @staticmethod
+    def validate_applies(value: Any) -> List[str]:
+        """``applies`` = ``{word: {setting: [condition, ...]}}``, each condition an object."""
+        if not isinstance(value, dict) or not all(
+            isinstance(by, dict)
+            and all(isinstance(c, list) and all(isinstance(each, dict) for each in c) for c in by.values())
+            for by in value.values()
+        ):
+            return ["expected {word: {setting: [condition, ...]}}, each condition an object"]
+        return []
 
     @staticmethod
     def validate_vocabulary(value: Any) -> List[str]:
@@ -155,9 +176,9 @@ class ReadingSpec(SchemaSpec, _ReadingSpecInternal):
     )
     restart: bool = _field(
         help=(
-            "A jump to the sheet's first step starts the sequence over, its scene loaded again so nothing a "
-            "take did stands: the row says so (its `restart`), and the check lets it go back past takes. "
-            "Off: a jump like any other."
+            "A sheet of sentences' jump to its first step starts the sequence over, its scene loaded again so "
+            "nothing a take did stands: the row goes to `restart`, and the check lets it go back past takes. "
+            "Off: a jump like any other. A row in cells says `restart` itself."
         ),
         example=True,
         default=True,
@@ -168,15 +189,16 @@ class ReadingSpec(SchemaSpec, _ReadingSpecInternal):
             "a regex a word of a row's text matches to be a scene name written inline; `suffixes`, "
             "the node-name endings that say how a node is built, ignored when matching (the delivery "
             "index's own list where absent); `viewpoint`, a regex a destination's object name must "
-            "match; `arrow`, a regex an authored arrow's node name matches, its `part` group the part "
-            "it points at and its `step` group, where it has one, the step it is for."
+            "match; `point`, a regex an authored pointer's node name matches (a sentence sheet's: a row in "
+            "cells names its pointer in `where`), its `part` group the part it points at and its `step` group, "
+            "where it has one, the step it is for."
         ),
         validate=_ReadingSpecInternal.validate_names,
         example={
             "inline": r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b",
             "suffixes": ["GRP", "GEO", "MSH"],
             "viewpoint": "^VIEW_",
-            "arrow": "^(?P<part>.+)_ARROW$",
+            "point": "^(?P<part>.+)_POINT$",
         },
         default_factory=dict,
     )
@@ -208,24 +230,19 @@ class ReadingSpec(SchemaSpec, _ReadingSpecInternal):
     )
     hand: str = _field(
         help=(
-            "The action field that names what the hand holds: a `uses` row names it there where its "
-            "words do not, as the hand is followed down the sheet."
+            "The action field that names what the hand holds (the With cell's): a `uses` row of a sheet of "
+            "sentences names it there where its words do not, as the hand is followed down the sheet."
         ),
-        example="tool",
-        default="tool",
-    )
-    arrows: str = _field(
-        help="The action field a `points` row's authored arrows go in (the `arrow` name rule's).",
-        example="arrows",
-        default="arrows",
+        example="with",
+        default="with",
     )
     action_words: Dict[str, str] = _field(
         help=(
-            "Words the Action cell may hold beside each behavior's own name, `{word: template}`: a row "
-            "with the word reads as that clause template's behavior, with its settings (a word for a "
-            "template the book lacks is no word)."
+            "Words a sheet of sentences' Action cell may hold beside each word the clause book reads, "
+            "`{word: template}`: a row with the word reads as that clause template's word, with its settings "
+            "(a word for a template the book lacks is no word)."
         ),
-        example={"press and hold": "press_hold"},
+        example={"press and hold": "use_hold"},
         default_factory=dict,
     )
     cell_columns: List[str] = _field(
@@ -236,30 +253,52 @@ class ReadingSpec(SchemaSpec, _ReadingSpecInternal):
         example=["Step", "Step Name", "Voice", "Action", "Target", "Notes"],
         default_factory=list,
     )
-    words: Dict[str, Any] = _field(
-        help=(
-            "How a row in the cell format is read (pythontk's `ManifestActions`), `{word: [case, ...]}`: the "
-            "first case whose `if` holds says which behavior the row is and where each cell goes "
-            "(`behavior`, `targets`, `fields`, `nodes`, `lists`, `settings`, `pass`, `to`, `clip`, `brings`, "
-            "`order`; `sheets/_cell_reading.py`). A word with no case here is left as written."
-        ),
-        example={"take": [{"behavior": "take"}]},
-        default_factory=dict,
-    )
     question: Dict[str, str] = _field(
         help=(
-            "How a question is written: a step with a row starting `mark` is one, its rows no phrase "
-            "reads its options, each read as `behavior`, its text in the field `label` names, the marked "
-            "one's field `value` names holding `correct`."
+            "How a sheet of sentences writes a question: a step with a row starting `mark` is one, its rows no "
+            "other template reads its options (the clause templates of the `option` role, whose `{mark}` "
+            "stands for it): the marked one the right answer."
         ),
-        example={
-            "mark": "*",
-            "behavior": "option",
-            "label": "label",
-            "value": "value",
-            "correct": "correct",
-        },
+        example={"mark": "*"},
         default_factory=dict,
+    )
+    order_by: Dict[str, str] = _field(
+        help=(
+            "The words whose row stands at its step's start or end, `{word: setting}`: the setting (its word's "
+            "default where the row gives none) saying `start` or `end` (`travel`: `when`). Any other row "
+            "stands where it is written, a row that plays after a take (its `after`) after that take's row."
+        ),
+        example={"travel": "when"},
+        default_factory=dict,
+    )
+    applies: Dict[str, Dict[str, List[Dict[str, Any]]]] = _field(
+        help=(
+            "The settings that do something only beside other cells or settings, `{word: {setting: [condition, "
+            "...]}}`: a row giving one meets one of its conditions (`{cell or setting: value}`, `any` / `none`: "
+            "another row of the step does / none does), else it is a warning, never dropped in silence (one "
+            "written at its word's default changes nothing)."
+        ),
+        validate=_ReadingSpecInternal.validate_applies,
+        example={"use": {"hold": [{"trigger": "hold"}]}},
+        default_factory=dict,
+    )
+    caption: str = _field(
+        help=(
+            "A regex whose `what` group is what a sheet of sentences' row says its picture shows (\"PiP screen "
+            "shows the bolt\"): a `captioned` row's `label`, capitalized, where it has none (the row's words "
+            "where it does not match)."
+        ),
+        validate=_ReadingSpecInternal.validate_caption,
+        example=r"(?:showing|shows|with)\s+(?P<what>.+?)(?:\s+appears)?\.?$",
+        default="",
+    )
+    separators: List[str] = _field(
+        help=(
+            "What splits a `buttons` row's `label` into its buttons (\"YES and NO\"): punctuation as written, a "
+            "word where it stands alone."
+        ),
+        example=[",", "&", "and", "or"],
+        default_factory=list,
     )
     vocabulary: Dict[str, Any] = _field(
         help=(

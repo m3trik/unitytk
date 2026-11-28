@@ -8,7 +8,7 @@ namespace M3trik.Unitytk.Kits.Tasks
     static class Rows
     {
         // "it names nothing to <verb>" where action names no target (verb: what its rows do to them; null: its
-        // behavior's name in words, fade_in: fade in); nothing where it names one.
+        // behavior's name in words, pick_up: pick up); nothing where it names one.
         internal static IEnumerable<string> NeedTargets(SheetPlan.Shape.PlanAction action, string verb = null)
         {
             if (action.targets != null && action.targets.Count > 0) yield break;
@@ -16,19 +16,19 @@ namespace M3trik.Unitytk.Kits.Tasks
         }
 
         // Said where step's row asks something else of one of its targets than the scene's target will: a target asks for
-        // one thing in hand in every step it is acted on (the last a row names), so a row that names another, or none,
-        // is done only with that one in hand. Nothing where every row acting on it agrees.
+        // one thing in hand (its row's With) in every step it is acted on (the last a row names), so a row that names
+        // another, or none, is done only with that one in hand. Nothing where every row acting on it agrees.
         internal static void OneTool(SheetPlan.Shape.PlanAction action, SheetPlan.Shape.PlanStep step, ManifestScene scene, OpContext ctx)
         {
             if (action.targets == null) return;
-            string own = action.Field(TaskKit.Fields.Tool) ?? "";
+            string own = action.Field(TaskKit.Fields.With) ?? "";
             foreach (string path in action.targets)
             {
                 string asked = "", by = "";
                 foreach (var (other, row) in PlanOrder.All(scene.Plan))
                 {
-                    string theirs = row.Field(TaskKit.Fields.Tool) ?? "";
-                    if (theirs.Length == 0 || row.targets == null || !row.targets.Contains(path) || !TaskBehaviors.Traits(row.behavior).ActsOn) continue;
+                    string theirs = row.Field(TaskKit.Fields.With) ?? "";
+                    if (theirs.Length == 0 || row.targets == null || !row.targets.Contains(path) || !TaskBehaviors.Traits(row, other).ActsOn) continue;
                     asked = theirs;
                     by = other.id;
                 }

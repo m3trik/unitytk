@@ -8,28 +8,28 @@ using UnityEngine;
 
 namespace M3trik.Unitytk.Kits.Tasks
 {
-    // What every builder of a part that needs a tool shares: selected without it, the part says so on
-    // the task's placard (the row's refusedReply), so a refusal is never silent.
+    // What every builder of a part that needs something in hand shares: selected without it, the part says so on
+    // the task's placard (its use.refused), so a refusal is never silent.
     static class Refusals
     {
-        // Have node's target (path, a target of action in step), needing tool, tell the user to take it when refused.
+        // Have node's target (path, a target of action in step), needing tool in hand, tell the user to take it when refused.
         internal static void Say(ManifestScene scene, SheetPlan.Shape.PlanStep step, SheetPlan.Shape.PlanAction action, string path,
                                  GameObject node, GameObject tool, OpContext ctx)
         {
             TaskSettings own = scene.Settings<TaskSettings>(step.id, path, action);
-            if (tool == null || string.IsNullOrEmpty(own.refusedReply)) return;
+            if (tool == null || string.IsNullOrEmpty(own.use.refused)) return;
             Target target = node.GetComponent<Target>();
             PanelsActions.SayOn(TaskKit.PlacardName(scene), node, target, target == null ? null : target.onRefused,
-                                own.refusedReply.Replace("{0}", Readable(tool.name, own.nameSuffixes)), ctx);
+                                own.use.refused.Replace("{0}", Readable(tool.name, own.nameSuffixes)), ctx);
         }
 
-        // Whether a target of action in step says something when refused (it names a tool, and the row's reply says
+        // Whether a target of action in step says something when refused (it names a With, and its reply says
         // something): its step puts that on the placard.
         internal static bool Says(ManifestScene scene, SheetPlan.Shape.PlanStep step, SheetPlan.Shape.PlanAction action)
         {
-            if (string.IsNullOrEmpty(action.Field(TaskKit.Fields.Tool)) || action.targets == null) return false;
+            if (string.IsNullOrEmpty(action.Field(TaskKit.Fields.With)) || action.targets == null) return false;
             foreach (string path in action.targets)
-                if (!string.IsNullOrEmpty(scene.Settings<TaskSettings>(step.id, path, action).refusedReply)) return true;
+                if (!string.IsNullOrEmpty(scene.Settings<TaskSettings>(step.id, path, action).use.refused)) return true;
             return false;
         }
 

@@ -3,9 +3,9 @@ using M3trik.Unitytk.Manifests;
 namespace M3trik.Unitytk.Kits.Tasks
 {
     /// <summary>
-    /// A behavior whose rows put something on the task's placard: on their step's page (the text a
-    /// <c>placard</c> row quotes, a <c>number_pad</c> row's keys, a wrong answer's reply), or on the placard
-    /// beside it (a checklist, a tick, what a part selected without its tool says: <see cref="TaskPage.OnPlacard"/>).
+    /// A behavior whose rows put something on the task's placard: on their step's page (the key pad an
+    /// <c>answer</c> row brings, a wrong answer's reply), or on the placard beside it (a list, a tick, what a part
+    /// selected without what it needs in hand says: <see cref="TaskPage.OnPlacard"/>).
     /// An <see cref="IManifestBehavior"/> implementing it fills the page as it is made (<see cref="TaskPage"/>), a
     /// project's own behavior as the kit's do; what it fills decides whether its step gets a page and the task its
     /// placard (<see cref="TaskSettings.pages"/>). A label it offers needs no filling:

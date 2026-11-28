@@ -1,0 +1,15 @@
+{
+  "word": "note",
+  "order": 50,
+  "description": "The picture goes away: the span of the picture still shown ends here (its `until`).",
+  "detect": [
+    "^pip\\s+screen\\s+fades\\s+(?:away|out)$"
+  ],
+  "span": {
+    "word": "picture",
+    "setting": "until"
+  },
+  "roles": [
+    "closes"
+  ]
+}

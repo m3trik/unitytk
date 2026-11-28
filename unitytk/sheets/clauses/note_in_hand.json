@@ -1,0 +1,8 @@
+{
+  "word": "note",
+  "order": 41,
+  "description": "A holdable ends in the hand after a clip that moved it: the row's With says so, so the row is a note.",
+  "detect": [
+    "^(?:the\\s+)?.+?\\s+returns?\\s+to\\s+(?:the\\s+)?hand$"
+  ]
+}

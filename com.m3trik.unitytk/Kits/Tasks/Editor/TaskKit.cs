@@ -15,8 +15,8 @@ namespace M3trik.Unitytk.Kits.Tasks
 {
     /// <summary>
     /// The Tasks kit's recipes: what makes a sheet's plan a task. The kit registers the
-    /// behaviors a task's rows read as (<see cref="TaskBehaviorAttribute"/>: take, use,
-    /// teleport, a placard's pages...), each built through the features' own actions, and builds
+    /// behaviors a task's rows read as, one builder a word of the sheet (<see cref="TaskBehaviorAttribute"/>: take, use,
+    /// travel, button...), each built through the features' own actions, and builds
     /// what they share around them (<see cref="TaskBuild"/>: the sequence the steps run in, the
     /// task's placard, its viewpoints and voices). The manifest runs them
     /// (<see cref="ManifestsActions"/>: assess, build, again on every change of the sheet or the
@@ -44,13 +44,13 @@ namespace M3trik.Unitytk.Kits.Tasks
         /// <summary>The plan's extension for the kit (<see cref="Extension"/>) holds data the kit does not read.</summary>
         public const string ExtensionCode = "unity.task.extension";
 
-        /// <summary>The issue a spot the kit places raises where none does its job (no spot on the floor sees what a teleport faces).</summary>
+        /// <summary>The issue a spot the kit places raises where none does its job (no spot on the floor sees what a travel faces).</summary>
         public const string SpotCode = "unity.task.spot";
 
         /// <summary>The issue a moved helper's place its manifest keeps raises where it reads as none (a hand edit): kept as it is, it puts nothing back.</summary>
         public const string KeptCode = "unity.task.kept";
 
-        /// <summary>The note a fade the task leaves out raises (an object its step returns goes back shown: <see cref="TaskSettings.fadeReturned"/>).</summary>
+        /// <summary>The note a hide the task leaves out raises (an object its step returns goes back shown: <see cref="HideSettings.returned"/>).</summary>
         public const string FadeReturnedCode = "unity.task.fade_returned";
 
         /// <summary>A row acts on a target with another thing in hand, or with none, than the target asks for in every step (the last a row names).</summary>
@@ -59,14 +59,11 @@ namespace M3trik.Unitytk.Kits.Tasks
         /// <summary>A viewpoint a row names faces away from what the row says the user is brought to face: the user would stand with it behind them.</summary>
         public const string FacesAwayCode = "unity.task.faces_away";
 
-        /// <summary>A pattern setting of the task (<see cref="TaskSettings.anchorPattern"/>, <see cref="TaskSettings.pipAnchorPattern"/>, <see cref="TaskSettings.captionPattern"/>) that is no regular expression: it matches nothing.</summary>
+        /// <summary>A pattern setting of the task (<see cref="TaskSettings.anchorPattern"/>, <see cref="PictureSettings.anchor"/>) that is no regular expression: it matches nothing.</summary>
         public const string PatternCode = "unity.task.pattern";
 
         /// <summary>A <c>play</c> row with no row before it in its step whose clip it can follow.</summary>
         public const string FollowsNothingCode = "unity.task.play_follows_nothing";
-
-        /// <summary>The value the plan gives a question's right answer (an <c>option</c> row's <c>value</c>).</summary>
-        public const string Correct = "correct";
 
         /// <summary>
         /// The kit's name in a plan's extensions (<see cref="SheetPlan.Extension"/>): what a sheet's settings file would give
@@ -97,12 +94,26 @@ namespace M3trik.Unitytk.Kits.Tasks
         // had a step switch stays behind to be switched twice.
         internal static string BuiltFrom(string rows) => string.IsNullOrEmpty(rows) ? rows : $"{rows} #wiring {Wiring}";
 
-        // The plan's values the kit reads by name: a row's (its clause template's groups) and a step's (the sheet's reading).
+        // The plan's values the kit reads by name, the sheet's own: a row's (its cells, and what a sentence says beyond them) and
+        // a step's (the sheet's reading).
         internal static class Fields
         {
-            internal const string Tool = "tool", Facing = "facing", Side = "side", SideOf = "side_of", Arrows = "arrows",
-                From = "from", Faces = "faces", Label = "label", Value = "value", Voice = "voice", Placard = "placard", Sound = "sound",
-                Helpers = "helpers";
+            internal const string With = "with", Label = "label", Where = "where", Helpers = "helpers", Side = "side", SideOf = "side_of",
+                Phrase = "phrase", Voice = "voice", Placard = "placard", Sound = "sound";
+        }
+
+        // The To cell's own words (else a step's ID): on, the task's end, its start again, the step again.
+        internal static class To
+        {
+            internal const string Next = "next", Exit = "exit", Restart = "restart", Retry = "retry";
+        }
+
+        // The entry of action's where for its target at index (one entry a Target, in order; a row with no Target and a where
+        // has one): the object it happens at, an artist's, used as it stands; null where it names none.
+        internal static string Where(SheetPlan.Shape.PlanAction action, int index = 0)
+        {
+            List<string> where = action == null ? null : action.FieldList(Fields.Where);
+            return where != null && index >= 0 && index < where.Count && !string.IsNullOrEmpty(where[index]) ? where[index] : null;
         }
 
         /// <summary>
@@ -168,17 +179,18 @@ namespace M3trik.Unitytk.Kits.Tasks
         public static string PlacardName(ManifestScene scene) => PlacardName(PlanOf(scene), scene.Settings<TaskSettings>());
 
         /// <summary>
-        /// The name of <paramref name="plan"/>'s picture-in-picture, in the scene's top level: <c>PiP (&lt;task&gt;)</c>,
-        /// or <c>PiP</c> for a plan that names no task (its settings file, else its sheet) (<see cref="TaskNames.pip"/>).
+        /// The name of <paramref name="plan"/>'s picture (the close-up its picture rows show), in the scene's top level:
+        /// <c>Picture (&lt;task&gt;)</c>, or <c>Picture</c> for a plan that names no task (its settings file, else its sheet)
+        /// (<see cref="TaskNames.picture"/>).
         /// </summary>
         /// <param name="plan">The plan.</param>
         /// <param name="settings">The task's settings (null: the defaults).</param>
-        public static string PipName(SheetPlan.Shape.Payload plan, TaskSettings settings = null)
-            => Owned(plan, Named(settings, n => n.pip));
+        public static string PictureName(SheetPlan.Shape.Payload plan, TaskSettings settings = null)
+            => Owned(plan, Named(settings, n => n.picture));
 
-        /// <summary><see cref="PipName(SheetPlan.Shape.Payload, TaskSettings)"/> of <paramref name="scene"/>'s plan, by its settings.</summary>
+        /// <summary><see cref="PictureName(SheetPlan.Shape.Payload, TaskSettings)"/> of <paramref name="scene"/>'s plan, by its settings.</summary>
         /// <param name="scene">The delivery.</param>
-        public static string PipName(ManifestScene scene) => PipName(PlanOf(scene), scene.Settings<TaskSettings>());
+        public static string PictureName(ManifestScene scene) => PictureName(PlanOf(scene), scene.Settings<TaskSettings>());
 
         /// <summary>
         /// The name of the top-level object holding <paramref name="plan"/>'s step sounds: <c>Voice (&lt;task&gt;)</c>,
@@ -195,7 +207,7 @@ namespace M3trik.Unitytk.Kits.Tasks
 
         /// <summary>
         /// The name of the scene's top-level object holding the viewpoints the kit places (a row that
-        /// <see cref="TaskBehaviorAttribute.Teleports"/> and says only what the user faces):
+        /// <see cref="TaskBehaviorAttribute.Travels"/> and names no <c>where</c>, only what the user faces):
         /// <c>Viewpoints (&lt;task&gt;)</c>, or <c>Viewpoints</c> for a plan that names no task (its settings file, else its sheet)
         /// (<see cref="TaskNames.viewpoints"/>).
         /// </summary>
@@ -214,27 +226,27 @@ namespace M3trik.Unitytk.Kits.Tasks
         public static string ViewpointName(string id, TaskSettings settings = null) => Named(settings, n => n.viewpoint) + id;
 
         /// <summary>
-        /// The name of the viewpoint the kit places for <paramref name="teleport"/>, a row of <paramref name="step"/> that names
+        /// The name of the viewpoint the kit places for <paramref name="travel"/>, a row of <paramref name="step"/> that names
         /// none: its own helper's name as every tool names it (<c>VIEW_&lt;step&gt;_&lt;target&gt;</c>, the plan's
-        /// <c>helpers</c>: the Shot Manifest makes it under that name); a plan read from the old sentence format carries
-        /// none, and gets <see cref="ViewpointName(string, TaskSettings)"/>, with <c>_&lt;n&gt;</c> after it for the step's
-        /// <c>n</c>th such teleport past its first (one as the step ends beside one as it starts: a viewpoint each).
+        /// <c>helpers</c>: the Shot Manifest makes it under that name); a plan that carries none gets
+        /// <see cref="ViewpointName(string, TaskSettings)"/>, with <c>_&lt;n&gt;</c> after it for the step's <c>n</c>th such
+        /// travel past its first (one as the step ends beside one as it starts: a viewpoint each).
         /// </summary>
         /// <param name="step">The row's step.</param>
-        /// <param name="teleport">The row.</param>
+        /// <param name="travel">The row.</param>
         /// <param name="settings">The task's settings (null: the defaults).</param>
-        public static string ViewpointName(SheetPlan.Shape.PlanStep step, SheetPlan.Shape.PlanAction teleport, TaskSettings settings = null)
+        public static string ViewpointName(SheetPlan.Shape.PlanStep step, SheetPlan.Shape.PlanAction travel, TaskSettings settings = null)
         {
-            string own = Helper(teleport, 0);
+            string own = Helper(travel, 0);
             if (own != null) return own;
-            int at = Spots.PlacedAt(step, teleport);
+            int at = Spots.PlacedAt(step, travel);
             return ViewpointName(step.id, settings) + (at > 1 ? $"_{at}" : "");
         }
 
         /// <summary>
         /// The name of <paramref name="action"/>'s own helper for its target at <paramref name="index"/> as every tool names
         /// it (the plan's <c>helpers</c>, the reader's <c>ptk.ManifestPlacement.helper_name</c>); null where the plan
-        /// carries none (the row names its helper, or was read from the old sentence format).
+        /// carries none (the row names its helper in its <c>where</c>, or names no target to name one by).
         /// </summary>
         /// <param name="action">A placing row.</param>
         /// <param name="index">Its target's index.</param>
@@ -258,9 +270,9 @@ namespace M3trik.Unitytk.Kits.Tasks
         /// <param name="scene">The delivery.</param>
         public static string DebugName(ManifestScene scene) => DebugName(PlanOf(scene), scene.Settings<TaskSettings>());
 
-        /// <summary>The name of the list step <paramref name="step"/>'s checklist row makes on the placard: <c>&lt;step&gt; checklist</c>.</summary>
+        /// <summary>The name of the list step <paramref name="step"/>'s list row makes on the placard: <c>&lt;step&gt; list</c>.</summary>
         /// <param name="step">The step's ID.</param>
-        public static string ChecklistName(string step) => $"{step} checklist";
+        public static string ListName(string step) => $"{step} list";
 
         /// <summary>
         /// The signal a selection of <paramref name="node"/> sends the task's sequence (<c>select:&lt;node&gt;</c>, the node
@@ -352,13 +364,14 @@ namespace M3trik.Unitytk.Kits.Tasks
             return root != null ? new PlannedObject(id, root.transform) : new PlannedObject(id, new PlannedObject(owner));
         }
 
-        /// <summary>The delivery's picture-in-picture screen (<see cref="TaskSettings.pipAnchorPattern"/>); null when it has none.</summary>
+        /// <summary>The delivery's screen for the task's picture (<see cref="PictureSettings.anchor"/>); null when it has none.</summary>
         /// <param name="scene">The delivery.</param>
         /// <param name="ctx">The run's context, told of a pattern that does not parse (<see cref="PatternCode"/>).</param>
-        public static Transform PipAnchor(ManifestScene scene, OpContext ctx = null)
+        public static Transform PictureAnchor(ManifestScene scene, OpContext ctx = null)
         {
             TaskSettings settings = scene.Settings<TaskSettings>();
-            foreach (Transform node in Matching(scene, Pattern(scene, nameof(settings.pipAnchorPattern), settings.pipAnchorPattern, ctx))) return node;
+            foreach (Transform node in Matching(scene, Pattern(scene, $"{nameof(settings.picture)}.{nameof(PictureSettings.anchor)}", settings.picture.anchor, ctx)))
+                return node;
             return null;
         }
 
@@ -371,7 +384,7 @@ namespace M3trik.Unitytk.Kits.Tasks
         /// <param name="setting">The setting's name, for the issue.</param>
         /// <param name="pattern">The setting's value; empty: none.</param>
         /// <param name="ctx">The run's context, told of one that does not parse.</param>
-        /// <param name="options">How it matches (a caption's ignores case).</param>
+        /// <param name="options">How it matches.</param>
         /// <returns>The expression; null where the pattern is empty or does not parse.</returns>
         public static System.Text.RegularExpressions.Regex Pattern(ManifestScene scene, string setting, string pattern, OpContext ctx = null,
                                                                    System.Text.RegularExpressions.RegexOptions options = System.Text.RegularExpressions.RegexOptions.None)
@@ -410,16 +423,16 @@ namespace M3trik.Unitytk.Kits.Tasks
                 Placements.HideAnchor(node.gameObject, ctx);
         }
 
-        // The viewpoints the kit places (rows that teleport naming none), in plan order, before any row is
+        // The viewpoints the kit places (rows that travel naming no where), in plan order, before any row is
         // built: every other spot (an arrow, a picture's) is placed from where the user then stands.
         internal static void PlaceViewpoints(SheetPlan.Shape.Payload plan, ManifestScene scene, ManifestAssessment assessment, OpContext ctx)
         {
             foreach (var (step, action, assessed) in PlanOrder.Assessed(plan, assessment))
-                if (assessed.state == ManifestAssessment.State.Ready && TaskBehaviors.Traits(action.behavior).Teleports
+                if (assessed.state == ManifestAssessment.State.Ready && TaskBehaviors.Traits(action, step).Travels
                     && Spots.Placed(action) && scene.Builds(step.id))
                     using (scene.For(step.id))
                         Spots.Viewpoint(scene, step, action, ctx);
-            // A viewpoint an earlier build placed for a step that its rows no longer place under that name (its teleport
+            // A viewpoint an earlier build placed for a step that its rows no longer place under that name (its travel
             // names its own now, or is gone, or its helper's name changed) goes: nothing brings the user there, and it stood
             // about in the scene looking like a place of the task's. Each is known by the key it was placed under.
             TaskSettings settings = scene.Settings<TaskSettings>();
@@ -432,11 +445,11 @@ namespace M3trik.Unitytk.Kits.Tasks
                 var placed = new HashSet<string>(StringComparer.Ordinal);
                 if (step.actions != null)
                     foreach (var action in step.actions)
-                        if (action != null && TaskBehaviors.Traits(action.behavior).Teleports && Spots.Placed(action))
+                        if (action != null && TaskBehaviors.Traits(action, step).Travels && Spots.Placed(action))
                             placed.Add(ViewpointName(step, action, settings));
                 var gone = new List<string>();
                 foreach (Transform view in root.transform)
-                    if (!placed.Contains(view.name) && (view.TryGetComponent(out PlacedSpot spot) && Spots.IsTeleportKey(spot.key, step)
+                    if (!placed.Contains(view.name) && (view.TryGetComponent(out PlacedSpot spot) && Spots.IsTravelKey(spot.key, step)
                                                          || view.name == ViewpointName(step.id, settings)))
                         gone.Add(view.name);
                 foreach (string name in gone) ViewpointsActions.RemoveViewpoint(holder, name, scene.Root.scene, ctx);
@@ -481,7 +494,7 @@ namespace M3trik.Unitytk.Kits.Tasks
         }
 
         // A rig this build made starts a little behind the task's first viewpoint, facing the way it
-        // does, so its marker shows ahead; a rig the scene had stays where a person put it. A dry run, the rig
+        // does, so its ring shows ahead; a rig the scene had stays where a person put it. A dry run, the rig
         // or the viewpoint's travel only planned, plans the move its live run makes.
         internal static void StartRig(SheetPlan.Shape.Payload plan, ManifestScene scene, OpContext ctx)
         {
@@ -490,7 +503,7 @@ namespace M3trik.Unitytk.Kits.Tasks
             float back = scene.Settings<TaskSettings>().startBack;
             foreach (var (step, action, assessed) in PlanOrder.Assessed(plan, scene.Assessment))
             {
-                if (assessed.state != ManifestAssessment.State.Ready || !TaskBehaviors.Traits(action.behavior).Teleports) continue;
+                if (assessed.state != ManifestAssessment.State.Ready || !TaskBehaviors.Traits(action, step).Travels) continue;
                 var (made, planned) = Spots.Travel(scene, step, action);
                 Traveler traveler = TravelerOf(scene, rig);
                 // A dry run that only planned to move the viewpoint (a spot placed anew) plans the rig's move after it:
@@ -550,8 +563,8 @@ namespace M3trik.Unitytk.Kits.Tasks
             return commands;
         }
 
-        // Every ready row's tool and every take or hold row's targets made holdable before any row is built,
-        // so a clip added by an early row lends every holdable it moves, however late its own row comes.
+        // Every ready row's With and every take row's targets made holdable before any row is built, so a clip added
+        // by an early row lends every holdable it moves, however late its own row comes.
         internal static void MakeHoldables(SheetPlan.Shape.Payload plan, ManifestScene scene, ManifestAssessment assessment, OpContext ctx)
         {
             foreach (var (step, action, assessed) in PlanOrder.Assessed(plan, assessment))
@@ -559,9 +572,9 @@ namespace M3trik.Unitytk.Kits.Tasks
                 if (assessed.state != ManifestAssessment.State.Ready || !scene.Builds(step.id)) continue;
                 using (scene.For(step.id))
                 {
-                    string tool = action.Field(Fields.Tool);
-                    if (!string.IsNullOrEmpty(tool)) Interaction.Interactions.MakeHoldable(scene.Node(tool).gameObject, ctx);
-                    if (TaskBehaviors.Traits(action.behavior).Holds)
+                    string with = action.Field(Fields.With);
+                    if (!string.IsNullOrEmpty(with)) Interaction.Interactions.MakeHoldable(scene.Node(with).gameObject, ctx);
+                    if (TaskBehaviors.Traits(action, step).Holds)
                         foreach (string target in action.targets)
                             Interaction.Interactions.MakeHoldable(scene.Node(target).gameObject, ctx);
                 }

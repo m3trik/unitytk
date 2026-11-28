@@ -10,8 +10,8 @@ it, the column by the template's own header), its severity, the reason and a rea
 pass's issues (:meth:`SheetPlan.parse_issue`) and the sheet's own checks, each keyed by the roles the
 clause templates declare (:attr:`ClauseSpec.roles`), never a behavior's name -- a column no field takes,
 a jump back past a take (error) or forward past one (warning), a row that goes on by itself beside a
-choice, a row shown on an empty page, an entered value and its entry row, a question's correct option,
-a list and its ticks, an arrow whose part is gone.
+choice, an entered value with no row for any other, a question's one right answer, a list and its
+ticks, a pointer whose part is gone.
 
 A strict reading (Interactive, Linear) fails on an error; any other reports the same items and passes.
 """
@@ -24,7 +24,7 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Union
 
 import pythontk as ptk
 
-from unitytk.sheets._row_reading import headers
+from unitytk.sheets._row_reading import QUESTION, _RowReading, headers
 from unitytk.sheets.delivery_index import DeliveryIndex
 from unitytk.sheets.reading_spec import ReadingSpec
 from unitytk.sheets.sheet_plan import DEFAULT_TEMPLATE, SheetPlan
@@ -116,9 +116,8 @@ class _SheetCheckInternal:
 
     @classmethod
     def _flow(cls, plan: SheetPlan, steps, context: "_Context") -> List[CheckItem]:
-        """Jumps past takes, a row going on by itself beside a choice, a row shown on an empty page, an
-        entered value and its entry and otherwise rows, a question's correct option, and the lists (as the
-        clause templates' roles say)."""
+        """Jumps past takes, a row going on by itself beside a choice, an entered value and its otherwise row, a
+        question's right answer, and the lists (as the clause templates' roles say)."""
         out: List[CheckItem] = []
         order = {s.id: i for i, s in enumerate(plan.steps)}
         plays = [any(a.clip for a in s.actions) for s in plan.steps]
@@ -182,9 +181,7 @@ class _SheetCheckInternal:
     def _jump(plan, i, a, order, plays, add) -> None:
         """A jump of step *i*'s row *a* back past a take (an error) or forward past one (a warning)."""
         if not a.to or a.to not in order:
-            return
-        if a.restart:
-            return  # the scene loads again: nothing a take did stands
+            return  # a destination: restart loads the scene again, so nothing a take did stands
         to = order[a.to]
         step = plan.steps[i]
         if to <= i:
@@ -216,7 +213,7 @@ class _SheetCheckInternal:
         acts = step.actions
         roles = [context.roles(a) for a in acts]
         has = lambda role: [a for a, r in zip(acts, roles) if role in r]  # noqa: E731
-        choices = has("advances") + [a for a in acts if a.behavior == context.option]
+        choices = has("advances")
         for goes_on in has("continues")[:1] if choices else []:
             add(
                 step,
@@ -226,54 +223,32 @@ class _SheetCheckInternal:
                 % goes_on.text,
                 "remove that row",
             )
-        page = context.reading.page
-        for shown in (
-            has("on_page")[:1] if page and not (step.field(page) or "").strip() else []
-        ):
-            add(
-                step,
-                shown,
-                "warning",
-                "'%s' is shown on the step's %s, which is empty"
-                % (shown.text, context.page),
-                "write its text in %s" % context.page,
-            )
         entered = has("entered")
-        if entered:
-            entries = has("entry")
-            if not entries:
-                add(
-                    step,
-                    entered[0],
-                    "error",
-                    "a value is entered with no %s row in the step"
-                    % context.names("entry"),
-                    "add a %s row to the step" % context.names("entry"),
-                )
-            elif not has("otherwise"):
-                cells = context.written(step, role="otherwise")
-                add(
-                    step,
-                    None if cells else entries[0],  # in cells it is a row the step lacks: the step's own
-                    "error",
-                    "no row of the step takes any other value" if cells
-                    else "the %s has no row for any other value" % entries[0].behavior,
-                    "add %s" % cells if cells
-                    else "add a row taken for any other value (%s)" % context.templates("otherwise"),
-                )
-        options = [a for a in acts if a.behavior == context.option]
-        correct = sum(1 for a in options if a.field(context.value) == context.correct)
-        if options and correct != 1:
-            cells = context.written(step, behavior=context.option, fields={context.value: context.correct})
+        if entered and not has("otherwise"):
+            cells = context.written(step, "otherwise")
             add(
                 step,
-                None,
+                None if cells else entered[0],  # in cells it is a row the step lacks: the step's own
                 "error",
-                "the question has %s right answers" % correct if cells
-                else "the question marks %s options correct" % correct,
-                "write exactly one: %s" % cells if cells
-                else "mark exactly one option with a leading %s" % context.mark,
+                "no row of the step takes any other value",
+                "add %s" % cells if cells
+                else "add a row taken for any other value (%s)" % context.templates("otherwise"),
             )
+        # A question: a step holding a wrong answer's choice, or written as one; exactly one answer of it right.
+        right, wrong = QUESTION
+        if any(a.to == wrong for a in choices) or step.id in context.questions:
+            correct = sum(1 for a in choices if a.to == right)
+            if correct != 1:
+                cells = context.written(step, "option", {"to": right})
+                add(
+                    step,
+                    None,
+                    "error",
+                    "the question has %s right answers" % correct if cells
+                    else "the question marks %s options correct" % correct,
+                    "write exactly one: %s" % cells if cells
+                    else "mark exactly one option with a leading %s" % context.mark,
+                )
 
     @staticmethod
     def _list_items(label) -> List[str]:
@@ -289,23 +264,13 @@ class _SheetCheckInternal:
 
     @classmethod
     def _lists(cls, plan: SheetPlan, context: "_Context", add: Callable) -> None:
-        """A row going to the questions with no question after it; a list naming no items whose tick rows (up
-        to the next list) add none; a tick no list before it holds. Each is reported through *add*."""
+        """A list naming no items whose tick rows (up to the next list) add none; a tick no list before it holds.
+        Each is reported through *add*."""
         flat = [(s, a, context.roles(a)) for s in plan.steps for a in s.actions]
         lists = []  # the items of each list so far, latest last
         for n, (step, a, roles) in enumerate(flat):
             label = a.field("label")
-            if "questions" in roles and not any(
-                s.id != step.id and b.behavior == context.option for s, b, _ in flat[n:]
-            ):
-                add(
-                    step,
-                    a,
-                    "error",
-                    "no step after it asks a question",
-                    "write the questions: a step per question, its options its rows, the right one marked",
-                )
-            elif "lists" in roles:
+            if "lists" in roles:
                 items = cls._list_items(label)
                 if not items:
                     for _, later, later_roles in flat[n + 1 :]:
@@ -355,11 +320,12 @@ class _SheetCheckInternal:
         ]
 
     @staticmethod
-    def _arrows(index: DeliveryIndex, names: Mapping[str, Any]) -> List[CheckItem]:
-        """Each arrow of the delivery whose part it lacks (*names*' ``arrow`` rule; none stated, none known)."""
-        if not names.get("arrow"):
+    def _pointers(index: DeliveryIndex, names: Mapping[str, Any]) -> List[CheckItem]:
+        """Each authored pointer of the delivery whose part it lacks (*names*' ``point`` rule; none stated, none
+        known)."""
+        if not names.get("point"):
             return []
-        pattern = re.compile(names["arrow"])
+        pattern = re.compile(names["point"])
         out = []
         for path in index.paths:
             leaf = path.rsplit("|", 1)[-1]
@@ -374,9 +340,9 @@ class _SheetCheckInternal:
                         None,
                         "",
                         "warning",
-                        "the arrow %s points at %s, which the delivery lacks"
+                        "the pointer %s points at %s, which the delivery lacks"
                         % (leaf, part),
-                        "rename the arrow after its part, or remove it",
+                        "rename the pointer after its part, or remove it",
                     )
                 )
         return out
@@ -580,44 +546,35 @@ class _Context:
         self.reading = reading
         self.book = book
         self.columns = headers(template)
-        question = reading.question or {}
-        self.option = question.get("behavior", "")
-        self.mark = question.get("mark", "")
-        self.value = question.get("value", "value")
-        self.correct = question.get("correct", "correct")
+        self.mark = (reading.question or {}).get("mark", "")
         self.page = ReadingSpec.header(
             template, reading.source_of(reading.page) or reading.page
         )
         #: The steps whose rows are written in cells: their fixes say the word and its cells.
         self.celled: set = set()
+        #: The steps of a sheet of sentences written as a question (a row of each led by the question mark).
+        self.questions: set = set()
 
-    def written(self, step, role: str = "", behavior: str = "", fields: Optional[Mapping[str, str]] = None) -> str:
-        """How a row of *role* (or of *behavior* carrying *fields*) is written in cells, from the
-        reading's words: ``a button row whose To is next``. Empty where *step* is not written in
-        cells, or no word's case is such a row."""
+    def written(self, step, role: str, fields: Optional[Mapping[str, str]] = None) -> str:
+        """How a row of *role* (carrying *fields*) is written in cells, from the clause template that reads one:
+        ``an answer row whose Label is *``. Empty where *step* is not written in cells, or no template is such a
+        row."""
         if step.id not in self.celled:
             return ""
-        for word, cases in (self.reading.words or {}).items():
-            for case in cases:
-                made = case.get("behavior", "")
-                if role and role not in self.book.roles(made, case.get("settings") or {}):
-                    continue
-                if behavior and made != behavior:
-                    continue
-                if any((case.get("fields") or {}).get(k) != v for k, v in (fields or {}).items()):
-                    continue
-                cells = ["%s is %s" % (k.title(), v) for k, v in (case.get("if") or {}).items() if isinstance(v, str)]
-                return "a%s %s row%s" % ("n" if word[:1] in "aeiou" else "", word,
-                                         " whose " + " and ".join(cells) if cells else "")
-        return ""
+        found = self.book.written(role, fields)
+        if found is None:
+            return ""
+        word, cells = found
+        said = ["%s is %s" % (k.title(), v) for k, v in cells.items()]
+        return "a%s %s row%s" % ("n" if word[:1] in "aeiou" else "", word,
+                                 " whose " + " and ".join(said) if said else "")
 
     def roles(self, action) -> set:
-        """The roles of *action* (its behavior, its settings), the question's options advancing."""
-        found = set(self.book.roles(action.behavior, action.settings))
-        return found | ({"advances"} if action.behavior == self.option else set())
+        """The roles of *action*: its word's, as its settings, fields and jump say (:meth:`ClauseBook.roles`)."""
+        return set(self.book.roles(action.behavior, action.settings, action.fields, action.to))
 
     def names(self, role: str) -> str:
-        """The behaviors of *role*, ``/`` joined."""
+        """The words of *role*, ``/`` joined."""
         return "/".join(sorted(self.book.with_role(role))) or role
 
     def templates(self, role: str) -> str:
@@ -671,7 +628,7 @@ class SheetCheck(_SheetCheckInternal):
             delivery: The FBX (path) or its :class:`DeliveryIndex`; None checks the sheet alone, its own
                 names standing for the delivery.
             mapping: As :meth:`SheetPlan.from_sheet` (:data:`DEFAULT_TEMPLATE` where None).
-            reading: As :meth:`SheetPlan.from_sheet`: its name rules are the check's too (``arrow``).
+            reading: As :meth:`SheetPlan.from_sheet`: its name rules are the check's too (``point``).
             options: As :meth:`SheetPlan.from_sheet`.
             aliases: As :meth:`SheetPlan.from_sheet`.
             book: As :meth:`SheetPlan.from_sheet`.
@@ -708,6 +665,7 @@ class SheetCheck(_SheetCheckInternal):
         )
         context = _Context(reading, book, template)
         context.celled = {s.step_id for s in steps if s.rows and all(r.get("cells") for r in s.rows)}
+        context.questions = {s.step_id for s in steps if _RowReading.marked(s, context.mark)}
         columns = context.columns
 
         items = [
@@ -742,9 +700,9 @@ class SheetCheck(_SheetCheckInternal):
             else []
         )
         if delivery is not None:
-            # A sheet of sentences finds an arrow by its name; a sheet in cells names it in With.
+            # A sheet of sentences finds a pointer by its name; a sheet in cells names it in its Settings' where.
             if not all(row.get("cells") for step in steps for row in step.rows):
-                items += cls._arrows(index, reading.names or {})
+                items += cls._pointers(index, reading.names or {})
             items += [i for i in ends if not i.step]
         order = {s.id: i for i, s in enumerate(plan.steps)}
         found = cls._flow(plan, steps, context)

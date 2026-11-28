@@ -1,0 +1,15 @@
+{
+  "word": "note",
+  "order": 51,
+  "description": "The list goes from the page: the span of the list still shown ends here (its `until`).",
+  "detect": [
+    "^(?:the\\s+)?checklist\\s+(?:fades\\s+(?:away|out)|goes\\s+away|is\\s+(?:removed|hidden))$"
+  ],
+  "span": {
+    "word": "list",
+    "setting": "until"
+  },
+  "roles": [
+    "closes"
+  ]
+}

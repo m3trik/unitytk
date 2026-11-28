@@ -1,0 +1,12 @@
+{
+  "word": "note",
+  "order": 96,
+  "column": "hint",
+  "description": "The page reads the quoted text: the step's page text, where it has none.",
+  "detect": [
+    "^placard\\s+text\\s+reads\\s+[\\\"'](?P<label>.+)[\\\"']$"
+  ],
+  "roles": [
+    "page"
+  ]
+}

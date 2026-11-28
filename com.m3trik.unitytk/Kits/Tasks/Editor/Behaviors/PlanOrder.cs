@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace M3trik.Unitytk.Kits.Tasks
 {
     // A plan's actions in its order, around one of them: what a builder reads of the rest of the
-    // task (the marker a later teleport's viewpoint gives, the checklist an earlier row showed).
+    // task (the list an earlier row showed, the next row of its own word).
     static class PlanOrder
     {
         // Every (step, action) of the plan, in order.
@@ -45,20 +45,6 @@ namespace M3trik.Unitytk.Kits.Tasks
             }
             before.Reverse();
             return before;
-        }
-
-        // Whether action comes after its step's advance row (Next, a goto, an exit, a quiz): a
-        // move the sheet writes after "Selecting 'Next' ..." happens as the step ends.
-        internal static bool AfterAdvance(SheetPlan.Shape.PlanStep step, SheetPlan.Shape.PlanAction action)
-        {
-            bool advanced = false;
-            if (step.actions == null) return false;
-            foreach (var each in step.actions)
-            {
-                if (each == action) return advanced;
-                advanced |= TaskBehaviors.Traits(each.behavior).EndsStep;
-            }
-            return false;
         }
 
         // The plan's actions from action on (itself first); none when the plan lacks it.

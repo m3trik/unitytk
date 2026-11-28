@@ -137,11 +137,14 @@ namespace M3trik.Unitytk.Manifests
 
         /// <summary>
         /// The settings of type <typeparamref name="T"/> one object of a step is built by: the kit's
-        /// (<see cref="Settings{T}()"/>), with what <paramref name="row"/> says over them (its words:
-        /// "Pressing and holding" a Use held to play), and what the manifest keeps as the object's own for the row's
+        /// (<see cref="Settings{T}()"/>), with what <paramref name="row"/> says over them (its Settings cell:
+        /// <c>trigger=hold</c> a Use held to play), and what the manifest keeps as the object's own for the row's
         /// behavior over those (<see cref="Manifest.Tune.values"/>: an arrow's colour, a button held to play). The kit's
-        /// where neither says any. A name that is no field of <typeparamref name="T"/> is left out, and said (a note on
-        /// the row being built).
+        /// where neither says any. A row's setting is named as its sheet names it, and resolves under the member of
+        /// <typeparamref name="T"/> named as the row's behavior where it has one (<c>size</c> on an <c>indicate</c> row:
+        /// <c>indicate.size</c>, <see cref="ManifestBehaviors.SettingName"/>), else by that name alone; an object's own
+        /// values are kept by those names. A name that is no field of <typeparamref name="T"/> is left out, and said (a
+        /// note on the row being built).
         /// </summary>
         /// <typeparam name="T">The kit's settings type.</typeparam>
         /// <param name="step">The step's ID.</param>
@@ -155,7 +158,8 @@ namespace M3trik.Unitytk.Manifests
             T kit = Settings<T>();
             int place = row != null && Rows.TryGetValue(row, out int known) ? known : -1;
             if (string.IsNullOrEmpty(target)) target = ManifestsActions.RowTarget(Manifest, step, row, place);  // a row of one object's own: its object's
-            List<Manifest.Value> values = ManifestValues.Over(Manifest, step, target, place, row?.settings, Planned, row?.behavior);
+            List<Manifest.Value> said = ManifestValues.Said(typeof(T), row?.behavior, row?.settings);
+            List<Manifest.Value> values = ManifestValues.Over(Manifest, step, target, place, said, Planned, row?.behavior);
             if (values.Count == 0) return kit;
             var key = (typeof(T), step ?? "", target ?? "", string.Join(";", values.Select(v => v.name + "=" + v.value)));
             if (_own.TryGetValue(key, out ScriptableObject made) && made != null) return (T)made;
@@ -166,7 +170,7 @@ namespace M3trik.Unitytk.Manifests
             {
                 string where = string.IsNullOrEmpty(target) ? step : $"{target.Substring(target.LastIndexOf('|') + 1)} in {step}";
                 Note($"{where}: {string.Join(", ", unknown)} is no setting of {typeof(T).Name} (or holds no value of its kind): " +
-                     "left out; correct its name in the sheet's reading or the object's own values");
+                     "left out; correct its name in the sheet's Settings or the object's own values");
             }
             _own[key] = own;
             return own;

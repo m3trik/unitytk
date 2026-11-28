@@ -1,0 +1,14 @@
+{
+  "word": "highlight",
+  "order": 91,
+  "description": "Targets turn on (a light): held highlighted, steady.",
+  "detect": [
+    "^(?P<targets>.+?)\\s+turns\\s+on$"
+  ],
+  "settings": {
+    "style": "steady"
+  },
+  "roles": [
+    "plural"
+  ]
+}

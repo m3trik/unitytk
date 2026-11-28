@@ -18,8 +18,8 @@ namespace M3trik.Unitytk.Kits.Tasks
         [Tooltip("The task's placard: a page per step.")]
         public string placard = "Placard";
 
-        [Tooltip("The task's picture-in-picture.")]
-        public string pip = "PiP";
+        [Tooltip("The task's picture: the close-up a picture row shows.")]
+        public string picture = "Picture";
 
         [Tooltip("What holds the steps' sounds.")]
         public string voice = "Voice";

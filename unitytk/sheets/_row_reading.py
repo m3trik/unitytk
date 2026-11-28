@@ -8,7 +8,8 @@ its Action cell; a phrase's words bind only to the names the same row lists in i
 to a scene name written inline), so a match cannot wander to another part; a modifier the phrase
 carries that contradicts the name it matched ("the bottom latch" against ``LATCH_UPPER``) is an
 error, as is a row nothing reads, but in a question (a step with a row written with the reading's
-question mark, ``* ...``), whose rows no phrase reads are its options, the marked one correct. Each
+question mark, ``* ...``), whose rows no other phrase reads are its options (the templates of the
+``option`` role: a button going on for the marked one, a wrong answer for the rest). Each
 animation row's take is checked by what it moves, read from the delivery's keys: a take moving
 another row's names and none of its own is an error, one moving none of its own a warning (a name
 two rows list counts for neither). Every issue is stated with its column (``(column, text)``, the
@@ -30,6 +31,9 @@ from unitytk.sheets.reading_spec import ReadingSpec
 
 #: The behavior of a row no template reads: the plan keeps it, with its issue.
 UNREAD = "unread"
+#: Where a question's answers go, of pythontk's destinations: a right one on (``next``), a wrong one nowhere, the
+#: step staying (``retry``). A step holding a wrong answer's choice is a question.
+QUESTION = ("next", "retry")
 #: A collaborator's mark of an issue that is a warning (``warning: <reason>: <fix>``): the plan lists it apart.
 WARNING = "warning: "
 #: The columns an issue names, by the template's field name, and the header each falls back to.
@@ -91,37 +95,30 @@ class _RowReading:
             "action": self.columns["action"], "target": self.columns["assets"], "clip": self.columns["clip"],
             "with": "With", "members": "Members", "label": "Label", "to": "To", "settings": "Settings",
         }
-        # The Action cell's words: every behavior the book reads (a project's own too), each reading that gives its
-        # behavior settings (by its template's name), and the reading's own words; each with the settings it gives.
+        # The Action cell's words: every word the book reads (a project's own templates too), and the reading's own
+        # words, each with the settings its template gives.
         self.actions = {b.replace("_", " "): (b, {}) for b in book.behaviors()}
         readings = book.readings()
-        for name, (behavior, settings) in readings.items():
-            if settings:
-                self.actions.setdefault(name.replace("_", " "), (behavior, settings))
         for word, template in (reading.action_words or {}).items():
             if template in readings:  # a word for a template this book lacks is no word
                 self.actions[word] = readings[template]
 
     # ---- rows -> clauses ----------------------------------------------------------------------------------------
 
-    def _option(self, text: str, row: int, cells: Dict, issues: List[Issue]):
-        """A question's row *text* read as its option (the reading's question behavior), the marked one correct."""
-        question = self.reading.question or {}
-        mark = question.get("mark", "")
-        correct = bool(mark) and text.startswith(mark)
-        label = text[len(mark) :].strip() if correct else text
-        fields = {question.get("label", "label"): label}
-        if correct:
-            fields[question.get("value", "value")] = question.get("correct", "correct")
-        return (
-            Clause(question.get("behavior", "option"), text, fields),
-            row,
-            cells,
-            issues,
+    @staticmethod
+    def marked(step, mark: str) -> bool:
+        """Whether *step*, of a sheet of sentences, is written as a question: a row of it starts with *mark* (the
+        reading's question mark, ``* ...``)."""
+        return bool(mark) and any(
+            not r.get("cells") and (r.get("text") or "").lstrip().startswith(mark) for r in step.rows
         )
 
+    def is_question(self, step) -> bool:
+        """Whether *step* is a question (:meth:`marked`), so its rows no other template reads are its options."""
+        return self.marked(step, (self.reading.question or {}).get("mark", ""))
+
     def clauses(self, step) -> List[Tuple[Clause, int, Dict, List[Issue]]]:
-        """``[(clause, row number, row, issues)]`` for every row of *step*, in order; a row nothing
+        """``[(clause, row number, row, issues)]`` for every row of *step*, as its step runs them; a row nothing
         reads is an ``unread`` clause with its issue.
 
         Parameters:
@@ -130,36 +127,20 @@ class _RowReading:
         """
         out = []
         placed: List[Tuple[str, str]] = []  # each item's (order, the take it plays after), where a cell row's
-        # What a span of this step's rows shows, first: it is there before the row that set it happens.
-        for clause in self.cells.openings.get(step.step_id, ()):
-            out.append((clause, None, {"cells": True, "assets": []}, []))
-            placed.append(("start", ""))
-        brought: set = set()
-        mark = (self.reading.question or {}).get("mark", "")
-        # A step with a row written with the question mark is a question: its rows no phrase reads are its options.
-        question = bool(mark) and any(
-            (r.get("text") or "").lstrip().startswith(mark) for r in step.rows
-        )
+        question = self.is_question(step)
         for n, row in enumerate(step.rows, 1):
             if row.get("cells"):
                 read, issues, order, after = self.cells.read(row, step.rows, self._heads(row), step.step_id)
-                for i, clause in enumerate(read):
-                    last = i == len(read) - 1
-                    if not last and clause.behavior in brought:
-                        continue  # what a case brings, its step has once
-                    if not last:
-                        brought.add(clause.behavior)
-                    out.append((clause, n, row, issues if last else []))
-                    placed.append((order, after) if last else ("", ""))
+                for clause in read:
+                    out.append((clause, n, row, issues))
+                    placed.append((order, after))
                 continue
             text = (row.get("text") or "").strip()
             action = (row.get("action") or "").strip().lower()
             read = self.book.read(text) if text else []
             issues: List[Issue] = []
             if question and text and not read and not action:
-                out.append(self._option(text, n, row, issues))
-                placed.append(("", ""))
-                continue
+                read = self.book.read(text, options=True)  # a question's option: the marked one right
             if action:
                 read = self._action_cell(action, text, row, read, issues)
             if not read:
@@ -176,16 +157,13 @@ class _RowReading:
             for i, clause in enumerate(read):
                 out.append((clause, n, row, issues if i == 0 else []))
                 placed.append(("", ""))
-        # What ends in this step: a thing an earlier step showed goes as this one starts, its own as it ends.
-        for clause, from_another in self.cells.closings.get(step.step_id, ()):
-            out.append((clause, None, {"cells": True, "assets": []}, []))
-            placed.append(("start" if from_another else "end", ""))
         return self._ordered(out, placed)
 
     @staticmethod
     def _ordered(items: List, placed: List[Tuple[str, str]]) -> List:
         """*items* as their step runs them: a cell row's order carries no meaning, so one its word places
-        at its step's start or end stands there, and one that plays after a take follows that take's row."""
+        at its step's start or end (:attr:`ReadingSpec.order_by`) stands there, and one that plays after a take
+        follows that take's row."""
         if not any(order or after for order, after in placed):
             return items
         paired = list(zip(items, placed))
@@ -203,7 +181,7 @@ class _RowReading:
         self, action: str, text: str, row: Dict, read: List[Clause], issues: List[Issue]
     ) -> List[Clause]:
         """What a row with Action cell *action* reads as: its phrase's clauses, the settings the word gives
-        added; the word's own behavior where no phrase reads the row; an issue where they disagree."""
+        added; the word itself where no phrase reads the row; an issue where they disagree."""
         behavior, settings = self.actions.get(action, (None, {}))
         if behavior is None:
             issues.append(

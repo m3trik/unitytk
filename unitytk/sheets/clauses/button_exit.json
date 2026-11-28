@@ -1,0 +1,15 @@
+{
+  "word": "button",
+  "order": 12,
+  "description": "A quoted button ends the task.",
+  "detect": [
+    "^selecting\\s+['\\\"](?P<label>[^'\\\"]+)['\\\"]\\s+ends\\s+the\\s+(?:module|task)$"
+  ],
+  "fields": {
+    "to": "exit"
+  },
+  "roles": [
+    "advances",
+    "ends_step"
+  ]
+}

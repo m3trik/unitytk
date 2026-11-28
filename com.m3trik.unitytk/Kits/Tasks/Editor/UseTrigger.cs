@@ -1,13 +1,19 @@
 namespace M3trik.Unitytk.Kits.Tasks
 {
-    /// <summary>How a Use row's object plays its take (<see cref="TaskSettings.useTrigger"/>).</summary>
+    /// <summary>What sets a Use row's take off (<see cref="UseSettings.trigger"/>, the sheet's <c>trigger</c>).</summary>
     public enum UseTrigger
     {
-        /// <summary>A click plays it to its end.</summary>
-        Click = 0,
-        /// <summary>It plays while the object is held pressed; let go, it stops (or plays back: <see cref="TaskSettings.releaseRewinds"/>).</summary>
-        HoldToPlay = 1,
-        /// <summary>A press held for <see cref="TaskSettings.pressSeconds"/> plays it, as a click would; let go sooner, nothing plays.</summary>
-        TimedPress = 2,
+        /// <summary>Selecting the object plays it to its end (held <see cref="UseSettings.hold"/> seconds first, where that is above 0).</summary>
+        Select = 0,
+        /// <summary>
+        /// Holding the object pressed: with <see cref="UseSettings.hold"/> 0 it plays while held, and let go it stops (or plays
+        /// back: <see cref="UseSettings.rewind"/>); above 0, a press held that long plays it, as a select would.
+        /// </summary>
+        Hold = 1,
+        /// <summary>
+        /// Bringing what the hand holds (the row's With) to the object, or selecting the object with it in hand: what the take
+        /// moves into place stays there, out of the hand (<see cref="UseSettings.stays"/>).
+        /// </summary>
+        Near = 2,
     }
 }

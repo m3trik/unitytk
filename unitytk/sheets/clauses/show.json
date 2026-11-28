@@ -1,15 +1,11 @@
 {
-  "behavior": "show",
-  "order": 60,
-  "also": [
-    "highlight"
-  ],
-  "description": "A hidden target appears, highlighted.",
+  "word": "show",
+  "order": 71,
+  "description": "Targets fade into view.",
   "detect": [
-    "^highlighted\\s+(?P<targets>.+?)\\s+appears?\\s+in\\s+place$"
+    "^(?:the\\s+)?(?P<targets>.+?)\\s+fades?\\s+in(?:\\s+(?:at|on)\\s+.+)?$"
   ],
   "roles": [
-    "shows",
     "plural"
   ]
 }

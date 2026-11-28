@@ -1,8 +1,8 @@
 {
-  "behavior": "note",
+  "word": "note",
   "order": 5,
   "description": "A row for people, with nothing to build (\"Note: ...\"; any row whose Action cell says note).",
   "detect": [
-    "^note\\s*:\\s*(?P<phrase>.+)$"
+    "^note\\s*:\\s*.+$"
   ]
 }

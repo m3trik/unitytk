@@ -247,6 +247,49 @@ namespace M3trik.Unitytk.Indicators
         const string StyleAction = "give its arrow its colour and size";
 
         /// <summary>
+        /// Have <paramref name="indicator"/> make a flat arrow, turning about its own axis to face the eyes, or a solid one
+        /// (<see cref="Indicator.flat"/>), the first time it shows. One made so already gets nothing.
+        /// </summary>
+        /// <param name="indicator">An indicator.</param>
+        /// <param name="flat">A flat arrow; false: a solid one.</param>
+        /// <param name="ctx">The run's context: a dry run lists the change; null just makes it.</param>
+        /// <returns>Whether it changed anything (or would, in a dry run).</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="indicator"/> is null.</exception>
+        public static bool SetFlat(Indicator indicator, bool flat, OpContext ctx = null)
+        {
+            if (indicator == null) throw new ArgumentNullException(nameof(indicator), "name the indicator (a dry run that only planned it: pass its target and name)");
+            if (indicator.flat == flat) return false;
+            if (ctx != null && !ctx.ShouldChange(indicator, FlatAction(flat))) return true;
+            indicator.flat = flat;
+            ctx.Edited(indicator);
+            return true;
+        }
+
+        /// <summary>
+        /// <see cref="SetFlat(Indicator, bool, OpContext)"/> on the indicator on <paramref name="target"/>'s child
+        /// <paramref name="name"/>; where a dry run only planned it, the change its live run makes on a new one (one made
+        /// otherwise than flat, a new indicator's way), planned once.
+        /// </summary>
+        /// <param name="target">What it points at, a scene object.</param>
+        /// <param name="name">Its child's name (<see cref="ChildName"/>, or the one <see cref="AddIndicator(GameObject, string, bool, bool, OpContext)"/> gave it).</param>
+        /// <param name="flat">A flat arrow; false: a solid one.</param>
+        /// <param name="ctx">The run's context: a dry run lists the change; null just makes it.</param>
+        /// <returns>Whether it changed anything (or would, in a dry run); false where there is no indicator, nor one planned.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="target"/> is null.</exception>
+        /// <exception cref="ArgumentException"><paramref name="target"/> is not in a scene.</exception>
+        public static bool SetFlat(GameObject target, string name, bool flat, OpContext ctx = null)
+        {
+            InScene(target, nameof(target), "name what it points at");
+            Indicator indicator = Find(target, name);
+            if (indicator != null) return SetFlat(indicator, flat, ctx);
+            string key = ChildKey(target, name);
+            if (ctx == null || !ctx.DryRun || !ctx.Planned("create", key) || flat) return false;  // a new one is flat
+            return ctx.PlanChange(key, FlatAction(flat));  // the live run's ask names the new indicator by its object's path
+        }
+
+        static string FlatAction(bool flat) => flat ? "make its arrow flat, facing the eyes" : "make its arrow solid";
+
+        /// <summary>
         /// Take away the indicator on <paramref name="target"/>'s child <paramref name="name"/>, with its child (one a
         /// build made that nothing points with any more). None there: nothing.
         /// </summary>

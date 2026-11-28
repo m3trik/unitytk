@@ -981,7 +981,7 @@ namespace M3trik.Unitytk.Manifests
             ScriptableObject usual = kit != null ? UnityEngine.Object.Instantiate(kit) : ScriptableObject.CreateInstance(type);
             usual.hideFlags = HideFlags.HideAndDontSave;
             SheetPlan.Shape.PlanAction sheet = Plan(manifest, out _).Row(step, row);
-            if (sheet != null && sheet.settings != null) ManifestValues.WriteAll(usual, ManifestValues.Over(null, step, "", -1, sheet.settings));
+            if (sheet != null && sheet.settings != null) ManifestValues.WriteAll(usual, ManifestValues.Said(type, sheet.behavior, sheet.settings));
             return usual;
         }
 
@@ -1487,8 +1487,7 @@ namespace M3trik.Unitytk.Manifests
         /// What keeps <paramref name="action"/> from being built in <paramref name="scene"/>, as its assessment says it: the
         /// plan's own issues on it, each node and take its behavior names that the delivery lacks, then (where nothing else
         /// holds it back) its builder's check. None where it can be built, or where no builder has its behavior. A builder
-        /// asks it of a row its own row depends on (a marker of a later teleport's viewpoint), so the one is held back with
-        /// the other.
+        /// may ask it of a row its own row depends on, so the one is held back with the other.
         /// </summary>
         /// <param name="action">A row of the plan.</param>
         /// <param name="scene">The delivery it is built into.</param>

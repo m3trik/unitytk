@@ -26,7 +26,11 @@ namespace M3trik.Unitytk.Manifests
 
         /// <summary>
         /// The fields of its kit's settings (<see cref="IManifestKit.Settings"/>) that say how every row of
-        /// it is built, by name: what the manifest opens as the behavior's own settings. Null: it has none.
+        /// it is built, by name: what the manifest opens as the behavior's own settings. Where its kit's settings have a
+        /// member named as the behavior (a <c>[Serializable]</c> class grouping its settings: <c>indicate</c>), a row's
+        /// settings resolve under it (<see cref="ManifestBehaviors.SettingName"/>): a name here with no dot is that member's
+        /// field (<c>size</c>: <c>indicate.size</c>), and none at all (null) is each of its fields. Null with no such
+        /// member: it has none.
         /// </summary>
         public string[] Settings { get; set; }
 
@@ -35,7 +39,8 @@ namespace M3trik.Unitytk.Manifests
         /// the delivery's clip player keeps one entry per take, whatever objects the row names): the manifest offers them for
         /// the row alone, keeps them under it (an empty target, as every setting of a row that names no object) and refuses
         /// them for one of its objects (<see cref="ManifestsActions.SetTune"/>); its builder reads them as the row's
-        /// (<c>scene.Settings(step, "", row)</c>). Null: none.
+        /// (<c>scene.Settings(step, "", row)</c>). Named as <see cref="Settings"/> names them (a group's field by its own name).
+        /// Null: none.
         /// </summary>
         public string[] RowSettings { get; set; }
 
@@ -48,15 +53,15 @@ namespace M3trik.Unitytk.Manifests
         public bool IsRowSetting(string setting) => RowSettings != null && Array.IndexOf(RowSettings, setting) >= 0;
 
         /// <summary>
-        /// The fields of its rows a person may set in the manifest, by the plan's names (<c>clip</c>, <c>tool</c>,
+        /// The fields of its rows a person may set in the manifest, by the plan's names (<c>clip</c>, <c>with</c>,
         /// <c>to</c>, <c>label</c>...): what a row added here needs to be built, and what one object of a sheet's
         /// row may have of its own. Null: none.
         /// </summary>
         public string[] Fields { get; set; }
 
         /// <summary>
-        /// The fields of its rows that name nodes of the delivery, by the plan's names (what the hand holds, what
-        /// the user faces, a row's arrows): an assessment finds each as it finds the row's targets, and a name no
+        /// The fields of its rows that name nodes of the delivery, by the plan's names (what the hand holds, where
+        /// a placing row happens): an assessment finds each as it finds the row's targets, and a name no
         /// node answers to keeps the row from being built. Null: none (a field of another meaning is never
         /// taken for a node).
         /// </summary>
@@ -86,20 +91,20 @@ namespace M3trik.Unitytk.Manifests
 
         /// <summary>
         /// The settings whose value a row's chip says beside its name where the row or its object sets it (one
-        /// behavior read several ways: <c>Pause · start</c>, <c>Marker · hide</c>), by name. Null: none.
+        /// behavior read several ways: <c>Use · hold</c>, <c>Button · start</c>), named as <see cref="Settings"/> names
+        /// them. Null: none.
         /// </summary>
         public string[] Suffix { get; set; }
 
         /// <summary>
-        /// The behavior this one is a way of setting, when several are (<c>fade_in</c> and <c>fade_out</c> are
-        /// both <c>fade</c>): the manifest reads a family as one behavior, its name led by the family's and
-        /// followed by <see cref="Variant"/> (<c>Fade · in</c>), and one switch turns every row of each off or on.
-        /// Each keeps its own name in plans and deliveries; the Shot Manifest's templates declare the same
-        /// families. Null: none.
+        /// The behavior this one is a way of setting, when several are (a swing's <c>swing_open</c> and <c>swing_shut</c>
+        /// are both <c>swing</c>): the manifest reads a family as one behavior, its name led by the family's and
+        /// followed by <see cref="Variant"/> (<c>Swing · open</c>), and one switch turns every row of each off or on.
+        /// Each keeps its own name in plans and deliveries. Null: none.
         /// </summary>
         public string Family { get; set; }
 
-        /// <summary>How it sets its <see cref="Family"/>, as its suffix reads (<c>in</c>, <c>out</c>).</summary>
+        /// <summary>How it sets its <see cref="Family"/>, as its suffix reads (<c>open</c>, <c>shut</c>).</summary>
         public string Variant { get; set; }
 
         /// <summary>
@@ -107,6 +112,27 @@ namespace M3trik.Unitytk.Manifests
         /// an object. False: a row of its step's own (go on, a note), never offered for an object.
         /// </summary>
         public bool NamesObjects { get; set; } = true;
+
+        // Whether its settings are named by their paths in its kit's settings yet (NameSettings).
+        internal bool Named { get; private set; }
+
+        // Name its settings by their paths in settings (its kit's), once (ManifestBehaviors.Mark): where settings group its
+        // behavior's (a member named as the behavior, ManifestValues.Group), a name with no dot is that group's field, and
+        // no Settings at all is each of its fields. Left as written where settings has no group of it.
+        internal void NameSettings(Type settings)
+        {
+            if (Named) return;
+            Named = true;
+            string[] group = ManifestValues.GroupSettings(settings, Name);
+            if (group == null) return;
+            Settings = Settings == null ? group : Under(Settings);
+            RowSettings = Under(RowSettings);
+            Suffix = Under(Suffix);
+        }
+
+        // names, each with no dot named under its behavior's group (size: indicate.size).
+        string[] Under(string[] names)
+            => names == null ? null : Array.ConvertAll(names, name => string.IsNullOrEmpty(name) || name.IndexOf('.') >= 0 ? name : $"{Name}.{name}");
 
         /// <summary>What the manifest calls the field <paramref name="field"/> of its rows: its <see cref="FieldLabels"/> entry, else <see cref="DefaultLabel"/>.</summary>
         /// <param name="field">A field's name, as the plan spells it.</param>

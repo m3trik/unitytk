@@ -1,5 +1,5 @@
 {
-  "behavior": "highlight",
+  "word": "highlight",
   "order": 61,
   "description": "Targets are highlighted while the step runs.",
   "detect": [

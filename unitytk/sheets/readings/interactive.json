@@ -3,7 +3,7 @@
   "names": {
     "inline": "\\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\\b",
     "viewpoint": "^VIEW_",
-    "arrow": "^(?P<part>.+)_ARROW$"
+    "point": "^(?P<part>.+)_POINT$"
   },
   "columns": [
     "step_id",

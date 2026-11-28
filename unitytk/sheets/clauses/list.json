@@ -1,0 +1,12 @@
+{
+  "word": "list",
+  "order": 87,
+  "description": "A list appears on the page; its items, where the row lists them, are its `label`, comma separated.",
+  "detect": [
+    "^(?:an?\\s+)?checklist\\s+appears\\s+on\\s+(?:the\\s+)?placard(?:\\s+screen)?\\s*:\\s*(?P<label>.+)$",
+    "^(?:an?\\s+)?checklist\\s+appears\\s+on\\s+(?:the\\s+)?placard.*$"
+  ],
+  "roles": [
+    "lists"
+  ]
+}

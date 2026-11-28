@@ -1,0 +1,12 @@
+{
+  "word": "picture",
+  "order": 51,
+  "description": "A picture shows the part the row names (its Asset Names) close up, beside the page, captioned with what the row says it shows.",
+  "detect": [
+    "^pip\\s+screen\\s+(?:appears\\s+)?(?:showing|shows)\\s+(?P<targets>.+)$",
+    "^pip\\s+screen\\s+with\\s+(?P<targets>.+?)\\s+appears$"
+  ],
+  "roles": [
+    "captioned"
+  ]
+}

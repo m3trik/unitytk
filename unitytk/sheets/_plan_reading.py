@@ -4,25 +4,31 @@
 plan's internal base (:class:`_SheetPlanInternal`).
 
 Per step, in sheet order: each row of its contents and of its hint is read by
-the clause book (an unread row stays, as ``unread``); the rows that play a clip
-are numbered to name their takes; the phrases of the rows whose roles say they
-show something (``shows``, then ``points``) are matched first, as the step's
-context; then every action's phrases are matched against the delivery, and the
-hand is followed as the sheet runs (what a ``takes`` row puts in it, a
-``releases`` or ``places`` row takes out), so a ``uses`` row done with what the
-hand holds names it in its hand field. What a row does with its roles is the
-clause templates' data (:attr:`ClauseSpec.roles`), never a behavior's name.
+the clause book, or, in cells, as its word (an unread row stays, as ``unread``);
+the rows that play a clip are numbered to name their takes; the phrases of the
+rows whose roles say they show something (``shows``, then ``points``) are matched
+first, as the step's context; then every action's phrases are matched against the
+delivery, and the hand is followed as the sheet runs (what a ``takes`` row puts in
+it, a ``releases`` or ``places`` row takes out), so a ``uses`` row done with what
+the hand holds names it in its ``with``. Then the sheet's sentences the format needs
+no row for are folded, by their templates' own roles, into the rows and steps they
+belong to (:meth:`_ReadingPass.fold`): a picture taken away is its row's ``until``, a
+ring shown before a travel that travel's ``ring``, a page's text its step's. What a
+row does with its roles is the clause templates' data (:attr:`ClauseSpec.roles`),
+never a word's name.
 """
 
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 from urllib.parse import urlparse
 
 import pythontk as ptk
 
-from unitytk.sheets._row_reading import UNREAD, WARNING, _RowReading, headers
+from unitytk.sheets._row_reading import QUESTION, UNREAD, WARNING, _RowReading, headers
 from unitytk.sheets.clause_book import Clause, ClauseBook
+from unitytk.sheets.clause_spec import OWN_ROLES
 from unitytk.sheets.delivery_index import DeliveryIndex
 from unitytk.sheets.node_matcher import NodeMatcher
 from unitytk.sheets.reading_spec import ReadingSpec
@@ -69,6 +75,7 @@ class _ReadingPass:
         self.held: Optional[str] = (
             None  # the path of what the hand holds as the sheet runs
         )
+        self.records: List[Tuple[Any, Any, Clause, Optional[int]]] = []  # (plan step, action, clause, row) in order
 
     # ---- a step's rows ------------------------------------------------------------------------------------------
 
@@ -137,7 +144,7 @@ class _ReadingPass:
         context: List[str] = []
         for role in ("shows", "points"):
             for clause in clauses:
-                if role not in self.book.roles(clause.behavior, clause.settings):
+                if role not in self.book.roles_of(clause):
                     continue
                 for phrase in clause.fields.get("targets", []):
                     for path in self._bind(phrase, clause, row_of, context)[0]:
@@ -156,7 +163,7 @@ class _ReadingPass:
             for clause in clauses
         ]
         columns = step.pass_through
-        return PlanStep(
+        planned = PlanStep(
             id=step.step_id,
             name=columns.get("step_name", "") or step.name,
             section=step.section,
@@ -164,6 +171,8 @@ class _ReadingPass:
             fields=self._step_fields(step),
             actions=actions,
         )
+        self.records += [(planned, a, c, row_of.get(id(c), (None,))[0]) for c, a in zip(clauses, actions)]
+        return planned
 
     def _step_fields(self, step) -> Dict[str, str]:
         """The step's values the reading carries (:attr:`ReadingSpec.step_fields`), the empty left out."""
@@ -191,7 +200,7 @@ class _ReadingPass:
             text=clause.text,
             settings=dict(clause.settings or {}),
         )
-        roles = self.book.roles(clause.behavior, clause.settings)
+        roles = self.book.roles_of(clause)
         row_no, row, pre = row_of.get(id(clause), (None, None, []))
         issues: List = list(pre)
         first = next(
@@ -203,28 +212,34 @@ class _ReadingPass:
             paths, why = self._bind(phrase, clause, row_of, context)
             issues.extend(why)
             action.targets.extend(p for p in paths if p not in action.targets)
+        where = ptk.ManifestActions.WHERE
         for key, value in clause.fields.items():
             if key in ("targets", "to"):
                 continue
             if key in clause.nodes:
                 paths, why = self._bind(value, clause, row_of, context)
                 issues.extend(why)
-                if paths:
-                    action.fields[key] = paths[0]
+                if paths:  # `where` is one per target, the row's own its first's
+                    action.fields[key] = (
+                        [paths[0]] + [""] * (len(action.targets) - 1) if key == where else paths[0]
+                    )
             else:
                 action.fields[key] = value
         cells = clause.template == "cells"
-        if "points" in roles and action.targets and self.reading.arrows not in action.fields:
-            pattern = (self.reading.names or {}).get("arrow")
-            arrows = [
-                (self.index.arrows_at(t, pattern, step.step_id) or [""])[0]
+        if not cells and "points" in roles and action.targets and where not in action.fields:
+            # A sentence names no pointer: the delivery's authored one for each target, by its name (a row in cells
+            # names its own in Settings).
+            pattern = (self.reading.names or {}).get("point")
+            pointers = [
+                (self.index.pointers_at(t, pattern, step.step_id) or [""])[0]
                 for t in action.targets
             ]
-            if any(arrows):
-                action.fields[self.reading.arrows] = arrows
-        if self.rows and "destination" in roles and not cells:  # a cell row's With is its viewpoint, whatever its name
-            for path in action.targets:
-                issues.extend(self.rows.not_viewpoint(path))
+            if any(pointers):
+                action.fields[where] = pointers
+        if self.rows and "destination" in roles and not cells:  # a cell row's where is its viewpoint, whatever its name
+            for path in action.fields.get(where) or ():
+                if path:
+                    issues.extend(self.rows.not_viewpoint(path))
         if clause.clip:
             issues.extend(
                 self._clip(
@@ -236,23 +251,20 @@ class _ReadingPass:
                 )
             )
         if clause.fields.get("to"):
-            target = ptk.StrUtils.to_legal_name(clause.fields["to"].upper())
-            action.to = target
-            action.restart = self.reading.restart and target == next(
-                iter(self.step_ids), None
-            )
-            if target in self.retired:
+            action.to = self._to(str(clause.fields["to"]), cells)
+            if action.to in self.retired:
                 issues.append(
                     (
                         self.columns["contents"],
-                        f"the jump goes to step {target}, which is retired: jump to the step that replaced it",
+                        f"the jump goes to step {action.to}, which is retired: jump to the step that replaced it",
                     )
                 )
-            elif target not in self.step_ids and not cells:  # a cell row's To is held to the sheet where it is read
+            elif action.to not in ptk.ManifestActions.DESTINATIONS and action.to not in self.step_ids and not cells:
+                # a cell row's To is held to the sheet where it is read
                 issues.append(
                     (
                         self.columns["contents"],
-                        f"the sheet has no step {target}: jump to a step the sheet has",
+                        f"the sheet has no step {action.to}: jump to a step the sheet has",
                     )
                 )
         if not cells:  # a cell row names its tool in With
@@ -266,6 +278,17 @@ class _ReadingPass:
             done = {p for name, behavior in keyed if behavior == clause.behavior for p in look(name)}
             action.upstream = [t for t in action.targets if t in done]
         return action
+
+    def _to(self, to: str, cells: bool) -> str:
+        """Where a row goes, as the plan says it: a destination (``next``, ``restart``, ``exit``, ``retry``) in lower
+        case, else a step's ID as the reader spells it (``B03.5`` -> ``B03_5``); a sheet of sentences' jump to its
+        first step ``restart``, where its reading says so (:attr:`ReadingSpec.restart`)."""
+        if to.strip().lower() in ptk.ManifestActions.DESTINATIONS:
+            return to.strip().lower()
+        target = ptk.StrUtils.to_legal_name(to.strip().upper())
+        if not cells and self.reading.restart and target == next(iter(self.step_ids), None):
+            return "restart"
+        return target
 
     def _clip(self, action, name, cell_issues, row, step) -> List:
         """The issues of *action*'s take *name*, its ``clip`` set where the delivery plays it here."""
@@ -339,6 +362,125 @@ class _ReadingPass:
                 cell if self.rows else text
             )
 
+    # ---- the sentences the format needs no row for ------------------------------------------------------------
+
+    def _own(self, clause: Clause) -> set:
+        """*clause*'s template's own roles (:data:`OWN_ROLES`): none for a row in cells or of the Action cell."""
+        spec = self.book.spec(clause.template)
+        return set(spec.roles or []) & set(OWN_ROLES) if spec is not None else set()
+
+    def _labels(self, label: str) -> List[str]:
+        """The buttons a ``buttons`` row's *label* names, split at the reading's separators (punctuation as
+        written, a word where it stands alone; ``YES and NO``, ``A, B or C``), unquoted."""
+        between = [
+            (r"\b%s\b" if each[:1].isalnum() else "%s") % re.escape(each)
+            for each in (s.strip() for s in self.reading.separators or ())
+            if each
+        ]
+        parts = re.split(r"\s*(?:%s)\s*" % "|".join(between), label or "", flags=re.I) if between else [label or ""]
+        return [part.strip().strip("'\"") for part in parts if part.strip().strip("'\"")]
+
+    def _caption(self, text: str) -> str:
+        """What *text* says its picture shows (the reading's ``caption``'s ``what``), capitalized; *text* where it
+        does not say."""
+        text = (text or "").strip()
+        found = re.search(self.reading.caption, text, re.I) if self.reading.caption else None
+        what = found.group("what").strip() if found and found.group("what") else text
+        return what[:1].upper() + what[1:]
+
+    def fold(self, asks: set) -> None:
+        """The rows of sentences the format needs no row for, folded by their templates' own roles into the rows and
+        steps they belong to (:data:`OWN_ROLES`), each kept as a note of its words alone, and what they say held to
+        the rows they name: a page's text, its buttons, a picture's caption, a travel after a choice, the quiz's
+        step, a span shown and ended.
+
+        Parameters:
+            asks: The IDs of the steps that ask a question, for a ``questions`` row's ``to``.
+        """
+        page_field = self.reading.page
+        page = ReadingSpec.header(self.template, self.reading.source_of(page_field) or page_field)
+        contents = self.columns["contents"]
+        order = [s.id for s, _, _, _ in self.records]
+        # Within a step, first: its page's text, then the buttons on the page.
+        for role in ("page", "buttons"):
+            for step, action, clause, row_no in self.records:
+                if role not in self._own(clause):
+                    continue
+                label = str(clause.fields.get("label") or "")
+                if role == "page":
+                    if page_field and label and not (step.fields.get(page_field) or "").strip():
+                        step.fields[page_field] = label
+                    continue
+                offered = {
+                    str(a.fields.get("label") or "").casefold()
+                    for s, a, c, _ in self.records
+                    if s is step and a is not action and "advances" in self.book.roles_of(c)
+                }
+                said = []
+                names = self._labels(label)
+                if not names:
+                    said.append((contents, "it names no button: name them, or remove the row"))
+                for name in names:
+                    if name.casefold() not in offered:
+                        said.append((contents, "the page's '%s' button: no row of the step says what it does: write "
+                                               "the row it is, or take it from this row" % name))
+                if page_field and not (step.fields.get(page_field) or "").strip():
+                    said.append((contents, "%s'%s' is shown on the step's %s, which is empty: write its text in %s"
+                                 % (WARNING, action.text, page, page)))
+                self._state(action, said, row_no)
+        # Then down the sheet: what each row's own roles say of the rows before and after it.
+        ended: set = set()  # the steps a choice that ends them has come in
+        pending: Dict[str, Dict[str, Any]] = {}  # word -> a span shown for its next row: {setting, step, until, record}
+        showing: List[Dict[str, Any]] = []  # each span still shown: {word, setting, action, step}
+        for at, (step, action, clause, row_no) in enumerate(self.records):
+            own = self._own(clause)
+            sentence = clause.template != "cells"
+            if sentence and action.behavior in pending:  # the next row of the word a span was shown for: its own
+                span = pending.pop(action.behavior)
+                action.settings[span["setting"]] = span["until"] or ptk.ManifestActions.SPAN_STEP
+                showing.append({"word": action.behavior, "setting": span["setting"], "action": action, "step": step.id})
+            if "captioned" in own and not action.fields.get("label"):
+                action.fields["label"] = self._caption(action.text)
+            if "after_choice" in own and step.id in ended:
+                setting = (self.reading.order_by or {}).get(action.behavior)
+                if setting:
+                    action.settings[setting] = "end"
+            if "questions" in own:
+                later = next((s for s in order[at:] if s in asks and s != step.id), None)
+                if later:
+                    action.to = later
+                else:
+                    self._state(action, [(contents, "no step after it asks a question: write the questions, a step "
+                                                    "per question, its options its rows, the right one marked")], row_no)
+            spec = self.book.spec(clause.template)
+            span = dict(spec.span or {}) if spec is not None else {}
+            if "opens" in own:
+                if action.behavior == span.get("word"):  # the row shows it itself
+                    showing.append({"word": span["word"], "setting": span["setting"], "action": action, "step": step.id})
+                else:
+                    pending[span["word"]] = {"setting": span["setting"], "step": step.id, "until": "", "record": (action, row_no)}
+            if "closes" in own:
+                waiting = pending.get(span["word"])
+                shown = next((s for s in reversed(showing) if (s["word"], s["setting"]) == (span["word"], span["setting"])), None)
+                if waiting is not None and waiting["setting"] == span["setting"]:
+                    waiting["until"] = ptk.ManifestActions.SPAN_STEP if waiting["step"] == step.id else step.id
+                elif shown is not None:
+                    showing.remove(shown)
+                    shown["action"].settings[span["setting"]] = (
+                        ptk.ManifestActions.SPAN_STEP if shown["step"] == step.id else step.id
+                    )
+                else:
+                    self._state(action, [(contents, "%snothing an earlier row showed is still shown for it to take "
+                                                    "away: remove the row" % WARNING)], row_no)
+            if "ends_step" in self.book.roles_of(clause):
+                ended.add(step.id)
+            if action.behavior == "note" and own:  # folded: its words alone
+                action.fields, action.targets, action.settings = {}, [], {}
+        for word, span in pending.items():
+            action, row_no = span["record"]
+            self._state(action, [(contents, "%sno %s row after it shows what it shows: remove the row, or add the %s "
+                                            "row" % (WARNING, word, word))], row_no)
+
 
 class _SheetPlanInternal:
     """Internal helpers for :class:`~unitytk.sheets.SheetPlan`: the reading pass."""
@@ -390,8 +532,8 @@ class _SheetPlanInternal:
 
     @staticmethod
     def _book(reading: ReadingSpec, folder=None) -> ClauseBook:
-        """The built-in clause templates (and *folder*'s), with *reading*'s step shape."""
-        return ClauseBook(folder=folder, step=reading.step_id)
+        """The built-in clause templates (and *folder*'s), with *reading*'s step shape and question mark."""
+        return ClauseBook.for_reading(reading, folder)
 
     @staticmethod
     def _sound(step, base) -> str:
@@ -580,9 +722,11 @@ class _SheetPlanInternal:
             base,
             {ptk.StrUtils.to_legal_name(r.upper()) for r in retired},
         )
-        if reader.rows:
-            reader.rows.cells.prime(steps)
         plan_steps = [reader.step(step) for step in steps]
+        # The steps that ask a question: one written as one (its rows marked), or holding a wrong answer's choice.
+        asks = {s.step_id for s in steps if reader.rows and reader.rows.is_question(s)}
+        asks |= {s.id for s in plan_steps if any(a.to == QUESTION[1] for a in s.actions)}
+        reader.fold(asks)
         plan_issues = list(index.issues) + [
             f"no step plays the take {t}: play it from its row, or have the artist remove it"
             for t in index.takes

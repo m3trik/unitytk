@@ -1,8 +1,0 @@
-{
-  "behavior": "marker",
-  "order": 68,
-  "description": "The destination marker appears where the user goes next (at the row's object, where it names one): a part the kit makes, never a scene object.",
-  "detect": [
-    "^(?:the\\s+)?destination\\s+(?:marker|circle|ring)\\s+(?:fades\\s+in|appears)(?:\\s+at\\s+(?:(?:the\\s+)?(?:teleport\\s+)?destination|(?P<targets>.+)))?$"
-  ]
-}

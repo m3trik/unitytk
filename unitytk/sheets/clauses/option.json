@@ -1,0 +1,15 @@
+{
+  "word": "button",
+  "order": 2,
+  "description": "A question's other option: a wrong answer, the step stays.",
+  "detect": [
+    "^(?P<label>.+)$"
+  ],
+  "fields": {
+    "to": "retry"
+  },
+  "roles": [
+    "advances",
+    "option"
+  ]
+}

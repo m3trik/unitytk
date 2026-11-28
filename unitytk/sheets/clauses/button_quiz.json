@@ -1,0 +1,13 @@
+{
+  "word": "button",
+  "order": 13,
+  "description": "A quoted button goes to the questions: the first later step that asks one.",
+  "detect": [
+    "^selecting\\s+['\\\"](?P<label>[^'\\\"]+)['\\\"]\\s+triggers\\s+advancement\\s+to\\s+the\\s+quiz$"
+  ],
+  "roles": [
+    "advances",
+    "ends_step",
+    "questions"
+  ]
+}

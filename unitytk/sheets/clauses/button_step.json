@@ -1,0 +1,12 @@
+{
+  "word": "button",
+  "order": 11,
+  "description": "A button, quoted or not, goes to a step by its ID.",
+  "detect": [
+    "^selecting\\s+['\\\"]?(?P<label>[^'\\\"]+?)['\\\"]?\\s+triggers\\s+(?:step\\s+advancement\\s+to\\s+step|advancement\\s+to\\s+step|step)\\s+(?P<to>{step})$"
+  ],
+  "roles": [
+    "advances",
+    "ends_step"
+  ]
+}

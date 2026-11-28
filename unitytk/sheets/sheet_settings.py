@@ -4,9 +4,9 @@
 
 Any project a build sheet drives (a task, an animated procedure, a configurator) keeps one beside its
 sheet, in the project that owns it (never in a public repository): the sheet and the files its delivery is
-(one FBX is the aim; an older delivery may split its arrows, viewpoints or panel anchors into files of their
+(one FBX is the aim; an older delivery may split its pointers, viewpoints or panel anchors into files of their
 own), the template, the project's own name rules over its reading's (``USER_POS_1`` viewpoints,
-``A01_1_KEYS_ARROW`` arrows, other build suffixes), the old names of renamed nodes (each an alias of its new
+``A01_1_KEYS_POINT`` pointers, other build suffixes), the old names of renamed nodes (each an alias of its new
 name, so a rename is one entry and old rows still read), the retired step IDs, the folder of its own clause
 templates and each kit's own data. Paths are relative to the file, so a project moves as one folder.
 
@@ -76,21 +76,21 @@ class SheetSettings(SchemaSpec):
     )
     deliveries: List[str] = _field(
         help="The FBX (or GLB) files the project's delivery is, in order (their takes in that order): paths beside this file.",
-        example=["assembly.fbx", "arrows.fbx"],
+        example=["assembly.fbx", "pointers.fbx"],
         default_factory=list,
     )
     extras: List[str] = _field(
         help=(
-            "Files whose nodes join the delivery but whose takes no step plays (an older delivery's arrows "
+            "Files whose nodes join the delivery but whose takes no step plays (an older delivery's pointers "
             "with their own bounce takes, its viewpoints, its panel anchors): paths beside this file."
         ),
-        example=["arrows.fbx", "viewpoints.glb"],
+        example=["pointers.fbx", "viewpoints.glb"],
         default_factory=list,
     )
     names: Dict[str, Any] = _field(
         help=(
             "The project's own name rules, over its reading's (`ReadingSpec.names`): `inline`, `viewpoint` and "
-            "`arrow` regexes, and `suffixes`, the node-name endings its delivery's builds use, where it names "
+            "`point` regexes, and `suffixes`, the node-name endings its delivery's builds use, where it names "
             "them another way."
         ),
         validate=ReadingSpec.validate_names,
@@ -214,9 +214,7 @@ class SheetSettings(SchemaSpec):
         with *reading*'s step shape (the project's reading where None)."""
         from unitytk.sheets.clause_book import ClauseBook
 
-        return ClauseBook(
-            folder=self.clauses_path(), step=(reading or self.reading()).step_id
-        )
+        return ClauseBook.for_reading(reading or self.reading(), self.clauses_path())
 
     def plan(self, book=None, index: Optional[DeliveryIndex] = None):
         """The project's plan (:meth:`SheetPlan.from_sheet` over its sheet, delivery and names), each kit's

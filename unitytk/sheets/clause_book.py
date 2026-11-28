@@ -4,9 +4,10 @@
 
 See :mod:`unitytk.sheets.clause_spec` for a template's shape. The book tries its templates in
 ``order`` (then name) and the first whose regex matches the whole row reads it; a row none
-matches is one the plan reports as ``unread``. The templates are the built-in ones and a project's
-own (a folder beside its settings file), never a per-user folder, so a sheet reads the same on every
-machine; :meth:`ClauseBook.digest` says which of a project's own a plan was read with.
+matches is one the plan reports as ``unread``. A template with the ``option`` role reads only a
+question's rows (:meth:`ClauseBook.read`'s ``options``). The templates are the built-in ones and a
+project's own (a folder beside its settings file), never a per-user folder, so a sheet reads the same
+on every machine; :meth:`ClauseBook.digest` says which of a project's own a plan was read with.
 """
 
 import hashlib
@@ -16,27 +17,32 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional, Pattern, Set, Tuple, Union
 
-from unitytk.sheets.clause_spec import ClauseSpec
+from unitytk.sheets.clause_spec import OWN_ROLES, ClauseSpec
 
 _SUFFIX = re.compile(r"_\d+$")
 _SPLIT = re.compile(r"\s*(?:,|\band\b|&)\s*", re.I)
 #: The quotes between a quoted list's items ('YES' and 'NO', 'Lights', 'Power').
 _QUOTED_JOIN = re.compile(r"['\"]\s*(,|\band\b|&)\s*['\"]", re.I)
-#: What a template writes for a step ID's shape.
-STEP = "{step}"
+#: A value naming a group (``{state}``).
+_GROUP = re.compile(r"^\{(\w+)\}$")
+#: What a template writes for a step ID's shape, and for a question's mark of its right answer.
+STEP, MARK = "{step}", "{mark}"
+#: The role of the templates that read a question's rows alone.
+OPTION = "option"
 
 
 @dataclass
 class Clause:
-    """One row read: the behavior and the fields its template's groups filled.
+    """One row read: the word and the fields its template's groups filled.
 
     Attributes:
-        behavior: The behavior it reads as.
+        behavior: The word it reads as (the plan's behavior).
         text: The row as the sheet writes it.
         fields: ``{group: value}``: ``targets`` a list of phrases, any other the group's text.
         clip: Whether the row plays one of its step's takes.
-        template: The template that read it (empty: none did; ``action``: the Action cell).
-        settings: The settings it gives its behavior.
+        template: The template that read it (empty: none did; ``action``: the Action cell; ``cells``:
+            a row in cells).
+        settings: The settings it gives its word, by the sheet's names.
         nodes: The groups of :attr:`fields`, ``targets`` aside, whose text names a node.
     """
 
@@ -86,6 +92,23 @@ class _ClauseBookInternal:
                 out[key] = value.strip().strip("'\"").strip()
         return out
 
+    @staticmethod
+    def _given(spec: ClauseSpec, fields: Dict[str, object]) -> Tuple[Dict[str, object], Dict[str, str]]:
+        """``(fields, settings)`` of a row *spec* read: its groups' fields with the template's own over them, and
+        its settings, a value naming a group filled with what it read (that group then no field)."""
+        out = dict(fields)
+        settings: Dict[str, str] = {}
+        for name, value in (spec.settings or {}).items():
+            group = _GROUP.match(str(value))
+            if group:
+                read = out.pop(group.group(1), "")
+                if read:
+                    settings[name] = str(read)
+            else:
+                settings[name] = str(value)
+        out.update(spec.fields or {})
+        return out, settings
+
 
 class ClauseBook(_ClauseBookInternal):
     """The clause templates a plan reads rows with, compiled once.
@@ -97,6 +120,11 @@ class ClauseBook(_ClauseBookInternal):
             *templates* is None.
         step: A step ID's shape, which a template's ``{step}`` stands for; default: the default
             reading's (:attr:`ReadingSpec.step_id`).
+        mark: The mark of a question's right answer, which a template's ``{mark}`` stands for;
+            default: the default reading's (``question.mark``).
+
+    Raises:
+        ValueError: A template gives a setting its word does not take, or no value of it.
 
     Attributes:
         folder: The project's own templates it read (*folder*, where *templates* is None), else None.
@@ -108,21 +136,36 @@ class ClauseBook(_ClauseBookInternal):
         *,
         folder: Union[str, Path, None] = None,
         step: Optional[str] = None,
+        mark: Optional[str] = None,
     ):
         self.folder = Path(folder) if templates is None and folder else None
         if templates is None:
             templates = self.load_templates(folder)
-        if step is None:
+        if step is None or mark is None:
             from unitytk.sheets.reading_spec import ReadingSpec
 
-            step = ReadingSpec.load().step_id
-        self.step = step
+            default = ReadingSpec.load()
+            step = default.step_id if step is None else step
+            mark = (default.question or {}).get("mark", "") if mark is None else mark
+        self.step, self.mark = step, mark
         compiled = []
         for name, spec in templates:
-            patterns = [re.compile(p.replace(STEP, step), re.I) for p in spec.detect]
+            problems = spec.problems()
+            if problems:
+                raise ValueError(f"template {name!r}: " + "; ".join(problems))
+            patterns = [
+                re.compile(p.replace(STEP, step).replace(MARK, re.escape(mark or "\x00")), re.I)
+                for p in spec.detect
+            ]
             compiled.append((spec.order, name, spec, patterns))
         compiled.sort(key=lambda item: (item[0], item[1]))
         self._compiled: List[Tuple[int, str, ClauseSpec, List[Pattern]]] = compiled
+        self._specs: Dict[str, ClauseSpec] = {name: spec for _, name, spec, _ in compiled}
+
+    @classmethod
+    def for_reading(cls, reading, folder: Union[str, Path, None] = None) -> "ClauseBook":
+        """The built-in templates (and *folder*'s), with *reading*'s step shape and question mark."""
+        return cls(folder=folder, step=reading.step_id, mark=(reading.question or {}).get("mark", ""))
 
     @classmethod
     def load_templates(
@@ -156,6 +199,10 @@ class ClauseBook(_ClauseBookInternal):
         """The templates' names in the order they are tried."""
         return [name for _, name, _, _ in self._compiled]
 
+    def spec(self, name: str) -> Optional[ClauseSpec]:
+        """The template named *name*, or None."""
+        return self._specs.get(name)
+
     def digest(self) -> str:
         """The SHA-256 (hex) of the project's own template files it read (:attr:`folder`), as a reader with
         the folder in hand makes it again: a line per ``*.json`` file in name order, its name and its own
@@ -170,30 +217,49 @@ class ClauseBook(_ClauseBookInternal):
         return hashlib.sha256(lines.encode("utf-8")).hexdigest() if lines else ""
 
     def roles(
-        self, behavior: str, settings: Optional[Mapping[str, str]] = None
+        self,
+        behavior: str,
+        settings: Optional[Mapping[str, str]] = None,
+        fields: Optional[Mapping[str, object]] = None,
+        to: Optional[str] = None,
     ) -> Set[str]:
-        """The roles a row of *behavior* carrying *settings* has: those declared by the templates of the
-        behavior whose own settings the row carries. A template with settings says what its rows are in full
-        (a row that takes a checklist away lists no items), so where the row carries one's settings, the
-        behavior's templates with none do not speak for it; a row carrying no such settings has theirs.
+        """The roles a row of the word *behavior* carrying *settings*, *fields* and *to* has, however it was read:
+        those declared by the word's templates whose own settings and fields (:meth:`ClauseSpec.gives`) the row
+        carries, a template's own roles (:data:`OWN_ROLES`) aside. A template that gives something says what its
+        rows are in full (a use brought near places what the hand holds), so where the row carries one's, the word's
+        templates that give nothing do not speak for it; a row carrying no such thing has theirs.
 
         Parameters:
-            behavior: The row's behavior.
+            behavior: The row's word.
             settings: The row's settings (:attr:`Clause.settings`, ``PlanAction.settings``).
+            fields: The row's fields (``label``...).
+            to: Where the row goes (``PlanAction.to``).
         """
-        settings = settings or {}
+        carried = {**dict(fields or {}), **dict(settings or {})}
+        if to:
+            carried["to"] = to
         general: Set[str] = set()
         own: Set[str] = set()
         set_apart = False
         for _, _, spec, _ in self._compiled:
-            if spec.behavior != behavior:
+            if spec.word != behavior:
                 continue
-            if not spec.settings:
-                general.update(spec.roles or [])
-            elif all(settings.get(k) == v for k, v in spec.settings.items()):
+            word_roles = set(spec.roles or []) - set(OWN_ROLES)
+            gives = spec.gives()
+            if not gives:
+                general |= word_roles
+            elif all(str(carried.get(k, "")).casefold() == str(v).casefold() for k, v in gives.items()):
                 set_apart = True
-                own.update(spec.roles or [])
+                own |= word_roles
         return own if set_apart else general
+
+    def roles_of(self, clause: Clause) -> Set[str]:
+        """The roles of *clause*: its template's, all of them, where a template read it; else its word's
+        (:meth:`roles`: a row of the Action cell or in cells)."""
+        spec = self._specs.get(clause.template)
+        if spec is not None:
+            return set(spec.roles or [])
+        return self.roles(clause.behavior, clause.settings, clause.fields, str(clause.fields.get("to") or ""))
 
     def templates_with(self, role: str) -> List[str]:
         """The names of the templates declaring *role*, in the order they are tried.
@@ -206,40 +272,48 @@ class ClauseBook(_ClauseBookInternal):
         ]
 
     def with_role(self, role: str) -> Set[str]:
-        """The behaviors one of whose templates declares *role*, whatever its settings.
+        """The words one of whose templates declares *role*, whatever its settings.
 
         Parameters:
             role: A role's name (``takes``, ``plural`` ...).
         """
         return {
-            spec.behavior
+            spec.word
             for _, _, spec, _ in self._compiled
             if role in (spec.roles or [])
         }
+
+    def written(self, role: str, fields: Optional[Mapping[str, str]] = None) -> Optional[Tuple[str, Dict[str, str]]]:
+        """``(word, cells)`` of the first template declaring *role* whose own fields hold *fields*: how a row of the
+        role is written in cells (``answer``, ``{"label": "*"}``); None where none does."""
+        for _, _, spec, _ in self._compiled:
+            if role in (spec.roles or []) and all((spec.fields or {}).get(k) == v for k, v in (fields or {}).items()):
+                return spec.word, dict(spec.fields or {})
+        return None
 
     def plays(self, behavior: str) -> bool:
         """Whether a row of *behavior* plays a take (its template's ``clip``).
 
         Parameters:
-            behavior: A behavior's name.
+            behavior: A word.
         """
         return any(
-            spec.clip for _, _, spec, _ in self._compiled if spec.behavior == behavior
+            spec.clip for _, _, spec, _ in self._compiled if spec.word == behavior
         )
 
     def readings(self) -> Dict[str, Tuple[str, Dict[str, str]]]:
-        """Each template's name with what a row it reads becomes: its behavior and the settings it gives it
-        (``press_hold``: ``use`` held to play)."""
+        """Each template's name with what a row it reads becomes: its word and the settings it gives it
+        (``use_hold``: ``use`` held)."""
         return {
-            name: (spec.behavior, dict(spec.settings or {}))
+            name: (spec.word, {k: v for k, v in (spec.settings or {}).items() if not _GROUP.match(str(v))})
             for _, name, spec, _ in self._compiled
         }
 
     def behaviors(self) -> List[str]:
-        """Every behavior a row can read as, sorted."""
+        """Every word a row can read as, sorted."""
         out = set()
         for _, _, spec, _ in self._compiled:
-            out.add(spec.behavior)
+            out.add(spec.word)
             out.update(spec.also)
         return sorted(out)
 
@@ -247,44 +321,36 @@ class ClauseBook(_ClauseBookInternal):
         """The node groups (:attr:`ClauseSpec.nodes`) of *behavior*'s templates, in order, each once."""
         found: Dict[str, None] = {}
         for _, _, spec, _ in self._compiled:
-            if spec.behavior == behavior:
+            if spec.word == behavior:
                 found.update(dict.fromkeys(spec.nodes or []))
         return list(found)
 
-    def read(self, line: str, column: str = "contents") -> List[Clause]:
+    def read(self, line: str, column: str = "contents", options: bool = False) -> List[Clause]:
         """What *line* of *column* does: the first template to match reads it.
 
         Parameters:
             line: One row's text as the sheet writes it.
             column: ``contents`` or ``hint``.
+            options: Read it as a question's row: by the templates of the ``option`` role alone (any
+                other read: by the rest).
 
         Returns:
-            One clause per behavior the row is (its template's, then its
+            One clause per word the row is (its template's, then its
             ``also``); none for an empty row or one no template reads.
         """
         text = self._clean(line)
         if not text:
             return []
         for _, name, spec, patterns in self._compiled:
-            if spec.column not in (column, "any"):
+            if spec.column not in (column, "any") or (OPTION in (spec.roles or [])) != options:
                 continue
             for pattern in patterns:
                 match = pattern.fullmatch(text)
                 if match is None:
                     continue
-                fields = self._fields(match)
+                fields, settings = self._given(spec, self._fields(match))
                 nodes = list(spec.nodes or [])
-                clauses = [
-                    Clause(
-                        spec.behavior,
-                        line.strip(),
-                        dict(fields),
-                        spec.clip,
-                        name,
-                        dict(spec.settings or {}),
-                        nodes,
-                    )
-                ]
+                clauses = [Clause(spec.word, line.strip(), dict(fields), spec.clip, name, settings, nodes)]
                 clauses += [
                     Clause(extra, line.strip(), dict(fields), False, name, {}, nodes)
                     for extra in spec.also

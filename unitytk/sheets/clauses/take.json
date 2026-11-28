@@ -1,5 +1,5 @@
 {
-  "behavior": "take",
+  "word": "take",
   "order": 30,
   "description": "Selecting a holdable puts it in the hand.",
   "detect": [

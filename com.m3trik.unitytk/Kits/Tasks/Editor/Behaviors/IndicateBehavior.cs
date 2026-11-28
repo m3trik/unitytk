@@ -10,25 +10,21 @@ using UnityEngine;
 namespace M3trik.Unitytk.Kits.Tasks
 {
     /// <summary>
-    /// <c>indicate</c> ("Arrow points at the key", the key in Asset Names; or a hint's "Bouncing arrow
-    /// pointing at the key"): an arrow at each target while its step runs: at the object the row names as
-    /// where it is (its <c>where</c>: an arrow an artist modelled shown where it stands, bobbing in place; an
-    /// object that draws nothing the kit's arrow, its tip on it and pointing along it,
+    /// <c>indicate</c> ("Arrow points at the key"): an arrow at each target while its step runs: at the object the
+    /// row names as where it is (its <c>where</c>, one entry a target: an arrow an artist modelled shown where it
+    /// stands, bobbing in place; an object that draws nothing the kit's arrow, its tip on it and pointing along it,
     /// <see cref="IndicatorsActions.AddIndicatorAt"/>), else one the kit places for the
     /// step (<see cref="IndicatorsActions.AddIndicator(GameObject, string, bool, bool, OpContext)"/>, styled by
-    /// the object's settings: <see cref="IndicatorsActions.SetStyle(Indicator, Color, float, OpContext)"/>):
-    /// beside the target in free space, pointing at it from where the user then stands and sees it
-    /// (over it where that works), riding it as it moves, and kept where a person moved it by
-    /// its manifest (<see cref="Manifest.moved"/>). A target that is several things apart
-    /// ("both latches": two latches under one group) gets an arrow at each (<see cref="Placer.Items"/>),
-    /// but things closer together than <see cref="TaskSettings.arrowMerge"/> share one
-    /// (<see cref="Placer.Cluster"/>); an arrow a build made for the step that it no longer makes goes
-    /// (<see cref="IndicatorsActions.RemoveIndicator"/>).
+    /// the object's settings: <see cref="IndicateSettings.size"/>, <see cref="IndicateSettings.color"/>,
+    /// <see cref="IndicateSettings.style"/>, flat or solid): beside the target in free space, pointing at it from where
+    /// the user then stands and sees it (over it where that works), riding it as it moves, and kept where a person moved
+    /// it by its manifest (<see cref="Manifest.moved"/>). A target that is several things apart ("both latches": two
+    /// latches under one group) gets an arrow at each (<see cref="Placer.Items"/>), but things closer together than
+    /// <see cref="IndicateSettings.merge"/> share one (<see cref="Placer.Cluster"/>); an arrow a build made for the step
+    /// that it no longer makes goes (<see cref="IndicatorsActions.RemoveIndicator"/>).
     /// </summary>
     [TaskBehavior("indicate",
-                      About = "An arrow points at the object while its step runs; things close together share one. Moved or recoloured in the scene, it keeps it.",
-                      Settings = new[] { nameof(TaskSettings.arrowSize), nameof(TaskSettings.arrowColor), nameof(TaskSettings.arrowMerge),
-                                         nameof(TaskSettings.cueWhen) })]
+                  About = "An arrow points at the object while its step runs; things close together share one. Moved or recoloured in the scene, it keeps it.")]
     internal sealed class IndicateBehavior : IManifestBehavior, IManifestBound, IPointsOut
     {
         /// <summary>
@@ -65,6 +61,10 @@ namespace M3trik.Unitytk.Kits.Tasks
             return thing == null ? own : $"{own}_{thing}";
         }
 
+        // Its settings a person's change to an arrow in the scene is kept as (IManifestBound), by their paths.
+        const string Size = nameof(TaskSettings.indicate) + "." + nameof(IndicateSettings.size),
+                     Colour = nameof(TaskSettings.indicate) + "." + nameof(IndicateSettings.color);
+
         /// <summary>The arrows it made for step at the target: their size and colour are the object's settings (a person's change kept).</summary>
         public IEnumerable<(string setting, UnityEngine.Object part, string property)> Bound(SheetPlan.Shape.PlanAction action, SheetPlan.Shape.PlanStep step,
                                                                                             ManifestScene scene, string target)
@@ -72,20 +72,19 @@ namespace M3trik.Unitytk.Kits.Tasks
             Transform node = string.IsNullOrEmpty(target) ? null : scene.Node(target);
             if (node == null) yield break;
             // The arrow at the object the row names as where it is, where the kit draws it there.
-            List<string> arrows = action.FieldList(TaskKit.Fields.Arrows);
-            int at = action.targets == null ? -1 : action.targets.IndexOf(target);
-            Transform where = arrows != null && at >= 0 && at < arrows.Count && !string.IsNullOrEmpty(arrows[at]) ? scene.Node(arrows[at]) : null;
+            string named = action.targets == null ? null : TaskKit.Where(action, action.targets.IndexOf(target));
+            Transform where = named == null ? null : scene.Node(named);
             Transform own = where == null ? null : where.Find(IndicatorsActions.ChildName);
             if (own != null && own.TryGetComponent(out Indicator placed) && placed.arrow == null)
             {
-                yield return (nameof(TaskSettings.arrowSize), placed, nameof(Indicator.size));
-                yield return (nameof(TaskSettings.arrowColor), placed, nameof(Indicator.color));
+                yield return (Size, placed, nameof(Indicator.size));
+                yield return (Colour, placed, nameof(Indicator.color));
             }
             foreach (Transform child in node)
             {
                 if (!IsArrow(child, step.id) || !child.TryGetComponent(out Indicator arrow)) continue;
-                yield return (nameof(TaskSettings.arrowSize), arrow, nameof(Indicator.size));
-                yield return (nameof(TaskSettings.arrowColor), arrow, nameof(Indicator.color));
+                yield return (Size, arrow, nameof(Indicator.size));
+                yield return (Colour, arrow, nameof(Indicator.color));
             }
         }
 
@@ -105,12 +104,11 @@ namespace M3trik.Unitytk.Kits.Tasks
         /// <inheritdoc/>
         public void Apply(SheetPlan.Shape.PlanAction action, SheetPlan.Shape.PlanStep step, ManifestScene scene, OpContext ctx)
         {
-            List<string> arrows = action.FieldList(TaskKit.Fields.Arrows);
             for (int i = 0; i < action.targets.Count; i++)
             {
                 var node = scene.Node(action.targets[i]).gameObject;
-                string authored = arrows != null && i < arrows.Count ? arrows[i] : null;
-                if (!string.IsNullOrEmpty(authored))
+                string authored = TaskKit.Where(action, i);
+                if (authored != null)
                 {
                     At(scene.Node(authored), node, action.targets[i], action, step, scene, ctx);
                     Unmade(node, step.id, new HashSet<string>(), ctx);  // the arrow a build searched a spot for, before the row named its own
@@ -120,8 +118,8 @@ namespace M3trik.Unitytk.Kits.Tasks
                 // is one thing: its name unchanged).
                 var items = Placer.Items(node.transform, t => t.GetComponent<Indicator>() != null);
                 if (items.Count == 0) items.Add((new List<Transform> { node.transform }, default));
-                TaskSettings settings = scene.Settings<TaskSettings>(step.id, action.targets[i], action);
-                var groups = Placer.Cluster(items, settings.arrowMerge);
+                IndicateSettings own = scene.Settings<TaskSettings>(step.id, action.targets[i], action).indicate;
+                var groups = Placer.Cluster(items, own.merge);
                 var made = new HashSet<string>();
                 foreach (var (nodes, _) in groups)
                 {
@@ -131,10 +129,9 @@ namespace M3trik.Unitytk.Kits.Tasks
                     Apart(arrow, new PlannedObject(name, node.transform), ctx);
                     // Styled first: its size is the room it is placed with. The object's colour and size: the task's, or
                     // the object's own (set before a build, or kept from a change in the scene).
-                    if (arrow != null) IndicatorsActions.SetStyle(arrow, settings.arrowColor, settings.arrowSize, ctx);
-                    else IndicatorsActions.SetStyle(node, name, settings.arrowColor, settings.arrowSize, ctx);
+                    Style(arrow, node, name, own, ctx);
                     Spots.Point(scene, step, node.transform, nodes, name, arrow, ctx);
-                    if (arrow != null) Cues.During(scene, step, arrow.gameObject, arrow, nodes, settings, ctx);
+                    if (arrow != null) Cues.During(scene, step, arrow.gameObject, arrow, nodes, own.cue, ctx);
                     else Cues.During<Indicator>(scene, step, new PlannedObject(name, node.transform), nodes, ctx);
                     GoneOnTake(node, arrow, name, ctx);
                 }
@@ -148,29 +145,43 @@ namespace M3trik.Unitytk.Kits.Tasks
         static void At(Transform where, GameObject node, string target, SheetPlan.Shape.PlanAction action, SheetPlan.Shape.PlanStep step,
                        ManifestScene scene, OpContext ctx)
         {
-            TaskSettings settings = scene.Settings<TaskSettings>(step.id, target, action);
+            IndicateSettings own = scene.Settings<TaskSettings>(step.id, target, action).indicate;
             var aims = new[] { node.transform };
             Spots.Given(scene, where, ctx);
             if (Drawn(where))
             {
-                Indicator own = IndicatorsActions.AddIndicator(node, where, ctx: ctx);
-                Cues.During(scene, step, node, own, aims, settings, ctx);
-                GoneOnTake(node, own, IndicatorsActions.ChildName, ctx);
+                Indicator modelled = IndicatorsActions.AddIndicator(node, where, ctx: ctx);
+                Cues.During(scene, step, node, modelled, aims, own.cue, ctx);
+                GoneOnTake(node, modelled, IndicatorsActions.ChildName, ctx);
                 return;
             }
             Indicator arrow = IndicatorsActions.AddIndicatorAt(node, where, ctx: ctx);
             var planned = new PlannedObject(IndicatorsActions.ChildName, where);  // a dry run's: the object its live run makes
             Apart(arrow, planned, ctx);
+            Style(arrow, where.gameObject, IndicatorsActions.ChildName, own, ctx);
             if (arrow != null)
             {
-                IndicatorsActions.SetStyle(arrow, settings.arrowColor, settings.arrowSize, ctx);
-                Cues.During(scene, step, arrow.gameObject, arrow, aims, settings, ctx);
+                Cues.During(scene, step, arrow.gameObject, arrow, aims, own.cue, ctx);
                 Interaction.Interactions.DisableOnTake(node, arrow, ctx);
                 return;
             }
-            IndicatorsActions.SetStyle(where.gameObject, IndicatorsActions.ChildName, settings.arrowColor, settings.arrowSize, ctx);
             Cues.During<Indicator>(scene, step, planned, aims, ctx);
             Interaction.Interactions.DisableOnTake(node, planned, ctx);
+        }
+
+        // The look own gives the arrow the kit makes (arrow, on target's child name; null: a dry run only planned it): its colour,
+        // its size and whether it is flat.
+        static void Style(Indicator arrow, GameObject target, string name, IndicateSettings own, OpContext ctx)
+        {
+            bool flat = own.style == IndicateStyle.Flat;
+            if (arrow != null)
+            {
+                IndicatorsActions.SetStyle(arrow, own.color, own.size, ctx);
+                IndicatorsActions.SetFlat(arrow, flat, ctx);
+                return;
+            }
+            IndicatorsActions.SetStyle(target, name, own.color, own.size, ctx);
+            IndicatorsActions.SetFlat(target, name, flat, ctx);
         }
 
         // An arrow the kit makes is no part of the look of what it sits under: a part that fades or glows neither hides

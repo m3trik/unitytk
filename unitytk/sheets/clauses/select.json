@@ -1,5 +1,5 @@
 {
-  "behavior": "select",
+  "word": "select",
   "order": 21,
   "description": "Selecting a scene target (not a quoted button) completes the step.",
   "detect": [

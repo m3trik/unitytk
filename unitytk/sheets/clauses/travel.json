@@ -1,0 +1,18 @@
+{
+  "word": "travel",
+  "order": 90,
+  "description": "The user is brought to face what the row says (its `targets`): to a viewpoint the row names (its `where`: \"... to VIEW_BACK, facing the screws\"), to the side the row says (\"... to the front of the cabinet, facing the door\": `side`, `side_of`), or a spot the build finds where it is seen (\"The user is teleported facing the screws\"); what they face is never where they go. Written after a choice that ends its step, it happens as the step ends.",
+  "detect": [
+    "^(?:the\\s+)?user\\s+is\\s+(?:teleported|moved)\\s+(?:to\\s+)?(?:the\\s+)?(?P<side>front|back|left|right|other)(?:\\s+side)?\\s+of\\s+(?P<side_of>.+?)[.,]?\\s+facing\\s+(?P<targets>.+?)\\.?$",
+    "^(?:the\\s+)?user\\s+is\\s+(?:teleported|moved)\\s+to\\s+(?P<where>.+?)(?:[.,]?\\s+facing\\s+(?P<targets>.+?))?\\.?$",
+    "^(?:the\\s+)?user\\s+is\\s+(?:teleported|moved)\\s*,?\\s+(?:to\\s+face|facing)\\s+(?P<targets>.+?)\\.?$"
+  ],
+  "nodes": [
+    "where",
+    "side_of"
+  ],
+  "roles": [
+    "destination",
+    "after_choice"
+  ]
+}

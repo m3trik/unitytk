@@ -1,0 +1,12 @@
+{
+  "word": "hide",
+  "order": 70,
+  "description": "Targets fade out of view.",
+  "detect": [
+    "^(?:the\\s+)?(?P<targets>.+?)\\s+fades?\\s+(?:away|out)(?:\\s+from\\s+(?:the\\s+)?hand)?(?:\\s+when\\s+.+)?$"
+  ],
+  "roles": [
+    "releases",
+    "plural"
+  ]
+}

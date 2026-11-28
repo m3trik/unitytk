@@ -1,0 +1,15 @@
+{
+  "word": "note",
+  "order": 68,
+  "description": "The destination marker appears where the user goes next: the ring of the next travel row (its `ring`), a part the kit makes, never a scene object.",
+  "detect": [
+    "^(?:the\\s+)?destination\\s+(?:marker|circle|ring)\\s+(?:fades\\s+in|appears)(?:\\s+at\\s+.+)?$"
+  ],
+  "span": {
+    "word": "travel",
+    "setting": "ring"
+  },
+  "roles": [
+    "opens"
+  ]
+}

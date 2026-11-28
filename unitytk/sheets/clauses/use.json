@@ -1,13 +1,13 @@
 {
-  "behavior": "use",
+  "word": "use",
   "order": 20,
   "clip": true,
   "description": "Selecting a target, with a tool in hand where the row names one, plays the row's clip; a tool the clip moves comes back to the hand.",
   "detect": [
-    "^selecting\\s+(?P<targets>.+?)(?:\\s+with\\s+(?:the\\s+)?(?P<tool>.+?)\\s+in\\s+hand)?\\s+triggers\\s+(?P<phrase>.+?)\\s+animation(?:\\s+and\\s+returns\\s+(?:the\\s+)?(?P<tool_2>.+?)\\s+to\\s+(?:the\\s+)?hand)?(?:\\s+with\\s+(?:the\\s+)?(?P<tool_3>.+?)\\s+in\\s+hand)?$"
+    "^selecting\\s+(?P<targets>.+?)(?:\\s+with\\s+(?:the\\s+)?(?P<with>.+?)\\s+in\\s+hand)?\\s+triggers\\s+(?P<phrase>.+?)\\s+animation(?:\\s+and\\s+returns\\s+(?:the\\s+)?(?P<with_2>.+?)\\s+to\\s+(?:the\\s+)?hand)?(?:\\s+with\\s+(?:the\\s+)?(?P<with_3>.+?)\\s+in\\s+hand)?$"
   ],
   "nodes": [
-    "tool"
+    "with"
   ],
   "roles": [
     "uses"

@@ -1,13 +1,13 @@
 {
-  "behavior": "answer",
+  "word": "answer",
   "order": 82,
-  "description": "Entering any other value goes to a step.",
+  "description": "Entering any other value goes to a step (its Label `*`).",
   "detect": [
-    "^when\\s+any\\s+(?:number|answer|value)\\s+other\\s+than\\s+(?P<value>\\S+)\\s+is\\s+entered\\s+advance\\s+to\\s+step\\s+(?P<to>{step})$",
+    "^when\\s+any\\s+(?:number|answer|value)\\s+other\\s+than\\s+\\S+\\s+is\\s+entered\\s+advance\\s+to\\s+step\\s+(?P<to>{step})$",
     "^entering\\s+any\\s+other\\s+(?:number|answer|value)\\s+triggers\\s+(?:advancement\\s+to\\s+)?step\\s+(?P<to>{step})$"
   ],
-  "settings": {
-    "answerKind": "Otherwise"
+  "fields": {
+    "label": "*"
   },
   "roles": [
     "advances",

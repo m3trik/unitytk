@@ -1,0 +1,12 @@
+{
+  "word": "note",
+  "order": 85,
+  "description": "Buttons appear on the page, labelled as the row writes them: each one a choice a row of the step offers.",
+  "detect": [
+    "^(?P<label>.+?)\\s+buttons?\\s+appears?\\s+on\\s+the\\s+placard(?:\\s+screen)?$",
+    "^placard\\s+has\\s+an?\\s+['\\\"](?P<label>[^'\\\"]+)['\\\"]\\s+button$"
+  ],
+  "roles": [
+    "buttons"
+  ]
+}

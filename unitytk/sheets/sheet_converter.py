@@ -18,11 +18,13 @@ the target template first names it, and a step ID is written as the target templ
 reads it back.
 
 By default the result is the format's cells (the reading's ``cell_columns``, written by
-``_CellWriting``): a step's own row, then a row per action with its word, its names, its take and
-its settings, each row's old wording kept in its Notes (which nothing reads), a row no phrase reads
-keeping its words and taking no word. This is the one place a sentence becomes cells: a person
-reviews its guesses once, and no later read guesses again. It never invents a value the old sheet
-does not say (a state, a viewpoint): that row is listed for a person instead.
+``_CellWriting``): a step's own row, then a row per action of the plan, already in the sheet's
+words: its word, its names, its take, its Label and To and its settings, each row's old wording kept
+in its Notes (which nothing reads), a sentence the format needs no row for a ``note``, a row no
+phrase reads keeping its words and taking no word. Read again, the cells read to the plan the
+sentences did. This is the one place a sentence becomes cells: a person reviews its guesses once,
+and no later read guesses again. It never invents a value the old sheet does not say (a state, a
+viewpoint): that row is listed for a person instead.
 """
 
 import csv
@@ -112,11 +114,10 @@ class _SheetConverterInternal:
             take = ""
             for clause, action in zip(clauses, actions[at : at + len(clauses)]):
                 nodes = clause.nodes if clause is not None else []
-                paths = list(action.targets) + [
-                    action.fields[g]
-                    for g in nodes
-                    if g != hand and action.fields.get(g)
-                ]
+                paths = list(action.targets)
+                for g in nodes:  # a node group's path (`where`'s, one per target)
+                    value = action.fields.get(g) if g != hand else None
+                    paths += [v for v in (value if isinstance(value, list) else [value]) if v]
                 tool = action.fields.get(hand)
                 if tool and (
                     action.clip or (clause is not None and clause.fields.get(hand))
@@ -164,7 +165,7 @@ class _SheetConverterInternal:
             read = book.read(line, "hint")
             count = len(read or [None])
             if not to_page or (
-                read and "page" not in book.roles(read[0].behavior, read[0].settings)
+                read and "page" not in book.roles_of(read[0])
             ):
                 hint.append(line)
                 for action in hint_actions[:count]:

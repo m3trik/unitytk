@@ -1,5 +1,5 @@
 {
-  "behavior": "return",
+  "word": "return",
   "order": 40,
   "description": "A holdable goes back to where it rests (its table).",
   "detect": [

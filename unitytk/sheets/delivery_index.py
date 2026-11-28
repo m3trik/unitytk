@@ -541,16 +541,17 @@ class DeliveryIndex(_DeliveryIndexInternal):
                 return tail
         return path
 
-    def arrows_at(
+    def pointers_at(
         self, path: str, pattern: Optional[str] = None, step: str = ""
     ) -> List[str]:
-        """The authored arrows pointing at the node *path*: each object whose name *pattern* matches, its
+        """The authored pointers pointing at the node *path*: each object whose name *pattern* matches, its
         ``part`` group naming *path*'s object (renamed nodes read), by its chain's top; where the pattern
         has a ``step`` group, those for *step* first.
 
         Parameters:
-            path: The node an arrow points at.
-            pattern: The arrow names' regex, its ``part`` group the part (none: no arrow is known).
+            path: The node a pointer points at.
+            pattern: The pointer names' regex (the reading's ``point`` name rule), its ``part`` group the part
+                (none: no pointer is known).
             step: The step's ID (legal-named), for a pattern with a ``step`` group.
         """
         import pythontk as ptk

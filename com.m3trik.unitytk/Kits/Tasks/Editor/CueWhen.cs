@@ -1,6 +1,6 @@
 namespace M3trik.Unitytk.Kits.Tasks
 {
-    /// <summary>When a cue (an arrow, a highlight) shows within its step (<see cref="TaskSettings.cueWhen"/>).</summary>
+    /// <summary>When a cue (an arrow, a highlight) shows within its step (<see cref="HighlightSettings.cue"/>, <see cref="IndicateSettings.cue"/>).</summary>
     public enum CueWhen
     {
         /// <summary>

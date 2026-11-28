@@ -10,7 +10,7 @@ namespace M3trik.Unitytk.Kits.Tasks
 {
     // When a cue (an arrow, a highlight) shows within its step. One at something the step has nobody act on shows
     // for the whole of it. One at what a row of the step has the user act on points them to what they can do now
-    // (TaskSettings.cueWhen, Interaction's TargetCue): it comes once what that needs is in hand and goes once they
+    // (its row's cue: HighlightSettings.cue, IndicateSettings.cue; Interaction's TargetCue): it comes once what that needs is in hand and goes once they
     // have acted, so the keys are pointed out first, then the locks, each lock's arrow gone as its key turns.
     static class Cues
     {
@@ -22,7 +22,7 @@ namespace M3trik.Unitytk.Kits.Tasks
             if (step.actions == null) return found;
             foreach (PlanAction action in step.actions)
             {
-                if (action == null || action.targets == null || !TaskBehaviors.Traits(action.behavior).ActsOn) continue;
+                if (action == null || action.targets == null || !TaskBehaviors.Traits(action, step).ActsOn) continue;
                 foreach (string path in action.targets)
                 {
                     Transform node = scene.Node(path);
@@ -38,9 +38,9 @@ namespace M3trik.Unitytk.Kits.Tasks
             return found;
         }
 
-        // Show cue (on node; null: a dry run only planned it there) while step runs, as own's cueWhen says.
+        // Show cue (on node; null: a dry run only planned it there) while step runs, as when (its row's cue setting) says.
         internal static void During<T>(ManifestScene scene, PlanStep step, GameObject node, T cue, IReadOnlyList<Transform> aims,
-                                       TaskSettings own, OpContext ctx) where T : Behaviour
+                                       CueWhen when, OpContext ctx) where T : Behaviour
         {
             List<GameObject> acted = ActedOn(scene, step, aims);
             if (acted.Count == 0)
@@ -48,7 +48,7 @@ namespace M3trik.Unitytk.Kits.Tasks
                 scene.EnableDuring(step.id, node, cue, ctx);
                 return;
             }
-            bool ready = own.cueWhen == CueWhen.Ready;
+            bool ready = when == CueWhen.Ready;
             scene.Hold(cue);  // the row's part is its cue; what switches it is held with it
             TargetCue shows = null;
             if (cue != null) shows = Interactions.AddTargetCue(node, cue, acted, ready, ready, ctx);

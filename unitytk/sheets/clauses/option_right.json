@@ -1,0 +1,15 @@
+{
+  "word": "button",
+  "order": 1,
+  "description": "A question's option marked right (its row led by the question's mark): it goes on.",
+  "detect": [
+    "^{mark}\\s*(?P<label>.+)$"
+  ],
+  "fields": {
+    "to": "next"
+  },
+  "roles": [
+    "advances",
+    "option"
+  ]
+}
